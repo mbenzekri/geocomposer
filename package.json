@@ -1,0 +1,20 @@
+{
+  "name": "ogc-ol-renderer-poc",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "demo": "tsx src/example/render-demo.ts"
+  },
+  "dependencies": {
+    "canvas": "^3.2.0",
+    "ol": "^10.6.1",
+    "proj4": "^2.19.10"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
