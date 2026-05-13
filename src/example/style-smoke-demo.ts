@@ -76,6 +76,36 @@ const smokeCases: SmokeCase[] = [
     })
   },
   {
+    name: 'gradient-fill-polygon',
+    feature: polygonFeature,
+    style: () => new Style({
+      stroke: new Stroke({ color: '#1f2937', width: 2 }),
+      fill: new Fill({
+        color: createLinearGradientFill() as unknown as CanvasGradient
+      })
+    })
+  },
+  {
+    name: 'image-pattern-fill-polygon',
+    feature: polygonFeature,
+    style: async () => new Style({
+      stroke: new Stroke({ color: '#1f2937', width: 2 }),
+      fill: new Fill({
+        color: await createImagePatternFill() as unknown as CanvasPattern
+      })
+    })
+  },
+  {
+    name: 'svg-cross-pattern-fill-polygon',
+    feature: polygonFeature,
+    style: async () => new Style({
+      stroke: new Stroke({ color: '#1f2937', width: 2 }),
+      fill: new Fill({
+        color: await createSvgCrossPatternFill() as unknown as CanvasPattern
+      })
+    })
+  },
+  {
     name: 'circle-point',
     feature: pointFeature,
     style: () => new Style({
@@ -206,11 +236,67 @@ function createIconCanvas(): ReturnType<typeof createCanvas> {
   return canvas
 }
 
+function createLinearGradientFill(): ReturnType<CanvasRenderingContext2D['createLinearGradient']> {
+  const canvas = createCanvas(180, 140)
+  const context = canvas.getContext('2d')
+  const gradient = context.createLinearGradient(0, 0, 180, 140)
+
+  gradient.addColorStop(0, '#dc2626')
+  gradient.addColorStop(1, '#2563eb')
+
+  return gradient
+}
+
+async function createImagePatternFill(): Promise<NonNullable<ReturnType<CanvasRenderingContext2D['createPattern']>>> {
+  const canvas = createCanvas(12, 12)
+  const context = canvas.getContext('2d')
+
+  context.fillStyle = '#f8fafc'
+  context.fillRect(0, 0, 12, 12)
+  context.fillStyle = '#2563eb'
+  context.fillRect(0, 0, 6, 6)
+  context.fillRect(6, 6, 6, 6)
+  context.strokeStyle = 'rgba(15, 23, 42, 0.35)'
+  context.lineWidth = 1
+  context.strokeRect(0.5, 0.5, 11, 11)
+
+  const pattern = context.createPattern(canvas, 'repeat')
+  if (!pattern) {
+    throw new Error('Unable to create canvas pattern')
+  }
+
+  return pattern
+}
+
+async function createSvgCrossPatternFill(): Promise<NonNullable<ReturnType<CanvasRenderingContext2D['createPattern']>>> {
+  const tile = createCanvas(24, 24)
+  const context = tile.getContext('2d')
+  const cross = await loadImage(Buffer.from(createCrossSvgMarkup(), 'utf8'))
+
+  context.fillStyle = '#f8fafc'
+  context.fillRect(0, 0, 24, 24)
+  context.drawImage(cross, 4, 4, 16, 16)
+
+  const pattern = context.createPattern(tile, 'repeat')
+  if (!pattern) {
+    throw new Error('Unable to create SVG cross pattern')
+  }
+
+  return pattern
+}
+
 function createSvgIconMarkup(): string {
   return `
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
   <path d="M16 2C10.48 2 6 6.48 6 12c0 7.5 10 18 10 18s10-10.5 10-18C26 6.48 21.52 2 16 2Z" fill="#dc0000" stroke="#ffffff" stroke-width="2"/>
   <circle cx="16" cy="12" r="4" fill="#ffffff"/>
+</svg>`
+}
+
+function createCrossSvgMarkup(): string {
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <path d="M7 2h2v5h5v2H9v5H7V9H2V7h5z" fill="#111827"/>
 </svg>`
 }
 
