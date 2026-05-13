@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "demo": "tsx src/example/render-demo.ts",
-    "demo:styles": "tsx src/example/style-smoke-demo.ts"
+    "demo:styles": "tsx src/example/style-smoke-demo.ts",
+    "demo:world": "tsx src/example/render-world-geojson.ts"
   },
   "dependencies": {
     "canvas": "^3.2.0",
