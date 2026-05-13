@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "demo": "tsx src/example/render-demo.ts"
+    "demo": "tsx src/example/render-demo.ts",
+    "demo:styles": "tsx src/example/style-smoke-demo.ts"
   },
   "dependencies": {
     "canvas": "^3.2.0",
