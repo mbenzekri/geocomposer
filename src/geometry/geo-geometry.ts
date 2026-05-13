@@ -6,32 +6,34 @@ export type GeoGeometry =
   | GeoMultiLineString
   | GeoMultiPolygon
 
+export type GeoPosition = [number, number, ...number[]]
+
 export type GeoPoint = {
   type: 'Point'
-  coordinates: [number, number]
+  coordinates: GeoPosition
 }
 
 export type GeoLineString = {
   type: 'LineString'
-  coordinates: Float64Array
+  coordinates: GeoPosition[]
 }
 
 export type GeoPolygon = {
   type: 'Polygon'
-  rings: Float64Array[]
+  coordinates: GeoPosition[][]
 }
 
 export type GeoMultiPoint = {
   type: 'MultiPoint'
-  coordinates: Float64Array
+  coordinates: GeoPosition[]
 }
 
 export type GeoMultiLineString = {
   type: 'MultiLineString'
-  lines: Float64Array[]
+  coordinates: GeoPosition[][]
 }
 
 export type GeoMultiPolygon = {
   type: 'MultiPolygon'
-  polygons: Float64Array[][]
+  coordinates: GeoPosition[][][]
 }

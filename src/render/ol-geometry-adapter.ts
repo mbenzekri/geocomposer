@@ -22,36 +22,24 @@ export class OlGeometryAdapter {
         return this.point
 
       case 'LineString':
-        this.line.setCoordinates(flatToCoordinates(geometry.coordinates))
+        this.line.setCoordinates(geometry.coordinates)
         return this.line
 
       case 'Polygon':
-        this.polygon.setCoordinates(geometry.rings.map(flatToCoordinates))
+        this.polygon.setCoordinates(geometry.coordinates)
         return this.polygon
 
       case 'MultiPoint':
-        this.multiPoint.setCoordinates(flatToCoordinates(geometry.coordinates))
+        this.multiPoint.setCoordinates(geometry.coordinates)
         return this.multiPoint
 
       case 'MultiLineString':
-        this.multiLine.setCoordinates(geometry.lines.map(flatToCoordinates))
+        this.multiLine.setCoordinates(geometry.coordinates)
         return this.multiLine
 
       case 'MultiPolygon':
-        this.multiPolygon.setCoordinates(
-          geometry.polygons.map((polygon) => polygon.map(flatToCoordinates))
-        )
+        this.multiPolygon.setCoordinates(geometry.coordinates)
         return this.multiPolygon
     }
   }
-}
-
-export function flatToCoordinates(flat: Float64Array): [number, number][] {
-  const coordinates: [number, number][] = []
-
-  for (let i = 0; i < flat.length; i += 2) {
-    coordinates.push([flat[i], flat[i + 1]])
-  }
-
-  return coordinates
 }

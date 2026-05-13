@@ -1,5 +1,5 @@
 import type { BBox } from '../core/types.js'
-import type { GeoGeometry } from './geo-geometry.js'
+import type { GeoGeometry, GeoPosition } from './geo-geometry.js'
 
 export function intersectsBBox(a: BBox, b: BBox): boolean {
   return a[0] <= b[2]
@@ -27,22 +27,22 @@ export function computeGeometryBBox(geometry: GeoGeometry | null): BBox | null {
     }
 
     case 'LineString':
-      return computeFlatBBox(geometry.coordinates)
+      return computePositionsBBox(geometry.coordinates)
 
     case 'Polygon':
-      return computeFlatCollectionBBox(geometry.rings)
+      return computePositionCollectionsBBox(geometry.coordinates)
 
     case 'MultiPoint':
-      return computeFlatBBox(geometry.coordinates)
+      return computePositionsBBox(geometry.coordinates)
 
     case 'MultiLineString':
-      return computeFlatCollectionBBox(geometry.lines)
+      return computePositionCollectionsBBox(geometry.coordinates)
 
     case 'MultiPolygon': {
       let bbox: BBox | null = null
 
-      for (const polygon of geometry.polygons) {
-        const polygonBBox = computeFlatCollectionBBox(polygon)
+      for (const polygon of geometry.coordinates) {
+        const polygonBBox = computePositionCollectionsBBox(polygon)
         if (polygonBBox) bbox = bbox ? expandBBox(bbox, polygonBBox) : polygonBBox
       }
 
@@ -51,26 +51,28 @@ export function computeGeometryBBox(geometry: GeoGeometry | null): BBox | null {
   }
 }
 
-export function computeFlatCollectionBBox(items: Float64Array[]): BBox | null {
+export function computePositionCollectionsBBox(items: GeoPosition[][]): BBox | null {
   let bbox: BBox | null = null
 
   for (const item of items) {
-    const itemBBox = computeFlatBBox(item)
-    bbox = bbox ? expandBBox(bbox, itemBBox) : itemBBox
+    const itemBBox = computePositionsBBox(item)
+    if (itemBBox) bbox = bbox ? expandBBox(bbox, itemBBox) : itemBBox
   }
 
   return bbox
 }
 
-export function computeFlatBBox(coordinates: Float64Array): BBox {
+export function computePositionsBBox(coordinates: GeoPosition[]): BBox | null {
+  if (coordinates.length === 0) return null
+
   let minX = Number.POSITIVE_INFINITY
   let minY = Number.POSITIVE_INFINITY
   let maxX = Number.NEGATIVE_INFINITY
   let maxY = Number.NEGATIVE_INFINITY
 
-  for (let i = 0; i < coordinates.length; i += 2) {
-    const x = coordinates[i]
-    const y = coordinates[i + 1]
+  for (const position of coordinates) {
+    const x = position[0]
+    const y = position[1]
 
     if (x < minX) minX = x
     if (y < minY) minY = y

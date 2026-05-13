@@ -7,7 +7,8 @@
     "build": "tsc",
     "demo": "tsx src/example/render-demo.ts",
     "demo:styles": "tsx src/example/style-smoke-demo.ts",
-    "demo:world": "tsx src/example/render-world-geojson.ts"
+    "demo:world": "tsx src/example/render-world-geojson.ts",
+    "demo:all": "npm run build && npm run demo:styles && npm run demo && npm run demo:world"
   },
   "dependencies": {
     "canvas": "^3.2.0",

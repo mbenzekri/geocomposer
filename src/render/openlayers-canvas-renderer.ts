@@ -7,8 +7,10 @@ import './openlayers-node-shim.js'
 import ImageState from 'ol/ImageState.js'
 import { toContext } from 'ol/render.js'
 import type Style from 'ol/style/Style.js'
+import type { BBox } from '../core/types.js'
+import type { GeoFeature } from '../geometry/geo-feature.js'
 import type { StyleResolver } from '../style/style-resolver.js'
-import type { PixelFeature } from '../transform/world-to-pixel-transform.js'
+import { transformGeometryToPixels } from '../transform/world-to-pixel-transform.js'
 import { OlGeometryAdapter } from './ol-geometry-adapter.js'
 
 export class OpenLayersCanvasRenderer {
@@ -20,6 +22,7 @@ export class OpenLayersCanvasRenderer {
     constructor(
         readonly width: number,
         readonly height: number,
+        private readonly bbox: BBox,
         private readonly styleResolver: StyleResolver,
         private readonly resolution: number
     ) {
@@ -42,13 +45,16 @@ export class OpenLayersCanvasRenderer {
         })
     }
 
-    async draw(feature: PixelFeature): Promise<void> {
+    async draw(feature: GeoFeature): Promise<void> {
         if (!feature.geometry) return
 
         const styles = this.styleResolver(feature, this.resolution)
         if (!styles) return
 
-        const geometry = this.geometryAdapter.toGeometry(feature.geometry)
+        const pixelGeometry = transformGeometryToPixels(feature.geometry, this.bbox, this.width, this.height)
+        if (!pixelGeometry) return
+
+        const geometry = this.geometryAdapter.toGeometry(pixelGeometry)
         const styleList = Array.isArray(styles) ? styles : [styles]
 
         for (const style of styleList) {

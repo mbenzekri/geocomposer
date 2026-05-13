@@ -1,27 +1,5 @@
 import type { BBox } from '../core/types.js'
-import type { GeoFeature } from '../geometry/geo-feature.js'
-import type { GeoGeometry } from '../geometry/geo-geometry.js'
-
-export type PixelFeature = GeoFeature & {
-  geometry: GeoGeometry | null
-}
-
-export class WorldToPixelTransform extends TransformStream<GeoFeature, PixelFeature> {
-  constructor(options: {
-    bbox: BBox
-    width: number
-    height: number
-  }) {
-    super({
-      transform(feature, controller) {
-        controller.enqueue({
-          ...feature,
-          geometry: transformGeometryToPixels(feature.geometry, options.bbox, options.width, options.height)
-        })
-      }
-    })
-  }
-}
+import type { GeoGeometry, GeoPosition } from '../geometry/geo-geometry.js'
 
 export function transformGeometryToPixels(
   geometry: GeoGeometry | null,
@@ -35,38 +13,38 @@ export function transformGeometryToPixels(
     case 'Point':
       return {
         type: 'Point',
-        coordinates: worldToPixel(geometry.coordinates[0], geometry.coordinates[1], bbox, width, height)
+        coordinates: transformPositionToPixels(geometry.coordinates, bbox, width, height)
       }
 
     case 'LineString':
       return {
         type: 'LineString',
-        coordinates: transformFlatCoordinatesToPixels(geometry.coordinates, bbox, width, height)
+        coordinates: transformPositionsToPixels(geometry.coordinates, bbox, width, height)
       }
 
     case 'Polygon':
       return {
         type: 'Polygon',
-        rings: geometry.rings.map((ring) => transformFlatCoordinatesToPixels(ring, bbox, width, height))
+        coordinates: geometry.coordinates.map((ring) => transformPositionsToPixels(ring, bbox, width, height))
       }
 
     case 'MultiPoint':
       return {
         type: 'MultiPoint',
-        coordinates: transformFlatCoordinatesToPixels(geometry.coordinates, bbox, width, height)
+        coordinates: transformPositionsToPixels(geometry.coordinates, bbox, width, height)
       }
 
     case 'MultiLineString':
       return {
         type: 'MultiLineString',
-        lines: geometry.lines.map((line) => transformFlatCoordinatesToPixels(line, bbox, width, height))
+        coordinates: geometry.coordinates.map((line) => transformPositionsToPixels(line, bbox, width, height))
       }
 
     case 'MultiPolygon':
       return {
         type: 'MultiPolygon',
-        polygons: geometry.polygons.map((polygon) =>
-          polygon.map((ring) => transformFlatCoordinatesToPixels(ring, bbox, width, height))
+        coordinates: geometry.coordinates.map((polygon) =>
+          polygon.map((ring) => transformPositionsToPixels(ring, bbox, width, height))
         )
       }
   }
@@ -87,19 +65,21 @@ export function worldToPixel(
   ]
 }
 
-export function transformFlatCoordinatesToPixels(
-  coordinates: Float64Array,
+export function transformPositionToPixels(
+  position: GeoPosition,
   bbox: BBox,
   width: number,
   height: number
-): Float64Array {
-  const output = new Float64Array(coordinates.length)
+): GeoPosition {
+  const [x, y] = worldToPixel(position[0], position[1], bbox, width, height)
+  return position.length > 2 ? [x, y, ...position.slice(2)] : [x, y]
+}
 
-  for (let i = 0; i < coordinates.length; i += 2) {
-    const [x, y] = worldToPixel(coordinates[i], coordinates[i + 1], bbox, width, height)
-    output[i] = x
-    output[i + 1] = y
-  }
-
-  return output
+export function transformPositionsToPixels(
+  coordinates: GeoPosition[],
+  bbox: BBox,
+  width: number,
+  height: number
+): GeoPosition[] {
+  return coordinates.map((position) => transformPositionToPixels(position, bbox, width, height))
 }

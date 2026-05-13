@@ -1,7 +1,7 @@
-import type { PixelFeature } from '../transform/world-to-pixel-transform.js'
+import type { GeoFeature } from '../geometry/geo-feature.js'
 import type { OpenLayersCanvasRenderer } from './openlayers-canvas-renderer.js'
 
-export class RenderWritable extends WritableStream<PixelFeature> {
+export class RenderWritable extends WritableStream<GeoFeature> {
     constructor(renderer: OpenLayersCanvasRenderer) {
         super({
             write(feature) {

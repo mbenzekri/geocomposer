@@ -3,7 +3,6 @@ import type { GeoSource } from '../source/geo-source.js'
 import type { StyleResolver } from '../style/style-resolver.js'
 import { OpenLayersCanvasRenderer } from '../render/openlayers-canvas-renderer.js'
 import { RenderWritable } from '../render/render-writable.js'
-import { WorldToPixelTransform } from '../transform/world-to-pixel-transform.js'
 
 export type RenderGetMapOptions = {
   source: GeoSource
@@ -20,17 +19,13 @@ export async function renderGetMap(options: RenderGetMapOptions): Promise<Buffer
   const renderer = new OpenLayersCanvasRenderer(
     options.width,
     options.height,
+    options.bbox,
     options.styleResolver,
     resolution
   )
 
   await options.source
     .query({ bbox: options.bbox, crs: options.crs })
-    .pipeThrough(new WorldToPixelTransform({
-      bbox: options.bbox,
-      width: options.width,
-      height: options.height
-    }))
     .pipeTo(new RenderWritable(renderer))
 
   return renderer.toPngBuffer()

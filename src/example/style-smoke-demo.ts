@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { createCanvas, loadImage } from 'canvas'
 import '../render/openlayers-node-shim.js'
@@ -25,6 +25,7 @@ type SmokeCase = {
 }
 
 const pointFeature: GeoFeature = {
+  type: 'Feature',
   id: 'point',
   properties: {},
   geometry: {
@@ -34,27 +35,32 @@ const pointFeature: GeoFeature = {
 }
 
 const lineFeature: GeoFeature = {
+  type: 'Feature',
   id: 'line',
   properties: {},
   geometry: {
     type: 'LineString',
-    coordinates: new Float64Array([-0.8, -0.5, 0.8, 0.5])
+    coordinates: [
+      [-0.8, -0.5],
+      [0.8, 0.5]
+    ]
   }
 }
 
 const polygonFeature: GeoFeature = {
+  type: 'Feature',
   id: 'polygon',
   properties: {},
   geometry: {
     type: 'Polygon',
-    rings: [
-      new Float64Array([
-        -0.6, -0.4,
-        0.6, -0.4,
-        0.6, 0.4,
-        -0.6, 0.4,
-        -0.6, -0.4
-      ])
+    coordinates: [
+      [
+        [-0.6, -0.4],
+        [0.6, -0.4],
+        [0.6, 0.4],
+        [-0.6, 0.4],
+        [-0.6, -0.4]
+      ]
     ]
   }
 }
@@ -155,7 +161,7 @@ const smokeCases: SmokeCase[] = [
     style: () => new Style({
       image: new Icon({
         img: createIconCanvas() as unknown as HTMLCanvasElement,
-        imgSize: [24, 24]
+        size: [24, 24]
       })
     })
   },
@@ -183,13 +189,18 @@ const smokeCases: SmokeCase[] = [
     style: async () => new Style({
       image: new Icon({
         img: (await createSvgIconCanvas()) as unknown as HTMLCanvasElement,
-        imgSize: [32, 32]
+        size: [32, 32]
       })
     })
   }
 ]
 
 await mkdir('style-smoke', { recursive: true })
+await Promise.all([
+  ...smokeCases.map((smokeCase) => rm(`style-smoke/${smokeCase.name}.png`, { force: true })),
+  rm(pngIconPath, { force: true }),
+  rm(svgIconPath, { force: true })
+])
 await writeFile(pngIconPath, createIconCanvas().toBuffer('image/png'))
 await writeFile(svgIconPath, createSvgIconMarkup())
 

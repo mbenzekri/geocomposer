@@ -1,38 +1,41 @@
-import { writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { MemoryGeoSource } from '../source/memory-geo-source.js'
 import { renderGetMap } from '../ogc/render-get-map.js'
 import { defaultStyleResolver } from '../style/default-style-resolver.js'
 
 const source = new MemoryGeoSource('demo', 'EPSG:4326', [
   {
+    type: 'Feature',
     id: 1,
     properties: { name: 'line' },
     geometry: {
       type: 'LineString',
-      coordinates: new Float64Array([
-        -5, 43,
-        0, 46,
-        5, 48
-      ])
-    }
-  },
-  {
-    id: 2,
-    properties: { name: 'polygon' },
-    geometry: {
-      type: 'Polygon',
-      rings: [
-        new Float64Array([
-          -3, 44,
-          3, 44,
-          3, 47,
-          -3, 47,
-          -3, 44
-        ])
+      coordinates: [
+        [-5, 43],
+        [0, 46],
+        [5, 48]
       ]
     }
   },
   {
+    type: 'Feature',
+    id: 2,
+    properties: { name: 'polygon' },
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [-3, 44],
+          [3, 44],
+          [3, 47],
+          [-3, 47],
+          [-3, 44]
+        ]
+      ]
+    }
+  },
+  {
+    type: 'Feature',
     id: 3,
     properties: { name: 'point' },
     geometry: {
@@ -41,6 +44,9 @@ const source = new MemoryGeoSource('demo', 'EPSG:4326', [
     }
   }
 ])
+
+await rm('style-smoke/map.png', { force: true })
+await mkdir('style-smoke', { recursive: true })
 
 const image = await renderGetMap({
   source,
@@ -51,5 +57,5 @@ const image = await renderGetMap({
   styleResolver: defaultStyleResolver
 })
 
-await writeFile('map.png', image)
-console.log('map.png generated')
+await writeFile('style-smoke/map.png', image)
+console.log('style-smoke/map.png generated')
