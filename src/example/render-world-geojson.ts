@@ -1,13 +1,13 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import Fill from 'ol/style/Fill.js'
 import proj4 from 'proj4'
 import Stroke from 'ol/style/Stroke.js'
 import Style from 'ol/style/Style.js'
 import type { BBox } from '../core/types.js'
-import type { GeoFeature, GeoFeatureCollection } from '../geometry/geo-feature.js'
+import type { GeoFeature } from '../geometry/geo-feature.js'
 import type { GeoGeometry, GeoPosition } from '../geometry/geo-geometry.js'
 import { renderGetMap } from '../ogc/render-get-map.js'
-import { MemoryGeoSource } from '../source/memory-geo-source.js'
+import { GeoJsonGeoSource } from '../source/geojson-geo-source.js'
 import type { StyleResolver } from '../style/style-resolver.js'
 
 const WEB_MERCATOR_MAX = 20037508.342789244
@@ -40,20 +40,27 @@ const worldStyleResolver: StyleResolver = () => worldStyle
 await rm('style-smoke/world.png', { force: true })
 await mkdir('style-smoke', { recursive: true })
 
-const geojson = JSON.parse(await readFile('data/world.geojson', 'utf8')) as GeoFeatureCollection
-const features = geojson.features.map(toProjectedFeature)
-
-const source = new MemoryGeoSource('world', 'EPSG:3857', features)
-const image = await renderGetMap({
-  source,
-  bbox: WORLD_BBOX_3857,
-  width: 500,
-  height: 500,
+const source = new GeoJsonGeoSource('world', 'data/world.geojson', {
   crs: 'EPSG:3857',
-  styleResolver: worldStyleResolver
+  transformFeature: toProjectedFeature
 })
 
-await writeFile('style-smoke/world.png', image)
+await source.open()
+try {
+  const image = await renderGetMap({
+    source,
+    bbox: WORLD_BBOX_3857,
+    width: 500,
+    height: 500,
+    crs: 'EPSG:3857',
+    styleResolver: worldStyleResolver
+  })
+
+  await writeFile('style-smoke/world.png', image)
+} finally {
+  await source.close()
+}
+
 console.log('style-smoke/world.png generated')
 
 function toProjectedFeature(feature: GeoFeature, index: number): GeoFeature {
