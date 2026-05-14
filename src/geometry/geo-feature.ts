@@ -1,12 +1,15 @@
 import type { BBox, CrsCode, GeoProperties } from '../core/types.js'
 import type { GeoGeometry } from './geo-geometry.js'
 
-export type GeoFeatureSourceRef = {
+export type GeoFeatureByteRange = {
   sourceId: string
-  /** Byte offset of the opening { of the serialized feature object. */
   offset: number
-  /** Byte length through the closing }, so the byte slice is JSON.parse-able. */
   byteLength: number
+}
+
+export type GeoFeatureSourceRef = GeoFeatureByteRange & {
+  recordIndex?: number
+  related?: Record<string, GeoFeatureByteRange>
 }
 
 export type GeoFeature = {
