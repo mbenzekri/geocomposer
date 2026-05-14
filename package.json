@@ -9,7 +9,8 @@
     "demo:styles": "tsx src/example/style-smoke-demo.ts",
     "demo:world": "tsx src/example/render-world-geojson.ts",
     "demo:world:shp": "tsx src/example/render-world-shapefile.ts",
-    "demo:all": "npm run build && npm run demo:styles && npm run demo && npm run demo:world && npm run demo:world:shp"
+    "demo:world:gml": "tsx src/example/render-world-gml.ts",
+    "demo:all": "npm run build && npm run demo:styles && npm run demo && npm run demo:world && npm run demo:world:shp && npm run demo:world:gml"
   },
   "dependencies": {
     "canvas": "^3.2.0",

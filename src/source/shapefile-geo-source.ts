@@ -178,7 +178,7 @@ export class ShapefileGeoSource extends GeoSource {
 }
 
 class ShpRecordParser {
-  private buffer = Buffer.alloc(0)
+  private buffer: Buffer = Buffer.alloc(0)
   private bufferOffset = 100
 
   get empty(): boolean {
@@ -186,7 +186,7 @@ class ShpRecordParser {
   }
 
   push(chunk: Buffer): void {
-    this.buffer = /* this.buffer.length === 0 ? chunk : */ Buffer.concat([this.buffer, chunk])
+    this.buffer = Buffer.concat([this.buffer, chunk])
   }
 
   read(): ShpRecord | null {
