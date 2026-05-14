@@ -5,6 +5,7 @@ import { GeoSource, type GeoStreamOptions } from './geo-source.js'
 
 export class MemoryGeoSource extends GeoSource {
   readonly type = 'memory'
+  readonly storage = 'memory' as const
 
   constructor(
     readonly id: string,

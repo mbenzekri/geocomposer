@@ -1,6 +1,16 @@
+import type { PathLike } from 'node:fs'
 import type { BBox, CrsCode } from '../core/types.js'
 import type { GeoFeature } from '../geometry/geo-feature.js'
 import { BBoxFilterTransform } from '../transform/bbox-filter-transform.js'
+
+export type GeoSourceStorage = 'memory' | 'file' | 'database'
+
+export type GeoSourceFileRole = 'data' | 'geometry' | 'attributes' | 'index' | 'metadata'
+
+export type GeoSourceFile = {
+  role: GeoSourceFileRole | string
+  path: PathLike
+}
 
 export type GeoStreamOptions = {
   signal?: AbortSignal
@@ -15,6 +25,7 @@ export type GeoQueryOptions = GeoStreamOptions & {
 export abstract class GeoSource {
   abstract readonly id: string
   abstract readonly type: string
+  abstract readonly storage: GeoSourceStorage
   abstract readonly crs: CrsCode
 
   abstract open(): Promise<void>
@@ -32,4 +43,14 @@ export abstract class GeoSource {
 
     return input.pipeThrough(new BBoxFilterTransform(options.bbox))
   }
+}
+
+export abstract class FileGeoSource extends GeoSource {
+  readonly storage = 'file' as const
+
+  abstract getFiles(): readonly GeoSourceFile[]
+}
+
+export abstract class DatabaseGeoSource extends GeoSource {
+  readonly storage = 'database' as const
 }

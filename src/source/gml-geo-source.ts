@@ -4,7 +4,7 @@ import type { BBox, CrsCode, GeoProperties } from '../core/types.js'
 import { computeGeometryBBox, expandBBox } from '../geometry/bbox.js'
 import type { GeoFeature, GeoFeatureSourceRef } from '../geometry/geo-feature.js'
 import type { GeoGeometry, GeoPosition } from '../geometry/geo-geometry.js'
-import { GeoSource, type GeoStreamOptions } from './geo-source.js'
+import { FileGeoSource, type GeoStreamOptions } from './geo-source.js'
 
 export type GmlAxisOrder = 'xy' | 'yx' | 'auto'
 
@@ -61,7 +61,7 @@ const GEOMETRY_ELEMENT_NAMES = [
   'Point'
 ]
 
-export class GmlGeoSource extends GeoSource {
+export class GmlGeoSource extends FileGeoSource {
   readonly type = 'gml'
   readonly crs: CrsCode
 
@@ -86,6 +86,10 @@ export class GmlGeoSource extends GeoSource {
     this.geometryPropertyNames = options.geometryPropertyNames ?? DEFAULT_GEOMETRY_PROPERTY_NAMES
     this.axisOrder = options.axisOrder ?? 'auto'
     this.transformFeature = options.transformFeature
+  }
+
+  getFiles() {
+    return [{ role: 'data', path: this.filePath }]
   }
 
   async open(): Promise<void> {
@@ -153,6 +157,7 @@ export class GmlGeoSource extends GeoSource {
           if (!parsed) break
 
           const sourceRef: GeoFeatureSourceRef = {
+            storage: 'file',
             sourceId: this.id,
             offset: parsed.offset,
             byteLength: parsed.byteLength,

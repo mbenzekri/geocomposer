@@ -1,15 +1,29 @@
 import type { BBox, CrsCode, GeoProperties } from '../core/types.js'
 import type { GeoGeometry } from './geo-geometry.js'
 
-export type GeoFeatureByteRange = {
+export type GeoFeatureFileSourceRef = {
+  storage?: 'file'
   sourceId: string
   offset: number
   byteLength: number
 }
 
-export type GeoFeatureSourceRef = GeoFeatureByteRange & {
+export type GeoFeatureByteRange = GeoFeatureFileSourceRef
+
+export type GeoFeatureDatabaseSourceRef = {
+  storage: 'database'
+  sourceId: string
+  tableName: string
+  rowId: string | number
+  primaryKey?: string
+  geometryColumn?: string
+}
+
+export type GeoFeatureSourceLocation = GeoFeatureFileSourceRef | GeoFeatureDatabaseSourceRef
+
+export type GeoFeatureSourceRef = GeoFeatureSourceLocation & {
   recordIndex?: number
-  related?: Record<string, GeoFeatureByteRange>
+  related?: Record<string, GeoFeatureSourceLocation>
 }
 
 export type GeoFeature = {

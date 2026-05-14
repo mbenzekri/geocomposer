@@ -3,7 +3,7 @@ import { access } from 'node:fs/promises'
 import type { BBox, CrsCode } from '../core/types.js'
 import { computeGeometryBBox, expandBBox } from '../geometry/bbox.js'
 import type { GeoFeature, GeoFeatureSourceRef } from '../geometry/geo-feature.js'
-import { GeoSource, type GeoStreamOptions } from './geo-source.js'
+import { FileGeoSource, type GeoStreamOptions } from './geo-source.js'
 
 export type GeoJsonGeoSourceOptions = {
   crs?: CrsCode
@@ -12,7 +12,7 @@ export type GeoJsonGeoSourceOptions = {
   transformFeature?: (feature: GeoFeature, index: number) => GeoFeature | Promise<GeoFeature>
 }
 
-export class GeoJsonGeoSource extends GeoSource {
+export class GeoJsonGeoSource extends FileGeoSource {
   readonly type = 'geojson'
   readonly crs: CrsCode
 
@@ -31,6 +31,10 @@ export class GeoJsonGeoSource extends GeoSource {
     this.encoding = options.encoding ?? 'utf8'
     this.highWaterMark = options.highWaterMark
     this.transformFeature = options.transformFeature
+  }
+
+  getFiles() {
+    return [{ role: 'data', path: this.filePath }]
   }
 
   async open(): Promise<void> {
@@ -98,6 +102,7 @@ export class GeoJsonGeoSource extends GeoSource {
           if (!parsed) break
 
           const sourceRef: GeoFeatureSourceRef = {
+            storage: 'file',
             sourceId: this.id,
             offset: parsed.offset,
             byteLength: parsed.byteLength

@@ -3,7 +3,7 @@ import { access, open, readFile, type FileHandle } from 'node:fs/promises'
 import type { BBox, CrsCode, GeoProperties } from '../core/types.js'
 import type { GeoFeature, GeoFeatureByteRange, GeoFeatureSourceRef } from '../geometry/geo-feature.js'
 import type { GeoGeometry, GeoPosition } from '../geometry/geo-geometry.js'
-import { GeoSource, type GeoStreamOptions } from './geo-source.js'
+import { FileGeoSource, type GeoStreamOptions } from './geo-source.js'
 
 export type ShapefileGeoSourceOptions = {
   crs?: CrsCode
@@ -33,7 +33,7 @@ type DbfRecord = {
   deleted: boolean
 }
 
-export class ShapefileGeoSource extends GeoSource {
+export class ShapefileGeoSource extends FileGeoSource {
   readonly type = 'shapefile'
   readonly crs: CrsCode
 
@@ -54,6 +54,13 @@ export class ShapefileGeoSource extends GeoSource {
     this.dbfEncoding = options.dbfEncoding
     this.highWaterMark = options.highWaterMark
     this.transformFeature = options.transformFeature
+  }
+
+  getFiles() {
+    return [
+      { role: 'geometry', path: this.shpPath },
+      { role: 'attributes', path: this.dbfPath }
+    ]
   }
 
   async open(): Promise<void> {
@@ -136,6 +143,7 @@ export class ShapefileGeoSource extends GeoSource {
           const recordIndex = record.recordNumber - 1
           const dbfRecord = await dbf.readRecord(recordIndex)
           const sourceRef: GeoFeatureSourceRef = {
+            storage: 'file',
             sourceId: `${this.id}:shp`,
             offset: record.offset,
             byteLength: record.byteLength,
@@ -303,6 +311,7 @@ class DbfReader {
       properties,
       deleted,
       sourceRef: {
+        storage: 'file',
         sourceId: this.sourceId,
         offset,
         byteLength: this.recordLength
