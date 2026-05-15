@@ -3,6 +3,8 @@ import type { GeoSource } from '../source/geo-source.js'
 import type { StyleResolver } from '../style/style-resolver.js'
 import { OpenLayersCanvasRenderer } from '../render/openlayers-canvas-renderer.js'
 import { RenderWritable } from '../render/render-writable.js'
+import { BBoxFilterTransform } from '../transform/bbox-filter-transform.js'
+import { CrsTransform } from '../transform/crs-transform.js'
 
 export type RenderGetMapOptions = {
   source: GeoSource
@@ -24,8 +26,15 @@ export async function renderGetMap(options: RenderGetMapOptions): Promise<Buffer
     resolution
   )
 
-  await options.source
-    .query({ bbox: options.bbox, crs: options.crs })
+  const needsReprojection = options.source.crs !== options.crs
+  const projected = needsReprojection
+    ? options.source
+      .stream()
+      .pipeThrough(new CrsTransform(options.source.crs, options.crs))
+    : options.source.stream()
+
+  await projected
+    .pipeThrough(new BBoxFilterTransform(options.bbox))
     .pipeTo(new RenderWritable(renderer))
 
   return renderer.toPngBuffer()
