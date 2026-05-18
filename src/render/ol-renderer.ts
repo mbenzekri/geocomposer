@@ -8,12 +8,12 @@ import ImageState from 'ol/ImageState.js'
 import { toContext } from 'ol/render.js'
 import type Style from 'ol/style/Style.js'
 import type { BBox } from '../core/types.js'
-import type { GeoFeature } from '../geometry/geo-feature.js'
-import type { StyleResolver } from '../style/style-resolver.js'
-import { transformGeometryToPixels } from '../transform/world-to-pixel-transform.js'
+import type { Feature } from '../geometry/feature.js'
+import type { StyleFn } from '../style/style-fn.js'
+import { toPixels } from '../transform/to-pixels.js'
 import { OlGeometryAdapter } from './ol-geometry-adapter.js'
 
-export class OpenLayersCanvasRenderer {
+export class OlRenderer {
     private readonly canvas: Canvas
     private readonly context: CanvasRenderingContext2D
     private readonly vectorContext: ReturnType<typeof toContext>
@@ -23,7 +23,7 @@ export class OpenLayersCanvasRenderer {
         readonly width: number,
         readonly height: number,
         private readonly bbox: BBox,
-        private readonly styleResolver: StyleResolver,
+        private readonly style: StyleFn,
         private readonly resolution: number
     ) {
         this.canvas = createCanvas(width, height)
@@ -45,13 +45,13 @@ export class OpenLayersCanvasRenderer {
         })
     }
 
-    async draw(feature: GeoFeature): Promise<void> {
+    async draw(feature: Feature): Promise<void> {
         if (!feature.geometry) return
 
-        const styles = this.styleResolver(feature, this.resolution)
+        const styles = this.style(feature, this.resolution)
         if (!styles) return
 
-        const pixelGeometry = transformGeometryToPixels(feature.geometry, this.bbox, this.width, this.height)
+        const pixelGeometry = toPixels(feature.geometry, this.bbox, this.width, this.height)
         if (!pixelGeometry) return
 
         const geometry = this.geometryAdapter.toGeometry(pixelGeometry)

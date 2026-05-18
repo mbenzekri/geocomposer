@@ -10,21 +10,21 @@ import CircleStyle from 'ol/style/Circle.js'
 import RegularShape from 'ol/style/RegularShape.js'
 import Text from 'ol/style/Text.js'
 import Icon from 'ol/style/Icon.js'
-import type { GeoFeature } from '../geometry/geo-feature.js'
-import { renderGetMap } from '../ogc/render-get-map.js'
-import { MemoryGeoSource } from '../source/memory-geo-source.js'
-import type { StyleResolver } from '../style/style-resolver.js'
+import type { Feature } from '../geometry/feature.js'
+import { renderMap } from '../ogc/render-map.js'
+import { MemorySource } from '../source/memory-source.js'
+import type { StyleFn } from '../style/style-fn.js'
 
 const pngIconPath = resolve('style-smoke/icon-source.png')
 const svgIconPath = resolve('style-smoke/icon-source.svg')
 
 type SmokeCase = {
   name: string
-  feature: GeoFeature
+  feature: Feature
   style: () => Style | Style[] | Promise<Style | Style[]>
 }
 
-const pointFeature: GeoFeature = {
+const pointFeature: Feature = {
   type: 'Feature',
   id: 'point',
   properties: {},
@@ -34,7 +34,7 @@ const pointFeature: GeoFeature = {
   }
 }
 
-const lineFeature: GeoFeature = {
+const lineFeature: Feature = {
   type: 'Feature',
   id: 'line',
   properties: {},
@@ -47,7 +47,7 @@ const lineFeature: GeoFeature = {
   }
 }
 
-const polygonFeature: GeoFeature = {
+const polygonFeature: Feature = {
   type: 'Feature',
   id: 'polygon',
   properties: {},
@@ -208,17 +208,17 @@ let failed = false
 
 for (const smokeCase of smokeCases) {
   try {
-    const source = new MemoryGeoSource(smokeCase.name, 'EPSG:4326', [smokeCase.feature])
-    const style = await smokeCase.style()
-    const styleResolver: StyleResolver = () => style
+    const source = new MemorySource(smokeCase.name, 'EPSG:4326', [smokeCase.feature])
+    const olStyle = await smokeCase.style()
+    const style: StyleFn = () => olStyle
 
-    const image = await renderGetMap({
+    const image = await renderMap({
       source,
       bbox: [-1, -1, 1, 1],
       width: 180,
       height: 140,
       crs: 'EPSG:4326',
-      styleResolver
+      style
     })
 
     await writeFile(`style-smoke/${smokeCase.name}.png`, image)

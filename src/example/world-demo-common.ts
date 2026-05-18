@@ -2,7 +2,7 @@ import Fill from 'ol/style/Fill.js'
 import Stroke from 'ol/style/Stroke.js'
 import Style from 'ol/style/Style.js'
 import type { BBox } from '../core/types.js'
-import type { StyleResolver } from '../style/style-resolver.js'
+import type { StyleFn } from '../style/style-fn.js'
 
 const WEB_MERCATOR_MAX = 20037508.342789244
 
@@ -23,4 +23,4 @@ export const worldStyle = new Style({
   })
 })
 
-export const worldStyleResolver: StyleResolver = () => worldStyle
+export const worldStyleFn: StyleFn = () => worldStyle

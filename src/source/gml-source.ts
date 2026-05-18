@@ -1,21 +1,21 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
-import type { BBox, CrsCode, GeoProperties } from '../core/types.js'
-import { computeGeometryBBox, expandBBox } from '../geometry/bbox.js'
-import type { GeoFeature, GeoFeatureSourceRef } from '../geometry/geo-feature.js'
-import type { GeoGeometry, GeoPosition } from '../geometry/geo-geometry.js'
-import { FileGeoSource, type GeoStreamOptions } from './geo-source.js'
+import type { BBox, CrsCode, Props } from '../core/types.js'
+import { computeBBox, expandBBox } from '../geometry/bbox.js'
+import type { Feature, SourceRef } from '../geometry/feature.js'
+import type { Geometry, Position } from '../geometry/geometry.js'
+import { FileSource, type StreamOptions } from './source.js'
 
 export type GmlAxisOrder = 'xy' | 'yx' | 'auto'
 
-export type GmlGeoSourceOptions = {
+export type GmlSourceOptions = {
   crs?: CrsCode
   encoding?: BufferEncoding
   highWaterMark?: number
   featureElementNames?: string[]
   geometryPropertyNames?: string[]
   axisOrder?: GmlAxisOrder
-  transformFeature?: (feature: GeoFeature, index: number) => GeoFeature | Promise<GeoFeature>
+  transformFeature?: (feature: Feature, index: number) => Feature | Promise<Feature>
 }
 
 type ParsedXmlFeature = {
@@ -61,7 +61,7 @@ const GEOMETRY_ELEMENT_NAMES = [
   'Point'
 ]
 
-export class GmlGeoSource extends FileGeoSource {
+export class GmlSource extends FileSource {
   readonly type = 'gml'
   readonly crs: CrsCode
 
@@ -70,12 +70,12 @@ export class GmlGeoSource extends FileGeoSource {
   private readonly featureElementNames: string[]
   private readonly geometryPropertyNames: string[]
   private readonly axisOrder: GmlAxisOrder
-  private readonly transformFeature?: GmlGeoSourceOptions['transformFeature']
+  private readonly transformFeature?: GmlSourceOptions['transformFeature']
 
   constructor(
     readonly id: string,
     private readonly filePath: PathLike,
-    options: GmlGeoSourceOptions = {}
+    options: GmlSourceOptions = {}
   ) {
     super()
 
@@ -102,17 +102,17 @@ export class GmlGeoSource extends FileGeoSource {
     let extent: BBox | null = null
 
     for await (const feature of this.readFeatures()) {
-      const bbox = feature.bbox ?? computeGeometryBBox(feature.geometry)
+      const bbox = feature.bbox ?? computeBBox(feature.geometry)
       if (bbox) extent = extent ? expandBBox(extent, bbox) : bbox
     }
 
     return extent
   }
 
-  stream(options: GeoStreamOptions = {}): ReadableStream<GeoFeature> {
+  stream(options: StreamOptions = {}): ReadableStream<Feature> {
     const iterator = this.readFeatures(options.signal)[Symbol.asyncIterator]()
 
-    return new ReadableStream<GeoFeature>({
+    return new ReadableStream<Feature>({
       pull: async (controller) => {
         if (options.signal?.aborted) {
           controller.error(getAbortReason(options.signal))
@@ -139,7 +139,7 @@ export class GmlGeoSource extends FileGeoSource {
     })
   }
 
-  private async *readFeatures(signal?: AbortSignal): AsyncGenerator<GeoFeature> {
+  private async *readFeatures(signal?: AbortSignal): AsyncGenerator<Feature> {
     let index = 0
     const parser = new GmlFeatureStreamParser(this.featureElementNames, this.encoding)
     const file = createReadStream(this.filePath, {
@@ -156,7 +156,7 @@ export class GmlGeoSource extends FileGeoSource {
           const parsed = parser.read()
           if (!parsed) break
 
-          const sourceRef: GeoFeatureSourceRef = {
+          const sourceRef: SourceRef = {
             storage: 'file',
             sourceId: this.id,
             offset: parsed.offset,
@@ -264,8 +264,8 @@ class GmlFeatureStreamParser {
 
 function parseGmlFeature(
   xml: string,
-  options: Pick<GmlGeoSourceOptions, 'axisOrder' | 'geometryPropertyNames'>
-): GeoFeature {
+  options: Pick<GmlSourceOptions, 'axisOrder' | 'geometryPropertyNames'>
+): Feature {
   const root = readFirstElement(xml)
   if (!root) throw new Error('Invalid GML: expected a feature XML element')
 
@@ -286,8 +286,8 @@ function parseGmlFeature(
   }
 }
 
-function parseProperties(featureElement: XmlElement, geometryPropertyNames: string[]): GeoProperties {
-  const properties: GeoProperties = {}
+function parseProperties(featureElement: XmlElement, geometryPropertyNames: string[]): Props {
+  const properties: Props = {}
 
   for (const child of childElements(featureElement)) {
     if (child.localName === 'boundedBy') continue
@@ -312,14 +312,14 @@ function parsePropertyValue(element: XmlElement): unknown {
   return text
 }
 
-function parseGmlGeometry(xml: string, axisOrderOption: GmlAxisOrder): GeoGeometry | null {
+function parseGmlGeometry(xml: string, axisOrderOption: GmlAxisOrder): Geometry | null {
   const element = findFirstElementByLocalNames(xml, GEOMETRY_ELEMENT_NAMES)
   if (!element) return null
 
   return parseGeometryElement(element, axisOrderOption)
 }
 
-function parseGeometryElement(element: XmlElement, axisOrderOption: GmlAxisOrder): GeoGeometry | null {
+function parseGeometryElement(element: XmlElement, axisOrderOption: GmlAxisOrder): Geometry | null {
   const axisOrder = resolveAxisOrder(axisOrderOption, element)
 
   switch (element.localName) {
@@ -352,7 +352,7 @@ function parseGeometryElement(element: XmlElement, axisOrderOption: GmlAxisOrder
   }
 }
 
-function parsePointElement(element: XmlElement, axisOrderOption: GmlAxisOrder): GeoGeometry | null {
+function parsePointElement(element: XmlElement, axisOrderOption: GmlAxisOrder): Geometry | null {
   const position = parseSinglePosition(element, axisOrderOption)
   if (!position) return null
 
@@ -362,7 +362,7 @@ function parsePointElement(element: XmlElement, axisOrderOption: GmlAxisOrder): 
   }
 }
 
-function parseLineStringElement(element: XmlElement, axisOrderOption: GmlAxisOrder): GeoGeometry | null {
+function parseLineStringElement(element: XmlElement, axisOrderOption: GmlAxisOrder): Geometry | null {
   const coordinates = parsePositions(element, axisOrderOption)
   if (!coordinates || coordinates.length === 0) return null
 
@@ -372,7 +372,7 @@ function parseLineStringElement(element: XmlElement, axisOrderOption: GmlAxisOrd
   }
 }
 
-function parseCurveElement(element: XmlElement, axisOrderOption: GmlAxisOrder): GeoGeometry | null {
+function parseCurveElement(element: XmlElement, axisOrderOption: GmlAxisOrder): Geometry | null {
   const segmentPositions = findElementsByLocalNames(element.outer, ['LineStringSegment'])
     .map((segment) => parsePositions(segment, axisOrderOption) ?? [])
     .filter((positions) => positions.length > 0)
@@ -389,7 +389,7 @@ function parseCurveElement(element: XmlElement, axisOrderOption: GmlAxisOrder): 
   }
 }
 
-function parsePolygonGeometry(element: XmlElement, axisOrderOption: GmlAxisOrder): GeoGeometry | null {
+function parsePolygonGeometry(element: XmlElement, axisOrderOption: GmlAxisOrder): Geometry | null {
   const coordinates = parsePolygonCoordinates(element, axisOrderOption)
   if (!coordinates || coordinates.length === 0) return null
 
@@ -399,10 +399,10 @@ function parsePolygonGeometry(element: XmlElement, axisOrderOption: GmlAxisOrder
   }
 }
 
-function parseMultiPointElement(element: XmlElement, axisOrderOption: GmlAxisOrder): GeoGeometry | null {
+function parseMultiPointElement(element: XmlElement, axisOrderOption: GmlAxisOrder): Geometry | null {
   const coordinates = findElementsByLocalNames(element.outer, ['Point'])
     .map((point) => parseSinglePosition(point, axisOrderOption))
-    .filter((position): position is GeoPosition => Boolean(position))
+    .filter((position): position is Position => Boolean(position))
 
   if (coordinates.length === 0) return null
 
@@ -412,13 +412,13 @@ function parseMultiPointElement(element: XmlElement, axisOrderOption: GmlAxisOrd
   }
 }
 
-function parseMultiCurveElement(element: XmlElement, axisOrderOption: GmlAxisOrder): GeoGeometry | null {
+function parseMultiCurveElement(element: XmlElement, axisOrderOption: GmlAxisOrder): Geometry | null {
   const lines = findElementsByLocalNames(element.outer, ['LineString', 'Curve'])
     .map((line) => {
       const geometry = parseGeometryElement(line, axisOrderOption)
       return geometry?.type === 'LineString' ? geometry.coordinates : null
     })
-    .filter((line): line is GeoPosition[] => Boolean(line))
+    .filter((line): line is Position[] => Boolean(line))
 
   if (lines.length === 0) return null
   if (lines.length === 1) {
@@ -434,10 +434,10 @@ function parseMultiCurveElement(element: XmlElement, axisOrderOption: GmlAxisOrd
   }
 }
 
-function parseMultiSurfaceElement(element: XmlElement, axisOrderOption: GmlAxisOrder): GeoGeometry | null {
+function parseMultiSurfaceElement(element: XmlElement, axisOrderOption: GmlAxisOrder): Geometry | null {
   const polygons = findElementsByLocalNames(element.outer, ['Polygon', 'Surface'])
     .map((polygon) => parsePolygonCoordinates(polygon, axisOrderOption))
-    .filter((polygon): polygon is GeoPosition[][] => Boolean(polygon && polygon.length > 0))
+    .filter((polygon): polygon is Position[][] => Boolean(polygon && polygon.length > 0))
 
   if (polygons.length === 0) return null
   if (polygons.length === 1) {
@@ -453,10 +453,10 @@ function parseMultiSurfaceElement(element: XmlElement, axisOrderOption: GmlAxisO
   }
 }
 
-function parsePolygonCoordinates(element: XmlElement, axisOrderOption: GmlAxisOrder): GeoPosition[][] | null {
+function parsePolygonCoordinates(element: XmlElement, axisOrderOption: GmlAxisOrder): Position[][] | null {
   const exterior = findFirstElementByLocalNames(element.outer, ['exterior', 'outerBoundaryIs'])
   const exteriorRing = exterior ? findFirstElementByLocalNames(exterior.outer, ['LinearRing', 'Ring']) : null
-  const rings: GeoPosition[][] = []
+  const rings: Position[][] = []
 
   if (exteriorRing) {
     const coordinates = parsePositions(exteriorRing, axisOrderOption)
@@ -479,12 +479,12 @@ function parsePolygonCoordinates(element: XmlElement, axisOrderOption: GmlAxisOr
   return rings.length > 0 ? rings : null
 }
 
-function parseSinglePosition(element: XmlElement, axisOrderOption: GmlAxisOrder): GeoPosition | null {
+function parseSinglePosition(element: XmlElement, axisOrderOption: GmlAxisOrder): Position | null {
   const positions = parsePositions(element, axisOrderOption)
   return positions?.[0] ?? null
 }
 
-function parsePositions(element: XmlElement, axisOrderOption: GmlAxisOrder): GeoPosition[] | null {
+function parsePositions(element: XmlElement, axisOrderOption: GmlAxisOrder): Position[] | null {
   const posList = findFirstElementByLocalNames(element.outer, ['posList'])
   const axisOrder = resolveAxisOrder(axisOrderOption, element)
 
@@ -495,7 +495,7 @@ function parsePositions(element: XmlElement, axisOrderOption: GmlAxisOrder): Geo
 
   const positions = findElementsByLocalNames(element.outer, ['pos'])
     .map((pos) => numbersToPositions(textNumbers(pos.inner), readDimension(pos, element), axisOrder)[0])
-    .filter((position): position is GeoPosition => Boolean(position))
+    .filter((position): position is Position => Boolean(position))
 
   if (positions.length > 0) return positions
 
@@ -505,8 +505,8 @@ function parsePositions(element: XmlElement, axisOrderOption: GmlAxisOrder): Geo
   return null
 }
 
-function numbersToPositions(values: number[], dimension: number, axisOrder: 'xy' | 'yx'): GeoPosition[] {
-  const positions: GeoPosition[] = []
+function numbersToPositions(values: number[], dimension: number, axisOrder: 'xy' | 'yx'): Position[] {
+  const positions: Position[] = []
 
   for (let index = 0; index + 1 < values.length; index += dimension) {
     const first = values[index]
@@ -518,14 +518,14 @@ function numbersToPositions(values: number[], dimension: number, axisOrder: 'xy'
   return positions
 }
 
-function parseCoordinatesText(text: string, axisOrder: 'xy' | 'yx'): GeoPosition[] {
+function parseCoordinatesText(text: string, axisOrder: 'xy' | 'yx'): Position[] {
   return decodeXmlEntities(text)
     .trim()
     .split(/\s+/)
     .filter(Boolean)
     .map((tuple) => tuple.split(',').map(Number).filter((value) => !Number.isNaN(value)))
     .filter((values) => values.length >= 2)
-    .map((values): GeoPosition => axisOrder === 'yx'
+    .map((values): Position => axisOrder === 'yx'
       ? [values[1], values[0], ...values.slice(2)]
       : [values[0], values[1], ...values.slice(2)])
 }

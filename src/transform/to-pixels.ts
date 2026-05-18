@@ -1,12 +1,12 @@
 import type { BBox } from '../core/types.js'
-import type { GeoGeometry, GeoPosition } from '../geometry/geo-geometry.js'
+import type { Geometry, Position } from '../geometry/geometry.js'
 
-export function transformGeometryToPixels(
-  geometry: GeoGeometry | null,
+export function toPixels(
+  geometry: Geometry | null,
   bbox: BBox,
   width: number,
   height: number
-): GeoGeometry | null {
+): Geometry | null {
   if (!geometry) return null
 
   switch (geometry.type) {
@@ -66,20 +66,20 @@ export function worldToPixel(
 }
 
 export function transformPositionToPixels(
-  position: GeoPosition,
+  position: Position,
   bbox: BBox,
   width: number,
   height: number
-): GeoPosition {
+): Position {
   const [x, y] = worldToPixel(position[0], position[1], bbox, width, height)
   return position.length > 2 ? [x, y, ...position.slice(2)] : [x, y]
 }
 
 export function transformPositionsToPixels(
-  coordinates: GeoPosition[],
+  coordinates: Position[],
   bbox: BBox,
   width: number,
   height: number
-): GeoPosition[] {
+): Position[] {
   return coordinates.map((position) => transformPositionToPixels(position, bbox, width, height))
 }

@@ -2,4 +2,4 @@ export type BBox = [number, number, number, number]
 
 export type CrsCode = string
 
-export type GeoProperties = Record<string, unknown>
+export type Props = Record<string, unknown>

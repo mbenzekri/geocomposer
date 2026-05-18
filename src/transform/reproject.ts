@@ -1,11 +1,11 @@
 import proj4 from 'proj4'
-import { computeGeometryBBox } from '../geometry/bbox.js'
-import type { GeoFeature } from '../geometry/geo-feature.js'
-import type { GeoGeometry, GeoPosition } from '../geometry/geo-geometry.js'
+import { computeBBox } from '../geometry/bbox.js'
+import type { Feature } from '../geometry/feature.js'
+import type { Geometry, Position } from '../geometry/geometry.js'
 
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
 
-export class CrsTransform extends TransformStream<GeoFeature, GeoFeature> {
+export class Reproject extends TransformStream<Feature, Feature> {
   constructor(
     sourceCrs: string,
     targetCrs: string
@@ -18,7 +18,7 @@ export class CrsTransform extends TransformStream<GeoFeature, GeoFeature> {
         }
 
         const geometry = transformGeometry(feature.geometry, sourceCrs, targetCrs)
-        const bbox = computeGeometryBBox(geometry) ?? undefined
+        const bbox = computeBBox(geometry) ?? undefined
         controller.enqueue({
           ...feature,
           geometry,
@@ -29,7 +29,7 @@ export class CrsTransform extends TransformStream<GeoFeature, GeoFeature> {
   }
 }
 
-function transformGeometry(geometry: GeoGeometry, sourceCrs: string, targetCrs: string): GeoGeometry {
+function transformGeometry(geometry: Geometry, sourceCrs: string, targetCrs: string): Geometry {
   switch (geometry.type) {
     case 'Point':
       return {
@@ -81,7 +81,7 @@ function transformGeometry(geometry: GeoGeometry, sourceCrs: string, targetCrs: 
   }
 }
 
-function transformPosition(position: GeoPosition, sourceCrs: string, targetCrs: string): GeoPosition {
+function transformPosition(position: Position, sourceCrs: string, targetCrs: string): Position {
   const x = position[0]
   const y = position[1]
   const [fromX, fromY] = sourceCrs === 'EPSG:4326' && targetCrs === 'EPSG:3857'

@@ -1,12 +1,21 @@
 # Project Notes for Codex
 
-- Do not run `npm`, build, demo, or test commands unless the user explicitly asks. The user runs project commands on the remote host.
-- File-backed source streams must preserve future random-access indexing data. When a `GeoFeature` comes from a file, set `GeoFeature.sourceRef` with the source id plus byte `offset` and `byteLength` of the feature in that source file.
+- `npm run build` is allowed when checking or fixing TypeScript compilation. Demo and test commands still require an explicit user request.
+- File-backed source streams must preserve future random-access indexing data. When a `Feature` comes from a file, set `Feature.sourceRef` with the source id plus byte `offset` and `byteLength` of the feature in that source file.
 - For GeoJSON, `sourceRef.offset` must point to the opening `{` and `sourceRef.byteLength` must include the closing `}`, so the referenced byte slice is directly `JSON.parse`-able.
 - For shapefiles, `sourceRef` must point to the full `.shp` record, including the 8-byte record header, and `sourceRef.related.dbf` must point to the corresponding full DBF record, including the deletion flag byte. This is required for later attribute and R-tree indexes across GeoJSON, shapefile, and similar sources.
 - For GML, `sourceRef.offset` must point to the opening `<` of the complete streamed feature element and `sourceRef.byteLength` must include its closing tag. GML axis order is source-dependent; keep `axisOrder` explicit or use `auto` only with known CRS behavior.
 - Do not introduce GDAL/OGR in this project. Geo formats must be handled natively or through focused non-GDAL libraries.
-- Keep source abstractions separated: `FileGeoSource` is for byte-range indexable files, while `DatabaseGeoSource` is for sources such as GeoPackage that carry their own table/index model.
+- Keep source abstractions separated: `FileSource` is for byte-range indexable files, while `DbSource` is for sources such as GeoPackage that carry their own table/index model.
+
+## Refactor proposals
+
+- P1: Shorter names. Prefer concise, explicit names over Java-style long compounds. Avoid `Geo` prefixes unless they remove real ambiguity.
+- P2: Add more OO around behavior-rich concepts such as map render jobs and views.
+- P3: Keep feature and geometry payloads as simple serializable objects.
+- P4: Split format sources from readers/parsers when a source starts doing too much.
+- P5: Use a small stable vocabulary: `Source`, `Reader`, `Filter`, `Projector`, `Renderer`, `StyleFn`, `View`.
+- P6: Apply the style incrementally instead of doing unrelated broad refactors.
 
 ## Shell policy
 

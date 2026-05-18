@@ -2,7 +2,7 @@ import Style from 'ol/style/Style.js'
 import Stroke from 'ol/style/Stroke.js'
 import Fill from 'ol/style/Fill.js'
 import CircleStyle from 'ol/style/Circle.js'
-import type { StyleResolver } from './style-resolver.js'
+import type { StyleFn } from './style-fn.js'
 
 const pointStyle = new Style({
   image: new CircleStyle({
@@ -29,7 +29,7 @@ const polygonStyle = new Style({
   })
 })
 
-export const defaultStyleResolver: StyleResolver = (feature) => {
+export const defaultStyleFn: StyleFn = (feature) => {
   switch (feature.geometry?.type) {
     case 'Point':
     case 'MultiPoint':

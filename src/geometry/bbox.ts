@@ -1,5 +1,5 @@
 import type { BBox } from '../core/types.js'
-import type { GeoGeometry, GeoPosition } from './geo-geometry.js'
+import type { Geometry, Position } from './geometry.js'
 
 export function intersectsBBox(a: BBox, b: BBox): boolean {
   return a[0] <= b[2]
@@ -17,7 +17,7 @@ export function expandBBox(a: BBox, b: BBox): BBox {
   ]
 }
 
-export function computeGeometryBBox(geometry: GeoGeometry | null): BBox | null {
+export function computeBBox(geometry: Geometry | null): BBox | null {
   if (!geometry) return null
 
   switch (geometry.type) {
@@ -51,7 +51,7 @@ export function computeGeometryBBox(geometry: GeoGeometry | null): BBox | null {
   }
 }
 
-export function computePositionCollectionsBBox(items: GeoPosition[][]): BBox | null {
+export function computePositionCollectionsBBox(items: Position[][]): BBox | null {
   let bbox: BBox | null = null
 
   for (const item of items) {
@@ -62,7 +62,7 @@ export function computePositionCollectionsBBox(items: GeoPosition[][]): BBox | n
   return bbox
 }
 
-export function computePositionsBBox(coordinates: GeoPosition[]): BBox | null {
+export function computePositionsBBox(coordinates: Position[]): BBox | null {
   if (coordinates.length === 0) return null
 
   let minX = Number.POSITIVE_INFINITY

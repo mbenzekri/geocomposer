@@ -1,15 +1,15 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open, readFile, type FileHandle } from 'node:fs/promises'
-import type { BBox, CrsCode, GeoProperties } from '../core/types.js'
-import type { GeoFeature, GeoFeatureByteRange, GeoFeatureSourceRef } from '../geometry/geo-feature.js'
-import type { GeoGeometry, GeoPosition } from '../geometry/geo-geometry.js'
-import { FileGeoSource, type GeoStreamOptions } from './geo-source.js'
+import type { BBox, CrsCode, Props } from '../core/types.js'
+import type { Feature, ByteRange, SourceRef } from '../geometry/feature.js'
+import type { Geometry, Position } from '../geometry/geometry.js'
+import { FileSource, type StreamOptions } from './source.js'
 
-export type ShapefileGeoSourceOptions = {
+export type ShpSourceOptions = {
   crs?: CrsCode
   dbfEncoding?: BufferEncoding
   highWaterMark?: number
-  transformFeature?: (feature: GeoFeature, index: number) => GeoFeature | Promise<GeoFeature>
+  transformFeature?: (feature: Feature, index: number) => Feature | Promise<Feature>
 }
 
 type ShpRecord = {
@@ -28,25 +28,25 @@ type DbfField = {
 }
 
 type DbfRecord = {
-  properties: GeoProperties
-  sourceRef: GeoFeatureByteRange
+  properties: Props
+  sourceRef: ByteRange
   deleted: boolean
 }
 
-export class ShapefileGeoSource extends FileGeoSource {
+export class ShpSource extends FileSource {
   readonly type = 'shapefile'
   readonly crs: CrsCode
 
   private readonly dbfEncoding?: BufferEncoding
   private readonly highWaterMark?: number
-  private readonly transformFeature?: ShapefileGeoSourceOptions['transformFeature']
+  private readonly transformFeature?: ShpSourceOptions['transformFeature']
   private dbfReader: DbfReader | null = null
 
   constructor(
     readonly id: string,
     private readonly shpPath: PathLike,
     private readonly dbfPath: PathLike,
-    options: ShapefileGeoSourceOptions = {}
+    options: ShpSourceOptions = {}
   ) {
     super()
 
@@ -92,10 +92,10 @@ export class ShapefileGeoSource extends FileGeoSource {
     }
   }
 
-  stream(options: GeoStreamOptions = {}): ReadableStream<GeoFeature> {
+  stream(options: StreamOptions = {}): ReadableStream<Feature> {
     const iterator = this.readFeatures(options.signal)[Symbol.asyncIterator]()
 
-    return new ReadableStream<GeoFeature>({
+    return new ReadableStream<Feature>({
       pull: async (controller) => {
         if (options.signal?.aborted) {
           controller.error(getAbortReason(options.signal))
@@ -122,7 +122,7 @@ export class ShapefileGeoSource extends FileGeoSource {
     })
   }
 
-  private async *readFeatures(signal?: AbortSignal): AsyncGenerator<GeoFeature> {
+  private async *readFeatures(signal?: AbortSignal): AsyncGenerator<Feature> {
     const dbf = await this.getDbfReader()
     const parser = new ShpRecordParser()
     const file = createReadStream(this.shpPath, {
@@ -142,7 +142,7 @@ export class ShapefileGeoSource extends FileGeoSource {
 
           const recordIndex = record.recordNumber - 1
           const dbfRecord = await dbf.readRecord(recordIndex)
-          const sourceRef: GeoFeatureSourceRef = {
+          const sourceRef: SourceRef = {
             storage: 'file',
             sourceId: `${this.id}:shp`,
             offset: record.offset,
@@ -152,7 +152,7 @@ export class ShapefileGeoSource extends FileGeoSource {
               dbf: dbfRecord.sourceRef
             }
           }
-          const sourceFeature: GeoFeature = {
+          const sourceFeature: Feature = {
             type: 'Feature',
             id: record.recordNumber,
             properties: dbfRecord.properties,
@@ -298,7 +298,7 @@ class DbfReader {
     }
 
     const deleted = record[0] === 0x2a
-    const properties: GeoProperties = {}
+    const properties: Props = {}
 
     if (!deleted) {
       for (const field of this.fields) {
@@ -331,7 +331,7 @@ async function readFully(handle: FileHandle, buffer: Buffer, position: number): 
 
   return total
 }
-function parseShapeGeometry(content: Buffer): GeoGeometry | null {
+function parseShapeGeometry(content: Buffer): Geometry | null {
   if (content.length < 4) return null
 
   const shapeType = content.readInt32LE(0)
@@ -365,7 +365,7 @@ function parseShapeGeometry(content: Buffer): GeoGeometry | null {
   }
 }
 
-function parsePoint(content: Buffer): GeoGeometry | null {
+function parsePoint(content: Buffer): Geometry | null {
   if (content.length < 20) return null
 
   return {
@@ -374,7 +374,7 @@ function parsePoint(content: Buffer): GeoGeometry | null {
   }
 }
 
-function parseMultiPoint(content: Buffer): GeoGeometry | null {
+function parseMultiPoint(content: Buffer): Geometry | null {
   if (content.length < 40) return null
 
   const pointCount = content.readInt32LE(36)
@@ -386,7 +386,7 @@ function parseMultiPoint(content: Buffer): GeoGeometry | null {
   }
 }
 
-function parsePolyLine(content: Buffer): GeoGeometry | null {
+function parsePolyLine(content: Buffer): Geometry | null {
   const parts = readPartedPoints(content)
   if (!parts || parts.length === 0) return null
 
@@ -403,7 +403,7 @@ function parsePolyLine(content: Buffer): GeoGeometry | null {
   }
 }
 
-function parsePolygon(content: Buffer): GeoGeometry | null {
+function parsePolygon(content: Buffer): Geometry | null {
   const rings = readPartedPoints(content)
   if (!rings || rings.length === 0) return null
 
@@ -422,7 +422,7 @@ function parsePolygon(content: Buffer): GeoGeometry | null {
   }
 }
 
-function readPartedPoints(content: Buffer): GeoPosition[][] | null {
+function readPartedPoints(content: Buffer): Position[][] | null {
   if (content.length < 44) return null
 
   const partCount = content.readInt32LE(36)
@@ -445,8 +445,8 @@ function readPartedPoints(content: Buffer): GeoPosition[][] | null {
   })
 }
 
-function readPoints(content: Buffer, offset: number, count: number): GeoPosition[] {
-  const points: GeoPosition[] = []
+function readPoints(content: Buffer, offset: number, count: number): Position[] {
+  const points: Position[] = []
 
   for (let index = 0; index < count; index += 1) {
     const pointOffset = offset + index * 16
@@ -459,9 +459,9 @@ function readPoints(content: Buffer, offset: number, count: number): GeoPosition
   return points
 }
 
-function groupPolygonRings(rings: GeoPosition[][]): GeoPosition[][][] {
-  const outerRings: GeoPosition[][] = []
-  const holes: GeoPosition[][] = []
+function groupPolygonRings(rings: Position[][]): Position[][][] {
+  const outerRings: Position[][] = []
+  const holes: Position[][] = []
 
   for (const ring of rings) {
     if (signedRingArea(ring) < 0) {
@@ -487,7 +487,7 @@ function groupPolygonRings(rings: GeoPosition[][]): GeoPosition[][][] {
   return polygons
 }
 
-function signedRingArea(ring: GeoPosition[]): number {
+function signedRingArea(ring: Position[]): number {
   let area = 0
 
   for (let index = 0; index < ring.length; index += 1) {
@@ -499,7 +499,7 @@ function signedRingArea(ring: GeoPosition[]): number {
   return area / 2
 }
 
-function pointInRing(point: GeoPosition, ring: GeoPosition[]): boolean {
+function pointInRing(point: Position, ring: Position[]): boolean {
   let inside = false
 
   for (let currentIndex = 0, previousIndex = ring.length - 1; currentIndex < ring.length; previousIndex = currentIndex, currentIndex += 1) {

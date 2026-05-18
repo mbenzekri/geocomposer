@@ -1,15 +1,15 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { renderGetMap } from '../ogc/render-get-map.js'
-import { ShapefileGeoSource } from '../source/shapefile-geo-source.js'
+import { renderMap } from '../ogc/render-map.js'
+import { ShpSource } from '../source/shp-source.js'
 import {
   WORLD_BBOX_3857,
-  worldStyleResolver
+  worldStyleFn
 } from './world-demo-common.js'
 
 await rm('style-smoke/world_shp.png', { force: true })
 await mkdir('style-smoke', { recursive: true })
 
-const source = new ShapefileGeoSource(
+const source = new ShpSource(
   'world-shp',
   'data/shapefile/world.shp',
   'data/shapefile/world.dbf'
@@ -17,13 +17,13 @@ const source = new ShapefileGeoSource(
 
 await source.open()
 try {
-  const image = await renderGetMap({
+  const image = await renderMap({
     source,
     bbox: WORLD_BBOX_3857,
     width: 500,
     height: 500,
     crs: 'EPSG:3857',
-    styleResolver: worldStyleResolver
+    style: worldStyleFn
   })
 
   await writeFile('style-smoke/world_shp.png', image)

@@ -1,16 +1,16 @@
 import type { BBox, CrsCode } from '../core/types.js'
-import { computeGeometryBBox, expandBBox } from '../geometry/bbox.js'
-import type { GeoFeature } from '../geometry/geo-feature.js'
-import { GeoSource, type GeoStreamOptions } from './geo-source.js'
+import { computeBBox, expandBBox } from '../geometry/bbox.js'
+import type { Feature } from '../geometry/feature.js'
+import { Source, type StreamOptions } from './source.js'
 
-export class MemoryGeoSource extends GeoSource {
+export class MemorySource extends Source {
   readonly type = 'memory'
   readonly storage = 'memory' as const
 
   constructor(
     readonly id: string,
     readonly crs: CrsCode,
-    private readonly features: GeoFeature[]
+    private readonly features: Feature[]
   ) {
     super()
   }
@@ -23,17 +23,17 @@ export class MemoryGeoSource extends GeoSource {
     let extent: BBox | null = null
 
     for (const feature of this.features) {
-      const bbox = feature.bbox ?? computeGeometryBBox(feature.geometry)
+      const bbox = feature.bbox ?? computeBBox(feature.geometry)
       if (bbox) extent = extent ? expandBBox(extent, bbox) : bbox
     }
 
     return extent
   }
 
-  stream(options: GeoStreamOptions = {}): ReadableStream<GeoFeature> {
+  stream(options: StreamOptions = {}): ReadableStream<Feature> {
     let index = 0
 
-    return new ReadableStream<GeoFeature>({
+    return new ReadableStream<Feature>({
       pull: (controller) => {
         if (options.signal?.aborted) {
           controller.error(options.signal.reason)

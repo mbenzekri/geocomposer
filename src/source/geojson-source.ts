@@ -1,29 +1,29 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
 import type { BBox, CrsCode } from '../core/types.js'
-import { computeGeometryBBox, expandBBox } from '../geometry/bbox.js'
-import type { GeoFeature, GeoFeatureSourceRef } from '../geometry/geo-feature.js'
-import { FileGeoSource, type GeoStreamOptions } from './geo-source.js'
+import { computeBBox, expandBBox } from '../geometry/bbox.js'
+import type { Feature, SourceRef } from '../geometry/feature.js'
+import { FileSource, type StreamOptions } from './source.js'
 
-export type GeoJsonGeoSourceOptions = {
+export type GeoJsonSourceOptions = {
   crs?: CrsCode
   encoding?: BufferEncoding
   highWaterMark?: number
-  transformFeature?: (feature: GeoFeature, index: number) => GeoFeature | Promise<GeoFeature>
+  transformFeature?: (feature: Feature, index: number) => Feature | Promise<Feature>
 }
 
-export class GeoJsonGeoSource extends FileGeoSource {
+export class GeoJsonSource extends FileSource {
   readonly type = 'geojson'
   readonly crs: CrsCode
 
   private readonly encoding: BufferEncoding
   private readonly highWaterMark?: number
-  private readonly transformFeature?: GeoJsonGeoSourceOptions['transformFeature']
+  private readonly transformFeature?: GeoJsonSourceOptions['transformFeature']
 
   constructor(
     readonly id: string,
     private readonly filePath: PathLike,
-    options: GeoJsonGeoSourceOptions = {}
+    options: GeoJsonSourceOptions = {}
   ) {
     super()
 
@@ -47,17 +47,17 @@ export class GeoJsonGeoSource extends FileGeoSource {
     let extent: BBox | null = null
 
     for await (const feature of this.readFeatures()) {
-      const bbox = feature.bbox ?? computeGeometryBBox(feature.geometry)
+      const bbox = feature.bbox ?? computeBBox(feature.geometry)
       if (bbox) extent = extent ? expandBBox(extent, bbox) : bbox
     }
 
     return extent
   }
 
-  stream(options: GeoStreamOptions = {}): ReadableStream<GeoFeature> {
+  stream(options: StreamOptions = {}): ReadableStream<Feature> {
     const iterator = this.readFeatures(options.signal)[Symbol.asyncIterator]()
 
-    return new ReadableStream<GeoFeature>({
+    return new ReadableStream<Feature>({
       pull: async (controller) => {
         if (options.signal?.aborted) {
           controller.error(getAbortReason(options.signal))
@@ -84,7 +84,7 @@ export class GeoJsonGeoSource extends FileGeoSource {
     })
   }
 
-  private async *readFeatures(signal?: AbortSignal): AsyncGenerator<GeoFeature> {
+  private async *readFeatures(signal?: AbortSignal): AsyncGenerator<Feature> {
     let index = 0
     const parser = new FeatureCollectionParser(this.encoding)
     const file = createReadStream(this.filePath, {
@@ -101,7 +101,7 @@ export class GeoJsonGeoSource extends FileGeoSource {
           const parsed = parser.read()
           if (!parsed) break
 
-          const sourceRef: GeoFeatureSourceRef = {
+          const sourceRef: SourceRef = {
             storage: 'file',
             sourceId: this.id,
             offset: parsed.offset,
@@ -133,7 +133,7 @@ type ParsedString = {
 }
 
 type ParsedFeature = {
-  feature: GeoFeature
+  feature: Feature
   offset: number
   byteLength: number
 }
@@ -272,7 +272,7 @@ class FeatureCollectionParser {
     if (end === null) return null
 
     const featureJson = Buffer.from(this.buffer.slice(start, end), 'latin1').toString(this.encoding)
-    const parsedFeature = toGeoFeature(JSON.parse(featureJson))
+    const parsedFeature = toFeature(JSON.parse(featureJson))
     const offset = this.bufferOffset + start
     // The slice starts at { and ends after }, so it can be parsed directly later.
     const byteLength = end - start
@@ -394,12 +394,12 @@ function isWhitespace(char: string): boolean {
   return char === ' ' || char === '\n' || char === '\r' || char === '\t'
 }
 
-function toGeoFeature(value: unknown): GeoFeature {
+function toFeature(value: unknown): Feature {
   if (!value || typeof value !== 'object' || (value as { type?: unknown }).type !== 'Feature') {
     throw new Error('Invalid GeoJSON: expected a Feature object')
   }
 
-  const feature = value as GeoFeature
+  const feature = value as Feature
   return {
     ...feature,
     properties: feature.properties ?? null

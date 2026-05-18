@@ -1,8 +1,8 @@
-import type { GeoFeature } from '../geometry/geo-feature.js'
-import type { OpenLayersCanvasRenderer } from './openlayers-canvas-renderer.js'
+import type { Feature } from '../geometry/feature.js'
+import type { OlRenderer } from './ol-renderer.js'
 
-export class RenderWritable extends WritableStream<GeoFeature> {
-    constructor(renderer: OpenLayersCanvasRenderer) {
+export class RenderWritable extends WritableStream<Feature> {
+    constructor(renderer: OlRenderer) {
         super({
             write(feature) {
                 return renderer.draw(feature)

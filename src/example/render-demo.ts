@@ -1,9 +1,9 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { MemoryGeoSource } from '../source/memory-geo-source.js'
-import { renderGetMap } from '../ogc/render-get-map.js'
-import { defaultStyleResolver } from '../style/default-style-resolver.js'
+import { MemorySource } from '../source/memory-source.js'
+import { renderMap } from '../ogc/render-map.js'
+import { defaultStyleFn } from '../style/default-style.js'
 
-const source = new MemoryGeoSource('demo', 'EPSG:4326', [
+const source = new MemorySource('demo', 'EPSG:4326', [
   {
     type: 'Feature',
     id: 1,
@@ -48,13 +48,13 @@ const source = new MemoryGeoSource('demo', 'EPSG:4326', [
 await rm('style-smoke/map.png', { force: true })
 await mkdir('style-smoke', { recursive: true })
 
-const image = await renderGetMap({
+const image = await renderMap({
   source,
   bbox: [-6, 42, 6, 50],
   width: 800,
   height: 600,
   crs: 'EPSG:4326',
-  styleResolver: defaultStyleResolver
+  style: defaultStyleFn
 })
 
 await writeFile('style-smoke/map.png', image)

@@ -1,17 +1,17 @@
 import { constants, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
-import type { BBox, CrsCode, GeoProperties } from '../core/types.js'
-import { computeGeometryBBox, expandBBox } from '../geometry/bbox.js'
-import type { GeoFeature, GeoFeatureSourceRef } from '../geometry/geo-feature.js'
-import type { GeoGeometry, GeoPosition } from '../geometry/geo-geometry.js'
-import { DatabaseGeoSource, type GeoStreamOptions } from './geo-source.js'
+import type { BBox, CrsCode, Props } from '../core/types.js'
+import { computeBBox, expandBBox } from '../geometry/bbox.js'
+import type { Feature, SourceRef } from '../geometry/feature.js'
+import type { Geometry, Position } from '../geometry/geometry.js'
+import { DbSource, type StreamOptions } from './source.js'
 
-export type GeoPackageGeoSourceOptions = {
+export type GpkgSourceOptions = {
   crs?: CrsCode
   tableName?: string
   geometryColumn?: string
   primaryKey?: string
-  transformFeature?: (feature: GeoFeature, index: number) => GeoFeature | Promise<GeoFeature>
+  transformFeature?: (feature: Feature, index: number) => Feature | Promise<Feature>
 }
 
 type SqliteDatabase = {
@@ -33,7 +33,7 @@ type GeoPackageTableMeta = {
 
 const GPKG_CRS_PREFIX = 'EPSG:'
 
-export class GeoPackageGeoSource extends DatabaseGeoSource {
+export class GpkgSource extends DbSource {
   readonly type = 'geopackage'
   get crs(): CrsCode {
     return this.resolvedCrs
@@ -43,7 +43,7 @@ export class GeoPackageGeoSource extends DatabaseGeoSource {
   private readonly tableName?: string
   private readonly geometryColumn?: string
   private readonly primaryKey?: string
-  private readonly transformFeature?: GeoPackageGeoSourceOptions['transformFeature']
+  private readonly transformFeature?: GpkgSourceOptions['transformFeature']
 
   private resolvedCrs: CrsCode
   private db: SqliteDatabase | null = null
@@ -52,7 +52,7 @@ export class GeoPackageGeoSource extends DatabaseGeoSource {
   constructor(
     readonly id: string,
     private readonly filePath: PathLike,
-    options: GeoPackageGeoSourceOptions = {}
+    options: GpkgSourceOptions = {}
   ) {
     super()
 
@@ -100,17 +100,17 @@ export class GeoPackageGeoSource extends DatabaseGeoSource {
     let extent: BBox | null = null
 
     for await (const feature of this.readFeatures()) {
-      const bbox = feature.bbox ?? computeGeometryBBox(feature.geometry)
+      const bbox = feature.bbox ?? computeBBox(feature.geometry)
       if (bbox) extent = extent ? expandBBox(extent, bbox) : bbox
     }
 
     return extent
   }
 
-  stream(options: GeoStreamOptions = {}): ReadableStream<GeoFeature> {
+  stream(options: StreamOptions = {}): ReadableStream<Feature> {
     const iterator = this.readFeatures(options.signal)[Symbol.asyncIterator]()
 
-    return new ReadableStream<GeoFeature>({
+    return new ReadableStream<Feature>({
       pull: async (controller) => {
         if (options.signal?.aborted) {
           controller.error(getAbortReason(options.signal))
@@ -137,7 +137,7 @@ export class GeoPackageGeoSource extends DatabaseGeoSource {
     })
   }
 
-  private async *readFeatures(signal?: AbortSignal): AsyncGenerator<GeoFeature> {
+  private async *readFeatures(signal?: AbortSignal): AsyncGenerator<Feature> {
     if (!this.db || !this.meta) {
       throw new Error('GeoPackage source is not opened')
     }
@@ -170,7 +170,7 @@ export class GeoPackageGeoSource extends DatabaseGeoSource {
 
       const row = rows[index]
       const idValue = row.__id__
-      const sourceRef: GeoFeatureSourceRef = {
+      const sourceRef: SourceRef = {
         storage: 'database',
         sourceId: this.id,
         tableName: meta.tableName,
@@ -179,13 +179,13 @@ export class GeoPackageGeoSource extends DatabaseGeoSource {
         geometryColumn: meta.geometryColumn,
         recordIndex: index
       }
-      const properties: GeoProperties = {}
+      const properties: Props = {}
 
       for (const { column, alias } of propertyAliases) {
         properties[column] = normalizePropertyValue(row[alias])
       }
 
-      const sourceFeature: GeoFeature = {
+      const sourceFeature: Feature = {
         type: 'Feature',
         id: toFeatureRowId(idValue, index),
         properties,
@@ -225,7 +225,7 @@ async function openGeoPackageDatabase(path: PathLike): Promise<SqliteDatabase> {
 
 function resolveTableMeta(
   db: SqliteDatabase,
-  options: Pick<GeoPackageGeoSourceOptions, 'tableName' | 'geometryColumn' | 'primaryKey'>
+  options: Pick<GpkgSourceOptions, 'tableName' | 'geometryColumn' | 'primaryKey'>
 ): GeoPackageTableMeta {
   let sql = [
     'SELECT',
@@ -292,7 +292,7 @@ function resolveTableMeta(
   }
 }
 
-function parseGeoPackageGeometry(value: unknown): GeoGeometry | null {
+function parseGeoPackageGeometry(value: unknown): Geometry | null {
   const buffer = toBuffer(value)
   if (!buffer) return null
   if (buffer.length < 8) {
@@ -342,7 +342,7 @@ class WkbReader {
     return this.offset === this.buffer.length
   }
 
-  readGeometry(): GeoGeometry | null {
+  readGeometry(): Geometry | null {
     const littleEndian = this.readUInt8() === 1
     const rawType = this.readUInt32(littleEndian)
     const decoded = decodeWkbType(rawType)
@@ -381,7 +381,7 @@ class WkbReader {
     }
   }
 
-  private readPoint(dimension: number, littleEndian: boolean): GeoGeometry | null {
+  private readPoint(dimension: number, littleEndian: boolean): Geometry | null {
     const position = this.readPosition(dimension, littleEndian)
     if (Number.isNaN(position[0]) || Number.isNaN(position[1])) return null
 
@@ -391,9 +391,9 @@ class WkbReader {
     }
   }
 
-  private readLineString(dimension: number, littleEndian: boolean): GeoGeometry {
+  private readLineString(dimension: number, littleEndian: boolean): Geometry {
     const count = this.readUInt32(littleEndian)
-    const coordinates: GeoPosition[] = []
+    const coordinates: Position[] = []
 
     for (let index = 0; index < count; index += 1) {
       coordinates.push(this.readPosition(dimension, littleEndian))
@@ -405,13 +405,13 @@ class WkbReader {
     }
   }
 
-  private readPolygon(dimension: number, littleEndian: boolean): GeoGeometry {
+  private readPolygon(dimension: number, littleEndian: boolean): Geometry {
     const ringCount = this.readUInt32(littleEndian)
-    const coordinates: GeoPosition[][] = []
+    const coordinates: Position[][] = []
 
     for (let ringIndex = 0; ringIndex < ringCount; ringIndex += 1) {
       const pointCount = this.readUInt32(littleEndian)
-      const ring: GeoPosition[] = []
+      const ring: Position[] = []
 
       for (let pointIndex = 0; pointIndex < pointCount; pointIndex += 1) {
         ring.push(this.readPosition(dimension, littleEndian))
@@ -426,9 +426,9 @@ class WkbReader {
     }
   }
 
-  private readMultiPoint(dimension: number, littleEndian: boolean): GeoGeometry | null {
+  private readMultiPoint(dimension: number, littleEndian: boolean): Geometry | null {
     const count = this.readUInt32(littleEndian)
-    const coordinates: GeoPosition[] = []
+    const coordinates: Position[] = []
 
     for (let index = 0; index < count; index += 1) {
       const geometry = this.readGeometry()
@@ -441,7 +441,7 @@ class WkbReader {
       const position = geometry.coordinates
       if (position.length < dimension) {
         // Keep parsing defensive for mixed-dimension payloads.
-        coordinates.push([...position] as GeoPosition)
+        coordinates.push([...position] as Position)
       } else {
         coordinates.push(position)
       }
@@ -455,9 +455,9 @@ class WkbReader {
       }
   }
 
-  private readMultiLineString(_: number, littleEndian: boolean): GeoGeometry | null {
+  private readMultiLineString(_: number, littleEndian: boolean): Geometry | null {
     const count = this.readUInt32(littleEndian)
-    const coordinates: GeoPosition[][] = []
+    const coordinates: Position[][] = []
 
     for (let index = 0; index < count; index += 1) {
       const geometry = this.readGeometry()
@@ -478,9 +478,9 @@ class WkbReader {
     }
   }
 
-  private readMultiPolygon(_: number, littleEndian: boolean): GeoGeometry | null {
+  private readMultiPolygon(_: number, littleEndian: boolean): Geometry | null {
     const count = this.readUInt32(littleEndian)
-    const coordinates: GeoPosition[][][] = []
+    const coordinates: Position[][][] = []
 
     for (let index = 0; index < count; index += 1) {
       const geometry = this.readGeometry()
@@ -501,9 +501,9 @@ class WkbReader {
     }
   }
 
-  private readGeometryCollection(littleEndian: boolean): GeoGeometry | null {
+  private readGeometryCollection(littleEndian: boolean): Geometry | null {
     const count = this.readUInt32(littleEndian)
-    const geometries: GeoGeometry[] = []
+    const geometries: Geometry[] = []
 
     for (let index = 0; index < count; index += 1) {
       const geometry = this.readGeometry()
@@ -515,35 +515,35 @@ class WkbReader {
     if (geometries.every((geometry) => geometry.type === 'Point')) {
       return {
         type: 'MultiPoint',
-        coordinates: geometries.map((geometry) => (geometry as { type: 'Point', coordinates: GeoPosition }).coordinates)
+        coordinates: geometries.map((geometry) => (geometry as { type: 'Point', coordinates: Position }).coordinates)
       }
     }
 
     if (geometries.every((geometry) => geometry.type === 'LineString')) {
       return {
         type: 'MultiLineString',
-        coordinates: geometries.map((geometry) => (geometry as { type: 'LineString', coordinates: GeoPosition[] }).coordinates)
+        coordinates: geometries.map((geometry) => (geometry as { type: 'LineString', coordinates: Position[] }).coordinates)
       }
     }
 
     if (geometries.every((geometry) => geometry.type === 'Polygon')) {
       return {
         type: 'MultiPolygon',
-        coordinates: geometries.map((geometry) => (geometry as { type: 'Polygon', coordinates: GeoPosition[][] }).coordinates)
+        coordinates: geometries.map((geometry) => (geometry as { type: 'Polygon', coordinates: Position[][] }).coordinates)
       }
     }
 
     return null
   }
 
-  private readPosition(dimension: number, littleEndian: boolean): GeoPosition {
+  private readPosition(dimension: number, littleEndian: boolean): Position {
     const values: number[] = []
 
     for (let index = 0; index < dimension; index += 1) {
       values.push(this.readFloat64(littleEndian))
     }
 
-    return values as GeoPosition
+    return values as Position
   }
 
   private readUInt8(): number {

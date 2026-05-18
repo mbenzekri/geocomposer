@@ -5,8 +5,8 @@ import RegularShape from 'ol/style/RegularShape.js'
 import Stroke from 'ol/style/Stroke.js'
 import Style from 'ol/style/Style.js'
 import Text from 'ol/style/Text.js'
-import type { GeoFeature } from '../geometry/geo-feature.js'
-import type { StyleResolver } from './style-resolver.js'
+import type { Feature } from '../geometry/feature.js'
+import type { StyleFn } from './style-fn.js'
 
 type JsonObject = Record<string, unknown>
 type DynamicExpression = string | string[]
@@ -40,15 +40,15 @@ export type DynamicStylePatch = {
   value: unknown
 }
 
-export type DynamicStyleResolverOptions = {
+export type DynamicStyleOptions = {
   userdata?: () => unknown
   units?: 'm' | 'dd'
   dotsPerInch?: number
-  scale?: (feature: GeoFeature, resolution: number) => number
+  scale?: (feature: Feature, resolution: number) => number
 }
 
 type DynamicStyleContext = {
-  feature: GeoFeatureExpressionView
+  feature: FeatureView
   resolution: number
   scale: number
   lowerScale: number
@@ -67,11 +67,11 @@ const STYLE_NAME = Symbol('dynamicStyleName')
 
 let layerCount = 0
 
-export async function createDynamicStyleResolver(
+export async function createDynamicStyleFn(
   name: string,
   jsonStyle: DynamicStyleJson,
-  options: DynamicStyleResolverOptions = {}
-): Promise<StyleResolver> {
+  options: DynamicStyleOptions = {}
+): Promise<StyleFn> {
   return new DynamicStyle(name, jsonStyle, options).compile()
 }
 
@@ -81,7 +81,7 @@ export class DynamicStyle {
   private readonly userdata: () => unknown
   private readonly units: 'm' | 'dd'
   private readonly dotsPerInch: number
-  private readonly scaleOverride?: (feature: GeoFeature, resolution: number) => number
+  private readonly scaleOverride?: (feature: Feature, resolution: number) => number
   private context: DynamicStyleContext | null = null
   private lastScaleRange: [number | undefined, number | undefined] = [undefined, undefined]
   private compiled = false
@@ -89,7 +89,7 @@ export class DynamicStyle {
   constructor(
     private readonly name: string = `LAYER${++layerCount}`,
     jsonStyle: DynamicStyleJson,
-    options: DynamicStyleResolverOptions = {}
+    options: DynamicStyleOptions = {}
   ) {
     this.jsonStyle = normalizeStyleJson(jsonStyle, this.name)
     this.userdata = options.userdata ?? (() => ({}))
@@ -98,7 +98,7 @@ export class DynamicStyle {
     this.scaleOverride = options.scale
   }
 
-  async compile(): Promise<StyleResolver> {
+  async compile(): Promise<StyleFn> {
     if (!this.compiled) {
       this.compileExpressions()
       this.compileDefinitions()
@@ -108,7 +108,7 @@ export class DynamicStyle {
     return (feature, resolution) => this.resolve(feature, resolution)
   }
 
-  private resolve(feature: GeoFeature, resolution: number): Style[] | null {
+  private resolve(feature: Feature, resolution: number): Style[] | null {
     if (!this.jsonStyle.visible) return null
 
     const scale = this.scale(feature, resolution)
@@ -146,11 +146,11 @@ export class DynamicStyle {
     return this.jsonStyle.definitions
   }
 
-  private setContext(feature: GeoFeature, resolution: number, scale: number): void {
+  private setContext(feature: Feature, resolution: number, scale: number): void {
     const [lowerScale, upperScale] = this.rangeScale(scale)
 
     this.context = {
-      feature: new GeoFeatureExpressionView(feature),
+      feature: new FeatureView(feature),
       resolution,
       scale,
       lowerScale,
@@ -161,7 +161,7 @@ export class DynamicStyle {
     }
   }
 
-  private scale(feature: GeoFeature, resolution: number): number {
+  private scale(feature: Feature, resolution: number): number {
     if (this.scaleOverride) return this.scaleOverride(feature, resolution)
     return INCHES_PER_UNIT[this.units] * this.dotsPerInch * resolution
   }
@@ -520,15 +520,15 @@ export class DynamicStyle {
   }
 }
 
-class GeoFeatureExpressionView {
-  readonly id: GeoFeature['id']
-  readonly properties: GeoFeature['properties']
-  readonly geometry: GeoFeature['geometry']
-  readonly bbox: GeoFeature['bbox']
-  readonly crs: GeoFeature['crs']
-  readonly sourceRef: GeoFeature['sourceRef']
+class FeatureView {
+  readonly id: Feature['id']
+  readonly properties: Feature['properties']
+  readonly geometry: Feature['geometry']
+  readonly bbox: Feature['bbox']
+  readonly crs: Feature['crs']
+  readonly sourceRef: Feature['sourceRef']
 
-  constructor(readonly raw: GeoFeature) {
+  constructor(readonly raw: Feature) {
     this.id = raw.id
     this.properties = raw.properties
     this.geometry = raw.geometry
@@ -542,11 +542,11 @@ class GeoFeatureExpressionView {
     return this.properties?.[property]
   }
 
-  getId(): GeoFeature['id'] {
+  getId(): Feature['id'] {
     return this.id
   }
 
-  getProperties(): GeoFeature['properties'] {
+  getProperties(): Feature['properties'] {
     return this.properties
   }
 }

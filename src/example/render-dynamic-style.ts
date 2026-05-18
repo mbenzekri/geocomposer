@@ -1,9 +1,9 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { renderGetMap } from '../ogc/render-get-map.js'
-import { MemoryGeoSource } from '../source/memory-geo-source.js'
-import { createDynamicStyleResolver } from '../style/dynamic-style-resolver.js'
+import { renderMap } from '../ogc/render-map.js'
+import { MemorySource } from '../source/memory-source.js'
+import { createDynamicStyleFn } from '../style/dynamic-style.js'
 
-const source = new MemoryGeoSource('dynamic-style-demo', 'EPSG:4326', [
+const source = new MemorySource('dynamic-style-demo', 'EPSG:4326', [
   {
     type: 'Feature',
     id: 1,
@@ -43,7 +43,7 @@ const source = new MemoryGeoSource('dynamic-style-demo', 'EPSG:4326', [
   }
 ])
 
-const styleResolver = await createDynamicStyleResolver('dynamic-demo', {
+const style = await createDynamicStyleFn('dynamic-demo', {
   constants: {
     colors: {
       area: 'rgba(22, 163, 74, 0.22)',
@@ -94,13 +94,13 @@ const styleResolver = await createDynamicStyleResolver('dynamic-demo', {
 await rm('style-smoke/dynamic-style.png', { force: true })
 await mkdir('style-smoke', { recursive: true })
 
-const image = await renderGetMap({
+const image = await renderMap({
   source,
   bbox: [-6, 42, 6, 50],
   width: 800,
   height: 600,
   crs: 'EPSG:4326',
-  styleResolver
+  style
 })
 
 await writeFile('style-smoke/dynamic-style.png', image)
