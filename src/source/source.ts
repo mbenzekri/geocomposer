@@ -3,7 +3,7 @@ import type { BBox, CrsCode } from '../core/types.js'
 import type { Feature, SourceRef } from '../geometry/feature.js'
 import { BboxFilter } from '../transform/bbox-filter.js'
 
-export type SourceStorage = 'memory' | 'file' | 'database'
+export type SourceStorage = 'mem' | 'file' | 'database'
 
 export type SourceFileRole = 'data' | 'geometry' | 'attributes' | 'index' | 'metadata'
 

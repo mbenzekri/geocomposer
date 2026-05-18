@@ -1,9 +1,9 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { renderMap } from '../ogc/render-map.js'
-import { MemorySource } from '../source/memory-source.js'
+import { MemSource } from '../source/mem-source.js'
 import { createDynamicStyleFn } from '../style/dynamic-style.js'
 
-const source = new MemorySource('dynamic-style-demo', 'EPSG:4326', [
+const source = new MemSource('dynamic-style-demo', 'EPSG:4326', [
   {
     type: 'Feature',
     id: 1,

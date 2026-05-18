@@ -12,7 +12,7 @@ import Text from 'ol/style/Text.js'
 import Icon from 'ol/style/Icon.js'
 import type { Feature } from '../geometry/feature.js'
 import { renderMap } from '../ogc/render-map.js'
-import { MemorySource } from '../source/memory-source.js'
+import { MemSource } from '../source/mem-source.js'
 import type { StyleFn } from '../style/style-fn.js'
 
 const pngIconPath = resolve('style-smoke/icon-source.png')
@@ -208,7 +208,7 @@ let failed = false
 
 for (const smokeCase of smokeCases) {
   try {
-    const source = new MemorySource(smokeCase.name, 'EPSG:4326', [smokeCase.feature])
+    const source = new MemSource(smokeCase.name, 'EPSG:4326', [smokeCase.feature])
     const olStyle = await smokeCase.style()
     const style: StyleFn = () => olStyle
 

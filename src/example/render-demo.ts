@@ -1,9 +1,9 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { MemorySource } from '../source/memory-source.js'
+import { MemSource } from '../source/mem-source.js'
 import { renderMap } from '../ogc/render-map.js'
 import { defaultStyleFn } from '../style/default-style.js'
 
-const source = new MemorySource('demo', 'EPSG:4326', [
+const source = new MemSource('demo', 'EPSG:4326', [
   {
     type: 'Feature',
     id: 1,

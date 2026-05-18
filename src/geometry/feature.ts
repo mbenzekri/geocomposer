@@ -19,7 +19,13 @@ export type DbRef = {
   geometryColumn?: string
 }
 
-export type SourceLoc = FileRef | DbRef
+export type MemRef = {
+  storage: 'mem'
+  sourceId: string
+  featureIndex: number
+}
+
+export type SourceLoc = FileRef | DbRef | MemRef
 
 export type SourceRef = SourceLoc & {
   recordIndex?: number
