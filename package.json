@@ -12,6 +12,8 @@
     "demo:world:gml": "tsx src/example/render-world-gml.ts",
     "demo:world:gpkg": "tsx src/example/render-world-geopackage.ts",
     "demo:dynamic-style": "tsx src/example/render-dynamic-style.ts",
+    "serve:wms": "tsx src/example/run-world-wms-server.ts",
+    "wms:world": "tsx src/example/run-world-wms-server.ts",
     "demo:all": "npm run build && npm run demo:styles && npm run demo && npm run demo:world && npm run demo:world:shp && npm run demo:world:gml && npm run demo:world:gpkg && npm run demo:dynamic-style"
   },
   "dependencies": {

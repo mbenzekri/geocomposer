@@ -6,7 +6,20 @@ import { RenderWritable } from '../render/render-writable.js'
 import { BboxFilter } from '../transform/bbox-filter.js'
 import { Reproject } from '../transform/reproject.js'
 
+export type RenderLayer = {
+  source: Source
+  style: StyleFn
+}
+
 export type RenderMapOptions = {
+  layers: RenderLayer[]
+  bbox: BBox
+  width: number
+  height: number
+  crs: CrsCode
+}
+
+export type RenderSingleMapOptions = {
   source: Source
   bbox: BBox
   width: number
@@ -15,27 +28,45 @@ export type RenderMapOptions = {
   style: StyleFn
 }
 
-export async function renderMap(options: RenderMapOptions): Promise<Buffer> {
+export async function renderMap(options: RenderMapOptions | RenderSingleMapOptions): Promise<Buffer> {
   const resolution = (options.bbox[2] - options.bbox[0]) / options.width
+  const layers = 'layers' in options
+    ? options.layers
+    : [{ source: options.source, style: options.style }]
 
   const renderer = new OlRenderer(
     options.width,
     options.height,
     options.bbox,
-    options.style,
+    layers[0]?.style ?? (() => null),
     resolution
   )
 
-  const needsReprojection = options.source.crs !== options.crs
-  const projected = needsReprojection
-    ? options.source
-      .stream()
-      .pipeThrough(new Reproject(options.source.crs, options.crs))
-    : options.source.stream()
+  for (const layer of layers) {
+    const layerRenderer = new OlRenderer(
+      options.width,
+      options.height,
+      options.bbox,
+      layer.style,
+      resolution
+    )
+    const needsReprojection = layer.source.crs !== options.crs
+    const projected = needsReprojection
+      ? layer.source
+        .stream()
+        .pipeThrough(new Reproject(layer.source.crs, options.crs))
+      : layer.source.stream()
 
-  await projected
-    .pipeThrough(new BboxFilter(options.bbox))
-    .pipeTo(new RenderWritable(renderer))
+    await projected
+      .pipeThrough(new BboxFilter(options.bbox))
+      .pipeTo(new RenderWritable(layerRenderer))
+
+    await mergeRenderer(renderer, layerRenderer)
+  }
 
   return renderer.toPngBuffer()
+}
+
+async function mergeRenderer(base: OlRenderer, layer: OlRenderer): Promise<void> {
+  await base.drawPngBuffer(layer.toPngBuffer())
 }

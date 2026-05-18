@@ -1,7 +1,8 @@
 import {
     Canvas,
     CanvasRenderingContext2D,
-    createCanvas
+    createCanvas,
+    loadImage
 } from 'canvas'
 import './openlayers-node-shim.js'
 import ImageState from 'ol/ImageState.js'
@@ -66,6 +67,11 @@ export class OlRenderer {
 
     toPngBuffer(): Buffer {
         return this.canvas.toBuffer('image/png')
+    }
+
+    async drawPngBuffer(imageBuffer: Buffer): Promise<void> {
+        const image = await loadImage(imageBuffer)
+        this.context.drawImage(image, 0, 0)
     }
 }
 
