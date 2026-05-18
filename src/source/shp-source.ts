@@ -1,9 +1,10 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open, readFile, type FileHandle } from 'node:fs/promises'
 import type { BBox, CrsCode, Props } from '../core/types.js'
-import type { Feature, ByteRange, SourceRef } from '../geometry/feature.js'
+import { Geom } from '../geometry/geom.js'
+import type { Feature, ByteRange, FileRef, SourceRef } from '../geometry/feature.js'
 import type { Geometry, Position } from '../geometry/geometry.js'
-import { FileSource, type StreamOptions } from './source.js'
+import { FileSource, type StreamOptions, toStream } from './source.js'
 
 export type ShpSourceOptions = {
   crs?: CrsCode
@@ -37,10 +38,8 @@ export class ShpSource extends FileSource {
   readonly type = 'shapefile'
   readonly crs: CrsCode
 
-  private readonly dbfEncoding?: BufferEncoding
-  private readonly highWaterMark?: number
   private readonly transformFeature?: ShpSourceOptions['transformFeature']
-  private dbfReader: DbfReader | null = null
+  private readonly reader: ShpReader
 
   constructor(
     readonly id: string,
@@ -51,9 +50,11 @@ export class ShpSource extends FileSource {
     super()
 
     this.crs = options.crs ?? 'EPSG:4326'
-    this.dbfEncoding = options.dbfEncoding
-    this.highWaterMark = options.highWaterMark
     this.transformFeature = options.transformFeature
+    this.reader = new ShpReader(this.id, this.shpPath, this.dbfPath, {
+      dbfEncoding: options.dbfEncoding,
+      highWaterMark: options.highWaterMark
+    })
   }
 
   getFiles() {
@@ -62,6 +63,69 @@ export class ShpSource extends FileSource {
       { role: 'attributes', path: this.dbfPath }
     ]
   }
+
+  async open(): Promise<void> {
+    await this.reader.open()
+  }
+
+  async close(): Promise<void> {
+    await this.reader.close()
+  }
+
+  async getExtent(): Promise<BBox | null> {
+    let extent: BBox | null = null
+
+    for await (const feature of this.readAll()) {
+      const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
+      if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
+    }
+
+    return extent
+  }
+
+  stream(options: StreamOptions = {}): ReadableStream<Feature> {
+    return toStream(this.readAll(options.signal), options, getAbortReason)
+  }
+
+  async read(sourceRef: SourceRef): Promise<Feature | null> {
+    const feature = await this.reader.read(sourceRef)
+    if (!feature) return null
+    return this.mapFeature(feature, sourceRef.recordIndex ?? 0)
+  }
+
+  private async *readAll(signal?: AbortSignal): AsyncGenerator<Feature> {
+    let index = 0
+
+    for await (const feature of this.reader.stream(signal)) {
+      yield await this.mapFeature(feature, index)
+      index += 1
+    }
+  }
+
+  private async mapFeature(feature: Feature, index: number): Promise<Feature> {
+    const output = this.transformFeature
+      ? await this.transformFeature(feature, index)
+      : feature
+
+    return {
+      ...output,
+      sourceRef: feature.sourceRef
+    }
+  }
+}
+
+class ShpReader {
+  private dbfReader: DbfReader | null = null
+
+  constructor(
+    private readonly sourceId: string,
+    private readonly shpPath: PathLike,
+    private readonly dbfPath: PathLike,
+    private readonly options: {
+      dbfEncoding?: BufferEncoding
+      highWaterMark?: number
+    }
+  ) {}
 
   async open(): Promise<void> {
     await access(this.shpPath, constants.R_OK)
@@ -74,60 +138,12 @@ export class ShpSource extends FileSource {
     this.dbfReader = null
   }
 
-  async getExtent(): Promise<BBox | null> {
-    const handle = await open(this.shpPath, 'r')
-    try {
-      const header = Buffer.alloc(100)
-      const bytesRead = await readFully(handle, header, 0)
-      if (bytesRead < header.length) return null
-
-      return [
-        header.readDoubleLE(36),
-        header.readDoubleLE(44),
-        header.readDoubleLE(52),
-        header.readDoubleLE(60)
-      ]
-    } finally {
-      await handle.close()
-    }
-  }
-
-  stream(options: StreamOptions = {}): ReadableStream<Feature> {
-    const iterator = this.readFeatures(options.signal)[Symbol.asyncIterator]()
-
-    return new ReadableStream<Feature>({
-      pull: async (controller) => {
-        if (options.signal?.aborted) {
-          controller.error(getAbortReason(options.signal))
-          return
-        }
-
-        try {
-          const result = await iterator.next()
-
-          if (result.done) {
-            controller.close()
-            return
-          }
-
-          controller.enqueue(result.value)
-        } catch (error) {
-          controller.error(error)
-        }
-      },
-
-      cancel: async () => {
-        await iterator.return?.(undefined)
-      }
-    })
-  }
-
-  private async *readFeatures(signal?: AbortSignal): AsyncGenerator<Feature> {
+  async *stream(signal?: AbortSignal): AsyncGenerator<Feature> {
     const dbf = await this.getDbfReader()
     const parser = new ShpRecordParser()
     const file = createReadStream(this.shpPath, {
       start: 100,
-      highWaterMark: this.highWaterMark,
+      highWaterMark: this.options.highWaterMark,
       signal
     })
 
@@ -140,30 +156,7 @@ export class ShpSource extends FileSource {
           const record = parser.read()
           if (!record) break
 
-          const recordIndex = record.recordNumber - 1
-          const dbfRecord = await dbf.readRecord(recordIndex)
-          const sourceRef: SourceRef = {
-            storage: 'file',
-            sourceId: `${this.id}:shp`,
-            offset: record.offset,
-            byteLength: record.byteLength,
-            recordIndex,
-            related: {
-              dbf: dbfRecord.sourceRef
-            }
-          }
-          const sourceFeature: Feature = {
-            type: 'Feature',
-            id: record.recordNumber,
-            properties: dbfRecord.properties,
-            geometry: parseShapeGeometry(record.content),
-            sourceRef
-          }
-          const outputFeature = this.transformFeature
-            ? await this.transformFeature(sourceFeature, recordIndex)
-            : sourceFeature
-
-          yield { ...outputFeature, sourceRef }
+          yield this.toFeature(record, await dbf.readRecord(record.recordNumber - 1))
           throwIfAborted(signal)
         }
       }
@@ -176,12 +169,75 @@ export class ShpSource extends FileSource {
     }
   }
 
+  async read(sourceRef: SourceRef): Promise<Feature | null> {
+    const ref = this.toShpRef(sourceRef)
+    const handle = await open(this.shpPath, 'r')
+    const dbf = await this.getDbfReader()
+
+    try {
+      const buffer = Buffer.alloc(ref.byteLength)
+      const bytesRead = await readFully(handle, buffer, ref.offset)
+      if (bytesRead < ref.byteLength) {
+        throw new Error('Invalid shapefile sourceRef: byte range exceeds file length')
+      }
+
+      if (buffer.length < 8) {
+        throw new Error('Invalid shapefile sourceRef: record is shorter than the SHP header')
+      }
+
+      const record: ShpRecord = {
+        recordNumber: buffer.readInt32BE(0),
+        offset: ref.offset,
+        byteLength: ref.byteLength,
+        content: buffer.subarray(8)
+      }
+      const recordIndex = ref.recordIndex ?? record.recordNumber - 1
+
+      return this.toFeature(record, await dbf.readRecord(recordIndex), recordIndex)
+    } finally {
+      await handle.close()
+    }
+  }
+
   private async getDbfReader(): Promise<DbfReader> {
     if (this.dbfReader) return this.dbfReader
 
-    const encoding = this.dbfEncoding ?? await readDbfEncoding(this.dbfPath)
-    this.dbfReader = await DbfReader.open(`${this.id}:dbf`, this.dbfPath, encoding)
+    const encoding = this.options.dbfEncoding ?? await readDbfEncoding(this.dbfPath)
+    this.dbfReader = await DbfReader.open(`${this.sourceId}:dbf`, this.dbfPath, encoding)
     return this.dbfReader
+  }
+
+  private toFeature(record: ShpRecord, dbfRecord: DbfRecord, recordIndex = record.recordNumber - 1): Feature {
+    const sourceRef: SourceRef = {
+      storage: 'file',
+      sourceId: `${this.sourceId}:shp`,
+      offset: record.offset,
+      byteLength: record.byteLength,
+      recordIndex,
+      related: {
+        dbf: dbfRecord.sourceRef
+      }
+    }
+
+    return {
+      type: 'Feature',
+      id: record.recordNumber,
+      properties: dbfRecord.properties,
+      geometry: parseShapeGeometry(record.content),
+      sourceRef
+    }
+  }
+
+  private toShpRef(sourceRef: SourceRef): FileRef & Pick<SourceRef, 'recordIndex' | 'related'> {
+    if (sourceRef.sourceId !== `${this.sourceId}:shp`) {
+      throw new Error(`Shapefile sourceRef belongs to "${sourceRef.sourceId}", expected "${this.sourceId}:shp"`)
+    }
+
+    if (typeof (sourceRef as Partial<FileRef>).offset !== 'number' || typeof (sourceRef as Partial<FileRef>).byteLength !== 'number') {
+      throw new Error('Shapefile sourceRef must include offset and byteLength')
+    }
+
+    return sourceRef as FileRef & Pick<SourceRef, 'recordIndex' | 'related'>
   }
 }
 

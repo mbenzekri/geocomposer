@@ -1,6 +1,6 @@
 import type { PathLike } from 'node:fs'
 import type { BBox, CrsCode } from '../core/types.js'
-import type { Feature } from '../geometry/feature.js'
+import type { Feature, SourceRef } from '../geometry/feature.js'
 import { BboxFilter } from '../transform/bbox-filter.js'
 
 export type SourceStorage = 'memory' | 'file' | 'database'
@@ -33,6 +33,7 @@ export abstract class Source {
   abstract getExtent(): Promise<BBox | null>
 
   abstract stream(options?: StreamOptions): ReadableStream<Feature>
+  abstract read(sourceRef: SourceRef): Promise<Feature | null>
 
   query(options: QueryOptions): ReadableStream<Feature> {
     const input = this.stream(options)
@@ -53,4 +54,38 @@ export abstract class FileSource extends Source {
 
 export abstract class DbSource extends Source {
   readonly storage = 'database' as const
+}
+
+export function toStream<T>(
+  items: AsyncIterable<T>,
+  options: StreamOptions = {},
+  getAbortReason?: (signal: AbortSignal) => unknown
+): ReadableStream<T> {
+  const iterator = items[Symbol.asyncIterator]()
+
+  return new ReadableStream<T>({
+    pull: async (controller) => {
+      if (options.signal?.aborted) {
+        controller.error(getAbortReason ? getAbortReason(options.signal) : options.signal.reason)
+        return
+      }
+
+      try {
+        const result = await iterator.next()
+
+        if (result.done) {
+          controller.close()
+          return
+        }
+
+        controller.enqueue(result.value)
+      } catch (error) {
+        controller.error(error)
+      }
+    },
+
+    cancel: async () => {
+      await iterator.return?.(undefined)
+    }
+  })
 }

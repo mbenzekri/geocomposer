@@ -13,7 +13,7 @@
 - P1: Shorter names. Prefer concise, explicit names over Java-style long compounds. Avoid `Geo` prefixes unless they remove real ambiguity. Do not keep old long-name compatibility aliases after a rename unless the user explicitly asks for them.
 - P2: Not currently desired. Do not add broad OO wrappers around map jobs/views unless the user reopens this topic.
 - P3: Keep `Feature` and `Geometry` as plain GeoJSON-shaped POJO payloads and use them as-is whenever possible. Avoid converting them into domain classes. Put geometry behavior in static helpers such as `Geom.bbox(...)`, `Geom.intersects(...)`, and `Geom.expand(...)`.
-- P4: Split format sources from readers/parsers when a source starts doing too much.
+- P4: Split format sources from readers/parsers when a source starts doing too much. `Source` owns the public API; `Reader` stays private to its `Source`. A private `Reader` may support both full sequential reads and targeted rereads from `sourceRef`.
 - P5: Use a small stable vocabulary: `Source`, `Reader`, `Filter`, `Projector`, `Renderer`, `StyleFn`, `View`.
 - P6: Apply the style incrementally instead of doing unrelated broad refactors.
 

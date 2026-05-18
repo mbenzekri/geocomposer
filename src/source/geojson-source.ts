@@ -1,9 +1,9 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
-import { access } from 'node:fs/promises'
+import { access, open, type FileHandle } from 'node:fs/promises'
 import type { BBox, CrsCode } from '../core/types.js'
 import { Geom } from '../geometry/geom.js'
-import type { Feature, SourceRef } from '../geometry/feature.js'
-import { FileSource, type StreamOptions } from './source.js'
+import type { Feature, FileRef, SourceRef } from '../geometry/feature.js'
+import { FileSource, type StreamOptions, toStream } from './source.js'
 
 export type GeoJsonSourceOptions = {
   crs?: CrsCode
@@ -16,9 +16,8 @@ export class GeoJsonSource extends FileSource {
   readonly type = 'geojson'
   readonly crs: CrsCode
 
-  private readonly encoding: BufferEncoding
-  private readonly highWaterMark?: number
   private readonly transformFeature?: GeoJsonSourceOptions['transformFeature']
+  private readonly reader: GeoJsonReader
 
   constructor(
     readonly id: string,
@@ -28,9 +27,11 @@ export class GeoJsonSource extends FileSource {
     super()
 
     this.crs = options.crs ?? 'EPSG:4326'
-    this.encoding = options.encoding ?? 'utf8'
-    this.highWaterMark = options.highWaterMark
     this.transformFeature = options.transformFeature
+    this.reader = new GeoJsonReader(this.id, this.filePath, {
+      encoding: options.encoding ?? 'utf8',
+      highWaterMark: options.highWaterMark
+    })
   }
 
   getFiles() {
@@ -38,15 +39,17 @@ export class GeoJsonSource extends FileSource {
   }
 
   async open(): Promise<void> {
-    await access(this.filePath, constants.R_OK)
+    await this.reader.open()
   }
 
-  async close(): Promise<void> {}
+  async close(): Promise<void> {
+    await this.reader.close()
+  }
 
   async getExtent(): Promise<BBox | null> {
     let extent: BBox | null = null
 
-    for await (const feature of this.readFeatures()) {
+    for await (const feature of this.readAll()) {
       const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
       if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
     }
@@ -55,65 +58,75 @@ export class GeoJsonSource extends FileSource {
   }
 
   stream(options: StreamOptions = {}): ReadableStream<Feature> {
-    const iterator = this.readFeatures(options.signal)[Symbol.asyncIterator]()
-
-    return new ReadableStream<Feature>({
-      pull: async (controller) => {
-        if (options.signal?.aborted) {
-          controller.error(getAbortReason(options.signal))
-          return
-        }
-
-        try {
-          const result = await iterator.next()
-
-          if (result.done) {
-            controller.close()
-            return
-          }
-
-          controller.enqueue(result.value)
-        } catch (error) {
-          controller.error(error)
-        }
-      },
-
-      cancel: async () => {
-        await iterator.return?.(undefined)
-      }
-    })
+    return toStream(this.readAll(options.signal), options, getAbortReason)
   }
 
-  private async *readFeatures(signal?: AbortSignal): AsyncGenerator<Feature> {
+  async read(sourceRef: SourceRef): Promise<Feature | null> {
+    const feature = await this.reader.read(sourceRef)
+    if (!feature) return null
+    return this.mapFeature(feature, sourceRef.recordIndex ?? 0)
+  }
+
+  private async *readAll(signal?: AbortSignal): AsyncGenerator<Feature> {
     let index = 0
-    const parser = new FeatureCollectionParser(this.encoding)
+
+    for await (const feature of this.reader.stream(signal)) {
+      yield await this.mapFeature(feature, index)
+      index += 1
+    }
+  }
+
+  private async mapFeature(feature: Feature, index: number): Promise<Feature> {
+    const output = this.transformFeature
+      ? await this.transformFeature(feature, index)
+      : feature
+
+    return {
+      ...output,
+      sourceRef: feature.sourceRef
+    }
+  }
+}
+
+class GeoJsonReader {
+  constructor(
+    private readonly sourceId: string,
+    private readonly filePath: PathLike,
+    private readonly options: {
+      encoding: BufferEncoding
+      highWaterMark?: number
+    }
+  ) {}
+
+  async open(): Promise<void> {
+    await access(this.filePath, constants.R_OK)
+  }
+
+  async close(): Promise<void> {}
+
+  async *stream(signal?: AbortSignal): AsyncGenerator<Feature> {
+    const parser = new FeatureCollectionParser(this.options.encoding)
     const file = createReadStream(this.filePath, {
-      highWaterMark: this.highWaterMark,
+      highWaterMark: this.options.highWaterMark,
       signal
     })
 
     try {
       for await (const chunk of file) {
         throwIfAborted(signal)
-        parser.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), this.encoding))
+        parser.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), this.options.encoding))
 
         for (;;) {
           const parsed = parser.read()
           if (!parsed) break
 
-          const sourceRef: SourceRef = {
+          yield this.withSourceRef(parsed.feature, {
             storage: 'file',
-            sourceId: this.id,
+            sourceId: this.sourceId,
             offset: parsed.offset,
             byteLength: parsed.byteLength
-          }
-          const sourceFeature = { ...parsed.feature, sourceRef }
-          const outputFeature = this.transformFeature
-            ? await this.transformFeature(sourceFeature, index)
-            : sourceFeature
+          })
 
-          yield { ...outputFeature, sourceRef }
-          index += 1
           throwIfAborted(signal)
         }
 
@@ -124,6 +137,51 @@ export class GeoJsonSource extends FileSource {
     } finally {
       file.destroy()
     }
+  }
+
+  async read(sourceRef: SourceRef): Promise<Feature | null> {
+    const ref = this.toFileRef(sourceRef)
+    const handle = await open(this.filePath, 'r')
+
+    try {
+      const buffer = Buffer.alloc(ref.byteLength)
+      const bytesRead = await readFully(handle, buffer, ref.offset)
+      if (bytesRead < ref.byteLength) {
+        throw new Error('Invalid GeoJSON sourceRef: byte range exceeds file length')
+      }
+
+      return this.withSourceRef(
+        toFeature(JSON.parse(buffer.toString(this.options.encoding))),
+        {
+          storage: 'file',
+          sourceId: this.sourceId,
+          offset: ref.offset,
+          byteLength: ref.byteLength,
+          recordIndex: ref.recordIndex
+        }
+      )
+    } finally {
+      await handle.close()
+    }
+  }
+
+  private withSourceRef(feature: Feature, sourceRef: SourceRef): Feature {
+    return {
+      ...feature,
+      sourceRef
+    }
+  }
+
+  private toFileRef(sourceRef: SourceRef): FileRef & Pick<SourceRef, 'recordIndex' | 'related'> {
+    if (sourceRef.sourceId !== this.sourceId) {
+      throw new Error(`GeoJSON sourceRef belongs to "${sourceRef.sourceId}", expected "${this.sourceId}"`)
+    }
+
+    if (typeof (sourceRef as Partial<FileRef>).offset !== 'number' || typeof (sourceRef as Partial<FileRef>).byteLength !== 'number') {
+      throw new Error('GeoJSON sourceRef must include offset and byteLength')
+    }
+
+    return sourceRef as FileRef & Pick<SourceRef, 'recordIndex' | 'related'>
   }
 }
 
@@ -404,6 +462,18 @@ function toFeature(value: unknown): Feature {
     ...feature,
     properties: feature.properties ?? null
   }
+}
+
+async function readFully(handle: FileHandle, buffer: Buffer, position: number): Promise<number> {
+  let total = 0
+
+  while (total < buffer.length) {
+    const { bytesRead } = await handle.read(buffer, total, buffer.length - total, position + total)
+    if (bytesRead === 0) break
+    total += bytesRead
+  }
+
+  return total
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {

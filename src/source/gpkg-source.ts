@@ -2,9 +2,9 @@ import { constants, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
 import type { BBox, CrsCode, Props } from '../core/types.js'
 import { Geom } from '../geometry/geom.js'
-import type { Feature, SourceRef } from '../geometry/feature.js'
+import type { DbRef, Feature, SourceRef } from '../geometry/feature.js'
 import type { Geometry, Position } from '../geometry/geometry.js'
-import { DbSource, type StreamOptions } from './source.js'
+import { DbSource, type StreamOptions, toStream } from './source.js'
 
 export type GpkgSourceOptions = {
   crs?: CrsCode
@@ -36,18 +36,11 @@ const GPKG_CRS_PREFIX = 'EPSG:'
 export class GpkgSource extends DbSource {
   readonly type = 'geopackage'
   get crs(): CrsCode {
-    return this.resolvedCrs
+    return this.reader.crs
   }
 
-  private readonly userCrs?: CrsCode
-  private readonly tableName?: string
-  private readonly geometryColumn?: string
-  private readonly primaryKey?: string
   private readonly transformFeature?: GpkgSourceOptions['transformFeature']
-
-  private resolvedCrs: CrsCode
-  private db: SqliteDatabase | null = null
-  private meta: GeoPackageTableMeta | null = null
+  private readonly reader: GpkgReader
 
   constructor(
     readonly id: string,
@@ -56,12 +49,82 @@ export class GpkgSource extends DbSource {
   ) {
     super()
 
+    this.transformFeature = options.transformFeature
+    this.reader = new GpkgReader(this.id, this.filePath, {
+      crs: options.crs,
+      tableName: options.tableName,
+      geometryColumn: options.geometryColumn,
+      primaryKey: options.primaryKey
+    })
+  }
+
+  async open(): Promise<void> {
+    await this.reader.open()
+  }
+
+  async close(): Promise<void> {
+    await this.reader.close()
+  }
+
+  async getExtent(): Promise<BBox | null> {
+    let extent: BBox | null = null
+
+    for await (const feature of this.readAll()) {
+      const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
+      if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
+    }
+
+    return extent
+  }
+
+  stream(options: StreamOptions = {}): ReadableStream<Feature> {
+    return toStream(this.readAll(options.signal), options, getAbortReason)
+  }
+
+  async read(sourceRef: SourceRef): Promise<Feature | null> {
+    const feature = await this.reader.read(sourceRef)
+    if (!feature) return null
+    return this.mapFeature(feature, sourceRef.recordIndex ?? 0)
+  }
+
+  private async *readAll(signal?: AbortSignal): AsyncGenerator<Feature> {
+    let index = 0
+
+    for await (const feature of this.reader.stream(signal)) {
+      yield await this.mapFeature(feature, index)
+      index += 1
+    }
+  }
+
+  private async mapFeature(feature: Feature, index: number): Promise<Feature> {
+    const output = this.transformFeature
+      ? await this.transformFeature(feature, index)
+      : feature
+
+    return {
+      ...output,
+      sourceRef: feature.sourceRef
+    }
+  }
+}
+
+class GpkgReader {
+  private readonly userCrs?: CrsCode
+  private resolvedCrs: CrsCode
+  private db: SqliteDatabase | null = null
+  private meta: GeoPackageTableMeta | null = null
+
+  constructor(
+    private readonly sourceId: string,
+    private readonly filePath: PathLike,
+    private readonly options: Pick<GpkgSourceOptions, 'crs' | 'tableName' | 'geometryColumn' | 'primaryKey'>
+  ) {
     this.userCrs = options.crs
     this.resolvedCrs = options.crs ?? 'EPSG:4326'
-    this.tableName = options.tableName
-    this.geometryColumn = options.geometryColumn
-    this.primaryKey = options.primaryKey
-    this.transformFeature = options.transformFeature
+  }
+
+  get crs(): CrsCode {
+    return this.resolvedCrs
   }
 
   async open(): Promise<void> {
@@ -69,9 +132,9 @@ export class GpkgSource extends DbSource {
 
     this.db = await openGeoPackageDatabase(this.filePath)
     this.meta = resolveTableMeta(this.db, {
-      tableName: this.tableName,
-      geometryColumn: this.geometryColumn,
-      primaryKey: this.primaryKey
+      tableName: this.options.tableName,
+      geometryColumn: this.options.geometryColumn,
+      primaryKey: this.options.primaryKey
     })
 
     if (!this.userCrs) {
@@ -88,120 +151,121 @@ export class GpkgSource extends DbSource {
     this.meta = null
   }
 
-  async getExtent(): Promise<BBox | null> {
-    if (!this.meta) {
-      throw new Error('GeoPackage source is not opened')
+  async *stream(signal?: AbortSignal): AsyncGenerator<Feature> {
+    const state = this.requireOpen()
+    const rows = state.db.prepare(this.selectAllSql(state.meta)).all()
+
+    for (let index = 0; index < rows.length; index += 1) {
+      throwIfAborted(signal)
+      yield this.toFeature(state.meta, rows[index], index)
     }
-
-    if (this.meta.extent) {
-      return this.meta.extent
-    }
-
-    let extent: BBox | null = null
-
-    for await (const feature of this.readFeatures()) {
-      const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
-      if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
-    }
-
-    return extent
   }
 
-  stream(options: StreamOptions = {}): ReadableStream<Feature> {
-    const iterator = this.readFeatures(options.signal)[Symbol.asyncIterator]()
-
-    return new ReadableStream<Feature>({
-      pull: async (controller) => {
-        if (options.signal?.aborted) {
-          controller.error(getAbortReason(options.signal))
-          return
-        }
-
-        try {
-          const result = await iterator.next()
-
-          if (result.done) {
-            controller.close()
-            return
-          }
-
-          controller.enqueue(result.value)
-        } catch (error) {
-          controller.error(error)
-        }
-      },
-
-      cancel: async () => {
-        await iterator.return?.(undefined)
-      }
-    })
+  async read(sourceRef: SourceRef): Promise<Feature | null> {
+    const state = this.requireOpen()
+    const ref = this.toDbRef(sourceRef, state.meta)
+    const row = state.db.prepare(this.selectOneSql(state.meta)).get(ref.rowId)
+    if (!row) return null
+    return this.toFeature(state.meta, row, ref.recordIndex ?? 0)
   }
 
-  private async *readFeatures(signal?: AbortSignal): AsyncGenerator<Feature> {
+  private requireOpen(): { db: SqliteDatabase, meta: GeoPackageTableMeta } {
     if (!this.db || !this.meta) {
       throw new Error('GeoPackage source is not opened')
     }
 
-    const meta = this.meta
+    return {
+      db: this.db,
+      meta: this.meta
+    }
+  }
+
+  private toFeature(meta: GeoPackageTableMeta, row: Record<string, unknown>, index: number): Feature {
+    const idValue = row.__id__
+    const rowId = toFeatureRowId(idValue, index)
+    const sourceRef: SourceRef = {
+      storage: 'database',
+      sourceId: this.sourceId,
+      tableName: meta.tableName,
+      rowId,
+      primaryKey: meta.primaryKey === 'rowid' ? undefined : meta.primaryKey,
+      geometryColumn: meta.geometryColumn,
+      recordIndex: index
+    }
+    const properties: Props = {}
+
+    for (const { column, alias } of this.propertyAliases(meta)) {
+      properties[column] = normalizePropertyValue(row[alias])
+    }
+
+    return {
+      type: 'Feature',
+      id: rowId,
+      properties,
+      geometry: parseGeoPackageGeometry(row.__geom__),
+      sourceRef
+    }
+  }
+
+  private selectAllSql(meta: GeoPackageTableMeta): string {
     const idExpression = meta.primaryKey === 'rowid'
       ? 'rowid'
       : quoteSqlIdentifier(meta.primaryKey)
-    const propertyAliases = meta.propertyColumns.map((column, index) => ({
-      column,
-      alias: `p_${index}`
-    }))
-    const selectColumns = [
-      `${idExpression} AS ${quoteSqlIdentifier('__id__')}`,
-      `${quoteSqlIdentifier(meta.geometryColumn)} AS ${quoteSqlIdentifier('__geom__')}`,
-      ...propertyAliases.map(({ column, alias }) =>
-        `${quoteSqlIdentifier(column)} AS ${quoteSqlIdentifier(alias)}`
-      )
-    ]
-    const sql = [
-      `SELECT ${selectColumns.join(', ')}`,
+
+    return [
+      `SELECT ${this.selectColumns(meta).join(', ')}`,
       `FROM ${quoteSqlIdentifier(meta.tableName)}`,
       `ORDER BY ${idExpression}`
     ].join(' ')
+  }
 
-    const rows = this.db.prepare(sql).all()
+  private selectOneSql(meta: GeoPackageTableMeta): string {
+    const idExpression = meta.primaryKey === 'rowid'
+      ? 'rowid'
+      : quoteSqlIdentifier(meta.primaryKey)
 
-    for (let index = 0; index < rows.length; index += 1) {
-      throwIfAborted(signal)
+    return [
+      `SELECT ${this.selectColumns(meta).join(', ')}`,
+      `FROM ${quoteSqlIdentifier(meta.tableName)}`,
+      `WHERE ${idExpression} = ?`
+    ].join(' ')
+  }
 
-      const row = rows[index]
-      const idValue = row.__id__
-      const sourceRef: SourceRef = {
-        storage: 'database',
-        sourceId: this.id,
-        tableName: meta.tableName,
-        rowId: toFeatureRowId(idValue, index),
-        primaryKey: meta.primaryKey === 'rowid' ? undefined : meta.primaryKey,
-        geometryColumn: meta.geometryColumn,
-        recordIndex: index
-      }
-      const properties: Props = {}
+  private selectColumns(meta: GeoPackageTableMeta): string[] {
+    const idExpression = meta.primaryKey === 'rowid'
+      ? 'rowid'
+      : quoteSqlIdentifier(meta.primaryKey)
 
-      for (const { column, alias } of propertyAliases) {
-        properties[column] = normalizePropertyValue(row[alias])
-      }
+    return [
+      `${idExpression} AS ${quoteSqlIdentifier('__id__')}`,
+      `${quoteSqlIdentifier(meta.geometryColumn)} AS ${quoteSqlIdentifier('__geom__')}`,
+      ...this.propertyAliases(meta).map(({ column, alias }) =>
+        `${quoteSqlIdentifier(column)} AS ${quoteSqlIdentifier(alias)}`
+      )
+    ]
+  }
 
-      const sourceFeature: Feature = {
-        type: 'Feature',
-        id: toFeatureRowId(idValue, index),
-        properties,
-        geometry: parseGeoPackageGeometry(row.__geom__),
-        sourceRef
-      }
+  private propertyAliases(meta: GeoPackageTableMeta): Array<{ column: string, alias: string }> {
+    return meta.propertyColumns.map((column, index) => ({
+      column,
+      alias: `p_${index}`
+    }))
+  }
 
-      const outputFeature = this.transformFeature
-        ? await this.transformFeature(sourceFeature, index)
-        : sourceFeature
-
-      yield {
-        ...outputFeature,
-        sourceRef
-      }
+  private toDbRef(sourceRef: SourceRef, meta: GeoPackageTableMeta): DbRef & Pick<SourceRef, 'recordIndex' | 'related'> {
+    if (sourceRef.sourceId !== this.sourceId) {
+      throw new Error(`GeoPackage sourceRef belongs to "${sourceRef.sourceId}", expected "${this.sourceId}"`)
     }
+
+    if (sourceRef.storage !== 'database') {
+      throw new Error('GeoPackage sourceRef must use database storage')
+    }
+
+    if (sourceRef.tableName !== meta.tableName) {
+      throw new Error(`GeoPackage sourceRef targets table "${sourceRef.tableName}", expected "${meta.tableName}"`)
+    }
+
+    return sourceRef as DbRef & Pick<SourceRef, 'recordIndex' | 'related'>
   }
 }
 

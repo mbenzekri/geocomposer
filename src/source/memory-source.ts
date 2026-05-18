@@ -1,6 +1,6 @@
 import type { BBox, CrsCode } from '../core/types.js'
 import { Geom } from '../geometry/geom.js'
-import type { Feature } from '../geometry/feature.js'
+import type { Feature, SourceRef } from '../geometry/feature.js'
 import { Source, type StreamOptions } from './source.js'
 
 export class MemorySource extends Source {
@@ -49,5 +49,9 @@ export class MemorySource extends Source {
         index += 1
       }
     })
+  }
+
+  async read(_: SourceRef): Promise<Feature | null> {
+    return null
   }
 }
