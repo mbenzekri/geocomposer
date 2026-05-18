@@ -1,5 +1,5 @@
 import proj4 from 'proj4'
-import { computeBBox } from '../geometry/bbox.js'
+import { Geom } from '../geometry/geom.js'
 import type { Feature } from '../geometry/feature.js'
 import type { Geometry, Position } from '../geometry/geometry.js'
 
@@ -18,7 +18,7 @@ export class Reproject extends TransformStream<Feature, Feature> {
         }
 
         const geometry = transformGeometry(feature.geometry, sourceCrs, targetCrs)
-        const bbox = computeBBox(geometry) ?? undefined
+        const bbox = Geom.bbox(geometry) ?? undefined
         controller.enqueue({
           ...feature,
           geometry,

@@ -1,14 +1,14 @@
 import type { BBox } from '../core/types.js'
-import { computeBBox, intersectsBBox } from '../geometry/bbox.js'
+import { Geom } from '../geometry/geom.js'
 import type { Feature } from '../geometry/feature.js'
 
 export class BboxFilter extends TransformStream<Feature, Feature> {
   constructor(bbox: BBox) {
     super({
       transform(feature, controller) {
-        const featureBBox = feature.bbox ?? computeBBox(feature.geometry)
+        const featureBBox = feature.bbox ?? Geom.bbox(feature.geometry)
 
-        if (!featureBBox || intersectsBBox(featureBBox, bbox)) {
+        if (!featureBBox || Geom.intersects(featureBBox, bbox)) {
           controller.enqueue(feature)
         }
       }

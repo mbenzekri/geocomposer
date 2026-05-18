@@ -1,5 +1,5 @@
 import type { BBox, CrsCode } from '../core/types.js'
-import { computeBBox, expandBBox } from '../geometry/bbox.js'
+import { Geom } from '../geometry/geom.js'
 import type { Feature } from '../geometry/feature.js'
 import { Source, type StreamOptions } from './source.js'
 
@@ -23,8 +23,8 @@ export class MemorySource extends Source {
     let extent: BBox | null = null
 
     for (const feature of this.features) {
-      const bbox = feature.bbox ?? computeBBox(feature.geometry)
-      if (bbox) extent = extent ? expandBBox(extent, bbox) : bbox
+      const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
+      if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
     }
 
     return extent

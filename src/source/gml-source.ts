@@ -1,7 +1,7 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
 import type { BBox, CrsCode, Props } from '../core/types.js'
-import { computeBBox, expandBBox } from '../geometry/bbox.js'
+import { Geom } from '../geometry/geom.js'
 import type { Feature, SourceRef } from '../geometry/feature.js'
 import type { Geometry, Position } from '../geometry/geometry.js'
 import { FileSource, type StreamOptions } from './source.js'
@@ -102,8 +102,8 @@ export class GmlSource extends FileSource {
     let extent: BBox | null = null
 
     for await (const feature of this.readFeatures()) {
-      const bbox = feature.bbox ?? computeBBox(feature.geometry)
-      if (bbox) extent = extent ? expandBBox(extent, bbox) : bbox
+      const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
+      if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
     }
 
     return extent
