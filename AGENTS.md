@@ -10,3 +10,26 @@
 - For GML, `sourceRef.offset` must point to the opening `<` of the complete streamed feature element and `sourceRef.byteLength` must include its closing tag. GML axis order is source-dependent; keep `axisOrder` explicit or use `auto` only with known CRS behavior.
 - Do not introduce GDAL/OGR in this project. Geo formats must be handled natively or through focused non-GDAL libraries.
 - Keep source abstractions separated: `FileGeoSource` is for byte-range indexable files, while `DatabaseGeoSource` is for sources such as GeoPackage that carry their own table/index model.
+
+## Shell policy
+
+- Prefer bash-compatible commands whenever possible.
+- Avoid PowerShell unless the task is explicitly Windows-specific.
+- Prefer portable Python or Node.js scripts for non-trivial file transformations.
+- Avoid complex PowerShell pipelines.
+- Minimize shell-specific syntax.
+- Use UTF-8 explicitly when generating files on Windows.
+- Prefer cross-platform tooling.
+
+## Reliability policy
+
+- Prefer deterministic scripts over shell one-liners.
+- Avoid fragile regex replacements when AST-based tools exist.
+- Batch related file modifications into a single script execution.
+- Before editing many files, first analyze repository structure and conventions.
+
+## Token efficiency
+
+- Do not spend iterations adapting Unix commands to PowerShell.
+- If shell complexity increases, switch to Python scripting immediately.
+- Avoid retry loops caused by shell incompatibilities.
