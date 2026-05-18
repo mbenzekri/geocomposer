@@ -1,26 +1,12 @@
 import { createServer } from 'node:http'
 import type { Socket } from 'node:net'
-import { GeoJsonSource } from '../source/geojson-source.js'
+import { resolve } from 'node:path'
+import { loadConfig } from '../config/config.js'
 import { createWmsApp } from '../ogc/wms-server.js'
-import { worldStyleFn } from './world-demo-common.js'
 
-const port = Number.parseInt(process.env.PORT ?? '3000', 10)
-const app = createWmsApp({
-  service: {
-    title: 'GeoComposer WMS',
-    abstract: 'Minimal WMS server backed by the GeoComposer render pipeline.'
-  },
-  layers: [
-    {
-      name: 'world',
-      title: 'World',
-      source: new GeoJsonSource('world', 'data/world.geojson', {
-        crs: 'EPSG:4326'
-      }),
-      style: worldStyleFn
-    }
-  ]
-})
+const loaded = await loadConfig(resolve(process.cwd(), process.env.CONFIG ?? 'config.json'))
+const port = Number.parseInt(process.env.PORT ?? String(loaded.server.port), 10)
+const app = createWmsApp(loaded.app)
 
 await app.open()
 
@@ -38,9 +24,10 @@ server.on('connection', (socket) => {
 })
 
 server.listen(port, () => {
-  const baseUrl = `http://localhost:${port}/wms`
+  const baseUrl = `http://localhost:${port}${loaded.server.path}`
   const capabilitiesUrl = `${baseUrl}?SERVICE=WMS&REQUEST=GetCapabilities`
-  const sample = `${baseUrl}?SERVICE=WMS&REQUEST=GetMap&LAYERS=world&CRS=EPSG:4326&BBOX=-180,-90,180,90&WIDTH=1024&HEIGHT=512&FORMAT=image/png`
+  const sample = `${baseUrl}?SERVICE=WMS&REQUEST=GetMap&LAYERS=world&STYLES=world&CRS=EPSG:4326&BBOX=-90,-180,90,180&WIDTH=1024&HEIGHT=512&FORMAT=image/png`
+  console.log(`Config: ${loaded.path}`)
   console.log(`WMS listening on ${baseUrl}`)
   console.log(`GetCapabilities: ${capabilitiesUrl}`)
   console.log(`Sample GetMap: ${sample}`)

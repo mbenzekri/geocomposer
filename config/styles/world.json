@@ -1,0 +1,14 @@
+{
+  "title": "World",
+  "static": {
+    "world": {
+      "stroke": {
+        "color": "#334155",
+        "width": 0.75
+      },
+      "fill": {
+        "color": "rgba(56, 189, 248, 0.18)"
+      }
+    }
+  }
+}

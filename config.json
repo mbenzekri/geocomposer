@@ -1,0 +1,42 @@
+{
+  "server": {
+    "port": 3000,
+    "path": "/wms",
+    "maxWidth": 4096,
+    "maxHeight": 4096
+  },
+  "service": {
+    "title": "GeoComposer WMS",
+    "abstract": "Minimal WMS server backed by the GeoComposer render pipeline."
+  },
+  "crs": {
+    "wgs84": {
+      "code": "EPSG:4326"
+    },
+    "webmercator": {
+      "code": "EPSG:3857"
+    }
+  },
+  "sources": {
+    "world": {
+      "type": "geojson",
+      "path": "data/world.geojson",
+      "crs": "wgs84"
+    }
+  },
+  "styles": {
+    "world": {
+      "type": "dynamic",
+      "path": "config/styles/world.json",
+      "name": "world"
+    }
+  },
+  "layers": [
+    {
+      "name": "world",
+      "title": "World",
+      "source": "world",
+      "style": "world"
+    }
+  ]
+}

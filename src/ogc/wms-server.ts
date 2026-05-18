@@ -1,18 +1,29 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { TLSSocket } from 'node:tls'
+import proj4 from 'proj4'
 import type { BBox, CrsCode } from '../core/types.js'
 import { renderMap, type RenderLayer } from './render-map.js'
 import type { Source } from '../source/source.js'
 import type { StyleFn } from '../style/style-fn.js'
 
 const WMS_VERSION = '1.3.0'
+const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
+
+export type WmsLayerStyle = {
+  name: string
+  title?: string
+  abstract?: string
+  style: StyleFn
+}
 
 export type WmsLayer = {
   name: string
   title?: string
   abstract?: string
   source: Source
+  crs?: CrsCode[]
   style: StyleFn
+  styles?: WmsLayerStyle[]
 }
 
 export type WmsService = {
@@ -24,6 +35,7 @@ export type WmsService = {
 export type WmsAppOptions = {
   path?: string
   service: WmsService
+  crs?: CrsCode[]
   layers: WmsLayer[]
   maxWidth?: number
   maxHeight?: number
@@ -41,6 +53,7 @@ export function createWmsApp(options: WmsAppOptions): WmsApp {
   const maxHeight = options.maxHeight ?? 4096
   const layerByName = new Map(options.layers.map((layer) => [layer.name, layer]))
   const sources = [...new Set(options.layers.map((layer) => layer.source))]
+  const crs = unique(options.crs ?? options.layers.flatMap((layer) => layer.crs ?? [layer.source.crs]))
   let nextTraceId = 1
 
   return {
@@ -82,7 +95,7 @@ export function createWmsApp(options: WmsAppOptions): WmsApp {
         }
 
         if (request === 'GETCAPABILITIES') {
-          const xml = await buildCapabilitiesXml(options.service, options.layers, path)
+          const xml = await buildCapabilitiesXml(options.service, options.layers, path, crs)
           sendText(res, 200, xml, 'text/xml; charset=utf-8')
           return
         }
@@ -156,16 +169,13 @@ function parseGetMap(
     throw new Error('LAYERS must not be empty')
   }
 
-  const layers = layerNames.map((name) => {
+  const selectedLayers = layerNames.map((name) => {
     const layer = layerByName.get(name)
     if (!layer) {
       throw new Error(`Unknown layer: ${name}`)
     }
 
-    return {
-      source: layer.source,
-      style: layer.style
-    }
+    return layer
   })
 
   const version = params.get('VERSION') ?? WMS_VERSION
@@ -177,6 +187,12 @@ function parseGetMap(
   }
   const rawBbox = requireParam(params, 'BBOX')
   const parsedBbox = parseBBox(rawBbox, crs, version)
+  validateLayerCrs(selectedLayers, crs)
+  const styleNames = parseStyles(params.get('STYLES'), selectedLayers.length)
+  const layers = selectedLayers.map((layer, index) => ({
+    source: layer.source,
+    style: resolveLayerStyle(layer, styleNames[index])
+  }))
 
   const format = params.get('FORMAT') ?? 'image/png'
   if (format !== 'image/png') {
@@ -196,18 +212,26 @@ function parseGetMap(
   }
 }
 
-async function buildCapabilitiesXml(service: WmsService, layers: WmsLayer[], path: string): Promise<string> {
+async function buildCapabilitiesXml(
+  service: WmsService,
+  layers: WmsLayer[],
+  path: string,
+  crs: CrsCode[]
+): Promise<string> {
   const layerXml: string[] = []
+  const onlineResource = service.onlineResource ?? path
 
   for (const layer of layers) {
     const extent = await layer.source.getExtent()
+    const layerCrs = layer.crs ?? [layer.source.crs]
     layerXml.push([
       '<Layer queryable="0">',
       `<Name>${escapeXml(layer.name)}</Name>`,
       `<Title>${escapeXml(layer.title ?? layer.name)}</Title>`,
       layer.abstract ? `<Abstract>${escapeXml(layer.abstract)}</Abstract>` : '',
-      `<CRS>${escapeXml(layer.source.crs)}</CRS>`,
-      extent ? bboxXml(extent, layer.source.crs) : '',
+      crsXml(layerCrs),
+      stylesXml(layer),
+      extent ? bboxXml(extent, layer.source.crs, layerCrs) : '',
       '</Layer>'
     ].join(''))
   }
@@ -223,12 +247,13 @@ async function buildCapabilitiesXml(service: WmsService, layers: WmsLayer[], pat
     '</Service>',
     '<Capability>',
     '<Request>',
-    `<GetCapabilities><Format>text/xml</Format><DCPType><HTTP><Get><OnlineResource>${escapeXml(path)}</OnlineResource></Get></HTTP></DCPType></GetCapabilities>`,
-    `<GetMap><Format>image/png</Format><DCPType><HTTP><Get><OnlineResource>${escapeXml(path)}</OnlineResource></Get></HTTP></DCPType></GetMap>`,
+    `<GetCapabilities><Format>text/xml</Format><DCPType><HTTP><Get><OnlineResource>${escapeXml(onlineResource)}</OnlineResource></Get></HTTP></DCPType></GetCapabilities>`,
+    `<GetMap><Format>image/png</Format><DCPType><HTTP><Get><OnlineResource>${escapeXml(onlineResource)}</OnlineResource></Get></HTTP></DCPType></GetMap>`,
     '</Request>',
     '<Exception><Format>text/xml</Format></Exception>',
     '<Layer>',
     `<Title>${escapeXml(service.title)}</Title>`,
+    crsXml(crs),
     ...layerXml,
     '</Layer>',
     '</Capability>',
@@ -236,18 +261,127 @@ async function buildCapabilitiesXml(service: WmsService, layers: WmsLayer[], pat
   ].join('')
 }
 
-function bboxXml(bbox: BBox, crs: CrsCode): string {
-  const axisBbox = toWmsBoundingBox(bbox, crs, WMS_VERSION)
+function crsXml(crs: CrsCode[]): string {
+  return unique(crs).map((code) => `<CRS>${escapeXml(code)}</CRS>`).join('')
+}
+
+function stylesXml(layer: WmsLayer): string {
+  return getLayerStyles(layer).map((style) => [
+    '<Style>',
+    `<Name>${escapeXml(style.name)}</Name>`,
+    `<Title>${escapeXml(style.title ?? style.name)}</Title>`,
+    style.abstract ? `<Abstract>${escapeXml(style.abstract)}</Abstract>` : '',
+    '</Style>'
+  ].join('')).join('')
+}
+
+function bboxXml(bbox: BBox, sourceCrs: CrsCode, crs: CrsCode[]): string {
+  const geographicBbox = sourceCrs === 'EPSG:4326'
+    ? bbox
+    : transformBBox(bbox, sourceCrs, 'EPSG:4326') ?? bbox
+  const boundingBoxes = unique(crs)
+    .map((code) => {
+      const targetBbox = code === sourceCrs
+        ? bbox
+        : transformBBox(bbox, sourceCrs, code)
+      if (!targetBbox) return ''
+
+      const axisBbox = toWmsBoundingBox(targetBbox, code, WMS_VERSION)
+      return `<BoundingBox CRS="${escapeXml(code)}" minx="${axisBbox[0]}" miny="${axisBbox[1]}" maxx="${axisBbox[2]}" maxy="${axisBbox[3]}"/>`
+    })
+    .join('')
 
   return [
     '<EX_GeographicBoundingBox>',
-    `<westBoundLongitude>${bbox[0]}</westBoundLongitude>`,
-    `<eastBoundLongitude>${bbox[2]}</eastBoundLongitude>`,
-    `<southBoundLatitude>${bbox[1]}</southBoundLatitude>`,
-    `<northBoundLatitude>${bbox[3]}</northBoundLatitude>`,
+    `<westBoundLongitude>${geographicBbox[0]}</westBoundLongitude>`,
+    `<eastBoundLongitude>${geographicBbox[2]}</eastBoundLongitude>`,
+    `<southBoundLatitude>${geographicBbox[1]}</southBoundLatitude>`,
+    `<northBoundLatitude>${geographicBbox[3]}</northBoundLatitude>`,
     '</EX_GeographicBoundingBox>',
-    `<BoundingBox CRS="${escapeXml(crs)}" minx="${axisBbox[0]}" miny="${axisBbox[1]}" maxx="${axisBbox[2]}" maxy="${axisBbox[3]}"/>`
+    boundingBoxes
   ].join('')
+}
+
+function transformBBox(bbox: BBox, sourceCrs: CrsCode, targetCrs: CrsCode): BBox | null {
+  if (sourceCrs === targetCrs) return bbox
+
+  const positions = [
+    transformPosition([bbox[0], bbox[1]], sourceCrs, targetCrs),
+    transformPosition([bbox[0], bbox[3]], sourceCrs, targetCrs),
+    transformPosition([bbox[2], bbox[1]], sourceCrs, targetCrs),
+    transformPosition([bbox[2], bbox[3]], sourceCrs, targetCrs)
+  ]
+
+  if (positions.some((position) => !position)) return null
+
+  const points = positions as [number, number][]
+  return [
+    Math.min(...points.map((point) => point[0])),
+    Math.min(...points.map((point) => point[1])),
+    Math.max(...points.map((point) => point[0])),
+    Math.max(...points.map((point) => point[1]))
+  ]
+}
+
+function transformPosition(position: [number, number], sourceCrs: CrsCode, targetCrs: CrsCode): [number, number] | null {
+  const x = position[0]
+  const y = position[1]
+  const [fromX, fromY] = sourceCrs === 'EPSG:4326' && targetCrs === 'EPSG:3857'
+    ? [x, clamp(y, -WEB_MERCATOR_LATITUDE_LIMIT, WEB_MERCATOR_LATITUDE_LIMIT)]
+    : [x, y]
+
+  try {
+    return proj4(sourceCrs, targetCrs, [fromX, fromY]) as [number, number]
+  } catch {
+    return null
+  }
+}
+
+function parseStyles(value: string | undefined, layerCount: number): Array<string | undefined> {
+  if (value === undefined) {
+    return Array.from({ length: layerCount }, () => undefined)
+  }
+
+  const styleNames = value.split(',').map((style) => style.trim())
+  if (styleNames.length === 1 && styleNames[0] === '') {
+    return Array.from({ length: layerCount }, () => undefined)
+  }
+
+  if (styleNames.length !== layerCount) {
+    throw new Error('STYLES must include one entry per LAYERS entry')
+  }
+
+  return styleNames.map((style) => style || undefined)
+}
+
+function resolveLayerStyle(layer: WmsLayer, styleName: string | undefined): StyleFn {
+  if (!styleName) return layer.style
+
+  const style = getLayerStyles(layer).find((entry) => entry.name === styleName)
+  if (!style) {
+    throw new Error(`Unknown style "${styleName}" for layer "${layer.name}"`)
+  }
+
+  return style.style
+}
+
+function getLayerStyles(layer: WmsLayer): WmsLayerStyle[] {
+  if (layer.styles && layer.styles.length > 0) return layer.styles
+
+  return [{
+    name: 'default',
+    title: 'Default',
+    style: layer.style
+  }]
+}
+
+function validateLayerCrs(layers: WmsLayer[], crs: CrsCode): void {
+  for (const layer of layers) {
+    const supported = layer.crs ?? [layer.source.crs]
+    if (!supported.includes(crs)) {
+      throw new Error(`CRS ${crs} is not supported by layer "${layer.name}"`)
+    }
+  }
 }
 
 function parseBBox(value: string, crs: CrsCode, version: string): { bbox: BBox, order: 'xy' | 'yx' } {
@@ -258,7 +392,7 @@ function parseBBox(value: string, crs: CrsCode, version: string): { bbox: BBox, 
 
   if (!usesLatLonAxisOrder(crs, version)) {
     const bbox: BBox = [parts[0], parts[1], parts[2], parts[3]]
-    validateBBox(bbox, crs, version)
+    validateBBox(bbox, crs)
     return {
       bbox,
       order: 'xy'
@@ -266,32 +400,18 @@ function parseBBox(value: string, crs: CrsCode, version: string): { bbox: BBox, 
   }
 
   const bbox: BBox = [parts[1], parts[0], parts[3], parts[2]]
-  validateBBox(bbox, crs, version)
+  validateBBox(bbox, crs)
   return {
     bbox,
     order: 'yx'
   }
 }
 
-function validateBBox(bbox: BBox, crs: CrsCode, version: string): void {
+function validateBBox(bbox: BBox, crs: CrsCode): void {
   const [minX, minY, maxX, maxY] = bbox
 
   if (!(minX < maxX) || !(minY < maxY)) {
-    throw new Error(`Invalid BBOX for ${crs}: bounds must be ordered as minx,miny,maxx,maxy`)
-  }
-
-  if (crs.toUpperCase() !== 'EPSG:4326') {
-    return
-  }
-
-  if (!isLongitude(minX) || !isLongitude(maxX) || !isLatitude(minY) || !isLatitude(maxY)) {
-    if (usesLatLonAxisOrder(crs, version)) {
-      throw new Error(
-        `Invalid BBOX for ${crs} in WMS ${version}: expected axis order lat,lon (minLat,minLon,maxLat,maxLon)`
-      )
-    }
-
-    throw new Error(`Invalid BBOX for ${crs}: longitude must be within [-180,180] and latitude within [-90,90]`)
+    throw new Error(`Invalid BBOX for ${crs}: minimum bounds must be lower than maximum bounds`)
   }
 }
 
@@ -307,12 +427,12 @@ function usesLatLonAxisOrder(crs: CrsCode, version: string): boolean {
   return version === '1.3.0' && crs.toUpperCase() === 'EPSG:4326'
 }
 
-function isLatitude(value: number): boolean {
-  return value >= -90 && value <= 90
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }
 
-function isLongitude(value: number): boolean {
-  return value >= -180 && value <= 180
+function unique<T>(values: T[]): T[] {
+  return [...new Set(values)]
 }
 
 function parsePositiveInt(value: string, name: string, maxValue: number): number {

@@ -562,7 +562,7 @@ function normalizeStyleJson(jsonStyle: DynamicStyleJson, name: string): Required
     title: cloned.title ?? `Layer ${name}`,
     id: cloned.id ?? null,
     crs: cloned.crs ?? 'EPSG:4326',
-    scales: [...(cloned.scales ?? [0, 100000000])].sort((a, b) => a - b),
+    scales: [...(cloned.scales ?? [])].sort((a, b) => a - b),
     cacheKey: cloned.cacheKey ?? 'DEFAULT',
     visible: cloned.visible ?? true,
     static: normalizeStaticStyles(cloned.static),
