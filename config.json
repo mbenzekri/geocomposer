@@ -7,35 +7,46 @@
   },
   "service": {
     "title": "GeoComposer WMS",
-    "abstract": "Minimal WMS server backed by the GeoComposer render pipeline."
+    "abstract": "Minimal WMS server backed by the GeoComposer render pipeline.",
+    "onlineResource": "http://localhost:3000/wms"
   },
-  "crs": {
-    "wgs84": {
-      "code": "EPSG:4326"
+  "crs": [
+    {
+      "name": "EPSG:4326",
+      "title": "WGS84"
     },
-    "webmercator": {
-      "code": "EPSG:3857"
+    {
+      "name": "EPSG:3857",
+      "title": "Web Mercator"
     }
-  },
-  "sources": {
-    "world": {
+  ],
+  "sources": [
+    {
       "type": "geojson",
-      "path": "data/world.geojson",
-      "crs": "wgs84"
+      "name": "world",
+      "title": "World GeoJSON",
+      "abstract": "World country boundaries GeoJSON demo source.",
+      "crs": "EPSG:4326",
+      "path": "data/world.geojson"
     }
-  },
-  "styles": {
-    "world": {
+  ],
+  "styles": [
+    {
       "type": "dynamic",
-      "path": "config/styles/world.json",
-      "name": "world"
+      "name": "world",
+      "title": "World",
+      "abstract": "Country boundaries rendered from a DynStyle JSON file.",
+      "path": "config/styles/world.json"
     }
-  },
+  ],
   "layers": [
     {
       "name": "world",
       "title": "World",
+      "abstract": "World country boundaries from the GeoJSON demo dataset.",
       "source": "world",
+      "sourceCrs": "EPSG:4326",
+      "extent": [-180, -90, 180, 90],
       "style": "world"
     }
   ]

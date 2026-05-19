@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import proj4 from 'proj4'
-import type { CrsCode } from '../core/types.js'
+import type { BBox, CrsCode } from '../core/types.js'
 import type { WmsAppOptions, WmsLayer, WmsLayerStyle, WmsService } from '../ogc/wms-server.js'
 import { GeoJsonSource } from '../source/geojson-source.js'
 import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
@@ -14,23 +13,28 @@ import type { StyleFn } from '../style/style-fn.js'
 import { worldStyleFn } from '../style/world-style.js'
 
 export type CrsJson = {
-  code: CrsCode
-  proj4?: string
-  aliases?: string[]
+  name: CrsCode
+  title: string
 }
 
 export type GeoJsonSourceJson = {
   type: 'geojson'
-  path: string
+  name: string
+  title?: string
+  abstract?: string
   crs?: string
+  path: string
   encoding?: BufferEncoding
   highWaterMark?: number
 }
 
 export type GmlSourceJson = {
   type: 'gml'
-  path: string
+  name: string
+  title?: string
+  abstract?: string
   crs?: string
+  path: string
   encoding?: BufferEncoding
   highWaterMark?: number
   featureElementNames?: string[]
@@ -40,17 +44,23 @@ export type GmlSourceJson = {
 
 export type ShpSourceJson = {
   type: 'shp'
+  name: string
+  title?: string
+  abstract?: string
+  crs?: string
   shpPath: string
   dbfPath: string
-  crs?: string
   dbfEncoding?: BufferEncoding
   highWaterMark?: number
 }
 
 export type GpkgSourceJson = {
   type: 'gpkg'
-  path: string
+  name: string
+  title?: string
+  abstract?: string
   crs?: string
+  path: string
   tableName?: string
   geometryColumn?: string
   primaryKey?: string
@@ -76,10 +86,10 @@ export type DynamicStyleOptionsJson = {
 
 export type DynamicStyleFileJson = {
   type: 'dynamic'
-  path: string
-  name?: string
+  name: string
   title?: string
   abstract?: string
+  path: string
   options?: DynamicStyleOptionsJson
 }
 
@@ -90,9 +100,10 @@ export type LayerJson = {
   title?: string
   abstract?: string
   source: string
+  sourceCrs?: string
+  extent?: BBox
   style?: string
   styles?: string[]
-  crs?: string[]
 }
 
 export type ServerJson = {
@@ -105,9 +116,9 @@ export type ServerJson = {
 export type AppJsonConfig = {
   server?: ServerJson
   service: WmsService
-  crs?: Record<string, CrsJson>
-  sources: Record<string, SourceJson>
-  styles: Record<string, StyleJson>
+  crs?: CrsJson[]
+  sources: SourceJson[]
+  styles?: StyleJson[]
   layers: LayerJson[]
 }
 
@@ -129,7 +140,7 @@ export async function loadConfig(configPath: string): Promise<LoadedConfig> {
   const config = await readJsonFile<AppJsonConfig>(path)
   const crs = new CrsRegistry(config.crs)
   const sources = createSources(config.sources, dir, crs)
-  const styles = await createStyles(config.styles, dir)
+  const styles = await createStyles(config.styles ?? [], dir)
   const layers = createLayers(config.layers, sources, styles, crs)
   const appCrs = crs.codes()
 
@@ -170,31 +181,34 @@ async function readJsonFile<T>(path: string): Promise<T> {
 }
 
 function createSources(
-  sourceEntries: Record<string, SourceJson>,
+  sourceEntries: SourceJson[],
   baseDir: string,
   crs: CrsRegistry
 ): Map<string, Source> {
   const sources = new Map<string, Source>()
 
-  for (const [id, entry] of Object.entries(sourceEntries)) {
-    const source = createSource(id, entry, baseDir, crs)
-    sources.set(id, source)
+  for (const entry of sourceEntries) {
+    if (sources.has(entry.name)) {
+      throw new Error(`Duplicate source "${entry.name}"`)
+    }
+
+    sources.set(entry.name, createSource(entry, baseDir, crs))
   }
 
   return sources
 }
 
-function createSource(id: string, entry: SourceJson, baseDir: string, crs: CrsRegistry): Source {
+function createSource(entry: SourceJson, baseDir: string, crs: CrsRegistry): Source {
   switch (entry.type) {
     case 'geojson':
-      return new GeoJsonSource(id, resolve(baseDir, entry.path), {
+      return new GeoJsonSource(entry.name, resolve(baseDir, entry.path), {
         crs: crs.resolve(entry.crs),
         encoding: entry.encoding,
         highWaterMark: entry.highWaterMark
       })
 
     case 'gml':
-      return new GmlSource(id, resolve(baseDir, entry.path), {
+      return new GmlSource(entry.name, resolve(baseDir, entry.path), {
         crs: crs.resolve(entry.crs),
         encoding: entry.encoding,
         highWaterMark: entry.highWaterMark,
@@ -205,7 +219,7 @@ function createSource(id: string, entry: SourceJson, baseDir: string, crs: CrsRe
 
     case 'shp':
       return new ShpSource(
-        id,
+        entry.name,
         resolve(baseDir, entry.shpPath),
         resolve(baseDir, entry.dbfPath),
         {
@@ -216,7 +230,7 @@ function createSource(id: string, entry: SourceJson, baseDir: string, crs: CrsRe
       )
 
     case 'gpkg':
-      return new GpkgSource(id, resolve(baseDir, entry.path), {
+      return new GpkgSource(entry.name, resolve(baseDir, entry.path), {
         crs: crs.resolve(entry.crs),
         tableName: entry.tableName,
         geometryColumn: entry.geometryColumn,
@@ -226,37 +240,46 @@ function createSource(id: string, entry: SourceJson, baseDir: string, crs: CrsRe
 }
 
 async function createStyles(
-  styleEntries: Record<string, StyleJson>,
+  styleEntries: StyleJson[],
   baseDir: string
 ): Promise<Map<string, WmsLayerStyle>> {
-  const styles = new Map<string, WmsLayerStyle>()
+  const styles = new Map<string, WmsLayerStyle>([
+    [
+      'default',
+      {
+        name: 'default',
+        title: 'Default',
+        style: defaultStyleFn
+      }
+    ]
+  ])
 
-  for (const [id, entry] of Object.entries(styleEntries)) {
-    styles.set(id, await createStyle(id, entry, baseDir))
+  for (const entry of styleEntries) {
+    styles.set(entry.name, await createStyle(entry, baseDir))
   }
 
   return styles
 }
 
-async function createStyle(id: string, entry: StyleJson, baseDir: string): Promise<WmsLayerStyle> {
+async function createStyle(entry: StyleJson, baseDir: string): Promise<WmsLayerStyle> {
   switch (entry.type) {
     case 'builtin':
       return {
-        name: id,
-        title: entry.title ?? titleFromId(id),
+        name: entry.name,
+        title: entry.title ?? titleFromId(entry.name),
         abstract: entry.abstract,
         style: BUILTIN_STYLES[entry.name]
       }
 
     case 'dynamic': {
       const json = await readJsonFile<DynamicStyleJson>(resolve(baseDir, entry.path))
-      const style = await createDynamicStyleFn(entry.name ?? id, json, {
+      const style = await createDynamicStyleFn(entry.name, json, {
         units: entry.options?.units,
         dotsPerInch: entry.options?.dotsPerInch
       })
       return {
-        name: id,
-        title: entry.title ?? json.title ?? titleFromId(id),
+        name: entry.name,
+        title: entry.title ?? json.title ?? titleFromId(entry.name),
         abstract: entry.abstract,
         style
       }
@@ -276,10 +299,8 @@ function createLayers(
       throw new Error(`Unknown source "${entry.source}" in layer "${entry.name}"`)
     }
 
-    const styleIds = entry.styles ?? (entry.style ? [entry.style] : [])
-    if (styleIds.length === 0) {
-      throw new Error(`Layer "${entry.name}" must reference at least one style`)
-    }
+    const defaultStyleId = entry.style ?? entry.styles?.[0] ?? 'default'
+    const styleIds = unique([defaultStyleId, ...(entry.styles ?? [])])
 
     const layerStyles = styleIds.map((styleId) => {
       const style = styles.get(styleId)
@@ -289,25 +310,49 @@ function createLayers(
 
       return style
     })
-
-    const layerCrs = entry.crs
-      ? entry.crs.map((name) => crs.resolve(name) ?? name)
-      : crs.codes()
-
-    if (layerCrs.length === 0) {
-      layerCrs.push(source.crs)
-    }
+    const sourceCrs = normalizeSourceCrs(entry.sourceCrs, source, entry.name, crs)
 
     return {
       name: entry.name,
       title: entry.title,
       abstract: entry.abstract,
       source,
-      crs: layerCrs,
+      sourceCrs,
+      extent: normalizeExtent(entry.extent, entry.name),
       style: layerStyles[0].style,
       styles: layerStyles
     }
   })
+}
+
+function normalizeSourceCrs(
+  sourceCrs: string | undefined,
+  source: Source,
+  layerName: string,
+  crs: CrsRegistry
+): CrsCode {
+  const resolved = crs.resolve(sourceCrs) ?? source.crs
+
+  if (resolved !== source.crs) {
+    throw new Error(`Layer "${layerName}" sourceCrs "${resolved}" does not match source "${source.id}" CRS "${source.crs}"`)
+  }
+
+  return resolved
+}
+
+function normalizeExtent(extent: BBox | undefined, layerName: string): BBox | undefined {
+  if (extent === undefined) return undefined
+
+  if (!Array.isArray(extent) || extent.length !== 4 || extent.some((value) => !Number.isFinite(value))) {
+    throw new Error(`Layer "${layerName}" extent must be a bbox [minx,miny,maxx,maxy]`)
+  }
+
+  const bbox: BBox = [extent[0], extent[1], extent[2], extent[3]]
+  if (!(bbox[0] < bbox[2]) || !(bbox[1] < bbox[3])) {
+    throw new Error(`Layer "${layerName}" extent bbox minimum bounds must be lower than maximum bounds`)
+  }
+
+  return bbox
 }
 
 function titleFromId(id: string): string {
@@ -318,21 +363,16 @@ function titleFromId(id: string): string {
     .join(' ') || id
 }
 
+function unique<T>(items: T[]): T[] {
+  return [...new Set(items)]
+}
+
 class CrsRegistry {
   private readonly refs = new Map<string, CrsCode>()
 
-  constructor(entries: Record<string, CrsJson> = {}) {
-    for (const [name, entry] of Object.entries(entries)) {
-      this.refs.set(name, entry.code)
-      this.refs.set(entry.code, entry.code)
-
-      if (entry.proj4) {
-        proj4.defs(entry.code, entry.proj4)
-      }
-
-      for (const alias of entry.aliases ?? []) {
-        this.refs.set(alias, entry.code)
-      }
+  constructor(entries: CrsJson[] = []) {
+    for (const entry of entries) {
+      this.refs.set(entry.name, entry.name)
     }
   }
 

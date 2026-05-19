@@ -21,7 +21,8 @@ export type WmsLayer = {
   title?: string
   abstract?: string
   source: Source
-  crs?: CrsCode[]
+  sourceCrs?: CrsCode
+  extent?: BBox
   style: StyleFn
   styles?: WmsLayerStyle[]
 }
@@ -53,7 +54,10 @@ export function createWmsApp(options: WmsAppOptions): WmsApp {
   const maxHeight = options.maxHeight ?? 4096
   const layerByName = new Map(options.layers.map((layer) => [layer.name, layer]))
   const sources = [...new Set(options.layers.map((layer) => layer.source))]
-  const crs = unique(options.crs ?? options.layers.flatMap((layer) => layer.crs ?? [layer.source.crs]))
+  const crs = unique(options.crs && options.crs.length > 0
+    ? options.crs
+    : options.layers.map((layer) => layer.source.crs)
+  )
   let nextTraceId = 1
 
   return {
@@ -107,7 +111,7 @@ export function createWmsApp(options: WmsAppOptions): WmsApp {
           mapTrace = { id: traceId, startedAt }
           logGetMapStart(traceId, req.method ?? 'GET', fullUrl)
 
-          const mapRequest = parseGetMap(params, layerByName, maxWidth, maxHeight)
+          const mapRequest = parseGetMap(params, layerByName, crs, maxWidth, maxHeight)
           logGetMapParams(traceId, mapRequest)
           const image = await renderMap({
             layers: mapRequest.layers,
@@ -157,6 +161,7 @@ type MapRequest = {
 function parseGetMap(
   params: Map<string, string>,
   layerByName: Map<string, WmsLayer>,
+  supportedCrs: CrsCode[],
   maxWidth: number,
   maxHeight: number
 ): MapRequest {
@@ -187,7 +192,7 @@ function parseGetMap(
   }
   const rawBbox = requireParam(params, 'BBOX')
   const parsedBbox = parseBBox(rawBbox, crs, version)
-  validateLayerCrs(selectedLayers, crs)
+  validateCrs(supportedCrs, crs)
   const styleNames = parseStyles(params.get('STYLES'), selectedLayers.length)
   const layers = selectedLayers.map((layer, index) => ({
     source: layer.source,
@@ -222,16 +227,16 @@ async function buildCapabilitiesXml(
   const onlineResource = service.onlineResource ?? path
 
   for (const layer of layers) {
-    const extent = await layer.source.getExtent()
-    const layerCrs = layer.crs ?? [layer.source.crs]
+    const extent = layer.extent ?? await layer.source.getExtent()
+    const sourceCrs = layer.sourceCrs ?? layer.source.crs
     layerXml.push([
       '<Layer queryable="0">',
       `<Name>${escapeXml(layer.name)}</Name>`,
       `<Title>${escapeXml(layer.title ?? layer.name)}</Title>`,
       layer.abstract ? `<Abstract>${escapeXml(layer.abstract)}</Abstract>` : '',
-      crsXml(layerCrs),
+      crsXml(crs),
       stylesXml(layer),
-      extent ? bboxXml(extent, layer.source.crs, layerCrs) : '',
+      extent ? bboxXml(extent, sourceCrs, crs) : '',
       '</Layer>'
     ].join(''))
   }
@@ -375,12 +380,9 @@ function getLayerStyles(layer: WmsLayer): WmsLayerStyle[] {
   }]
 }
 
-function validateLayerCrs(layers: WmsLayer[], crs: CrsCode): void {
-  for (const layer of layers) {
-    const supported = layer.crs ?? [layer.source.crs]
-    if (!supported.includes(crs)) {
-      throw new Error(`CRS ${crs} is not supported by layer "${layer.name}"`)
-    }
+function validateCrs(supportedCrs: CrsCode[], crs: CrsCode): void {
+  if (supportedCrs.length > 0 && !supportedCrs.includes(crs)) {
+    throw new Error(`CRS ${crs} is not supported by this service`)
   }
 }
 

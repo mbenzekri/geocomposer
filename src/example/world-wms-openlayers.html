@@ -176,6 +176,8 @@
     }
     const projectionSummary = document.getElementById('projection-summary')
     const projectionButtons = Array.from(document.querySelectorAll('[data-projection]'))
+    const requestUrlElement = document.getElementById('request-url')
+    let lastRequestUrl = ''
 
     const source = new ol.source.ImageWMS({
       url: wmsUrl,
@@ -189,7 +191,12 @@
         TRANSPARENT: true
       },
       ratio: 1,
-      serverType: 'mapserver'
+      serverType: 'mapserver',
+      imageLoadFunction: (image, src) => {
+        lastRequestUrl = src
+        requestUrlElement.textContent = src
+        image.getImage().src = src
+      }
     })
 
     const layer = new ol.layer.Image({
@@ -216,6 +223,8 @@
       const projection = projections[code]
       if (!projection) return
 
+      lastRequestUrl = ''
+      requestUrlElement.textContent = 'En attente...'
       map.setView(createView(code))
       map.updateSize()
       map.getView().fit(projection.extent, {
@@ -236,13 +245,12 @@
 
       const extent = map.getView().calculateExtent(size)
       const projection = map.getView().getProjection()
-      const requestUrl = source.getUrl()
-      const request = source.getImageLoadFunction()
 
       const image = source.getImage(extent, map.getView().getResolution(), window.devicePixelRatio, projection)
-      const imageUrl = image && image.getImage ? image.getImage().src : ''
+      const imageElement = image && image.getImage ? image.getImage() : null
+      const imageUrl = imageElement && imageElement.src ? imageElement.src : lastRequestUrl
 
-      document.getElementById('request-url').textContent = imageUrl || requestUrl || String(request)
+      requestUrlElement.textContent = imageUrl || 'En attente...'
     }
 
     for (const button of projectionButtons) {
