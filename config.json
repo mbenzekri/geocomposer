@@ -28,6 +28,40 @@
       "abstract": "World country boundaries GeoJSON demo source.",
       "crs": "EPSG:4326",
       "path": "data/world.geojson"
+    },
+    {
+      "type": "mem",
+      "name": "world-mem",
+      "title": "World Memory",
+      "abstract": "World country boundaries loaded in memory from the GeoJSON source.",
+      "source": "world"
+    },
+    {
+      "type": "gml",
+      "name": "world-gml",
+      "title": "World GML",
+      "abstract": "World country boundaries GML demo source.",
+      "crs": "EPSG:4326",
+      "path": "data/world.gml",
+      "axisOrder": "auto"
+    },
+    {
+      "type": "shp",
+      "name": "world-shp",
+      "title": "World Shapefile",
+      "abstract": "World country boundaries shapefile demo source.",
+      "crs": "EPSG:4326",
+      "shpPath": "data/shapefile/world.shp",
+      "dbfPath": "data/shapefile/world.dbf"
+    },
+    {
+      "type": "gpkg",
+      "name": "world-gpkg",
+      "title": "World GeoPackage",
+      "abstract": "World country boundaries GeoPackage demo source.",
+      "path": "data/world.gpkg",
+      "tableName": "world",
+      "geometryColumn": "geom"
     }
   ],
   "styles": [
@@ -42,9 +76,45 @@
   "layers": [
     {
       "name": "world",
-      "title": "World",
+      "title": "World GeoJSON",
       "abstract": "World country boundaries from the GeoJSON demo dataset.",
       "source": "world",
+      "sourceCrs": "EPSG:4326",
+      "extent": [-180, -90, 180, 90],
+      "style": "world"
+    },
+    {
+      "name": "world-mem",
+      "title": "World Memory",
+      "abstract": "World country boundaries loaded in memory from the GeoJSON demo dataset.",
+      "source": "world-mem",
+      "sourceCrs": "EPSG:4326",
+      "extent": [-180, -90, 180, 90],
+      "style": "world"
+    },
+    {
+      "name": "world-gml",
+      "title": "World GML",
+      "abstract": "World country boundaries from the GML demo dataset.",
+      "source": "world-gml",
+      "sourceCrs": "EPSG:4326",
+      "extent": [-180, -90, 180, 90],
+      "style": "world"
+    },
+    {
+      "name": "world-shp",
+      "title": "World Shapefile",
+      "abstract": "World country boundaries from the shapefile demo dataset.",
+      "source": "world-shp",
+      "sourceCrs": "EPSG:4326",
+      "extent": [-180, -90, 180, 90],
+      "style": "world"
+    },
+    {
+      "name": "world-gpkg",
+      "title": "World GeoPackage",
+      "abstract": "World country boundaries from the GeoPackage demo dataset.",
+      "source": "world-gpkg",
       "sourceCrs": "EPSG:4326",
       "extent": [-180, -90, 180, 90],
       "style": "world"

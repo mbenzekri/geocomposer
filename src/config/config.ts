@@ -5,6 +5,7 @@ import type { WmsAppOptions, WmsLayer, WmsLayerStyle, WmsService } from '../ogc/
 import { GeoJsonSource } from '../source/geojson-source.js'
 import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
 import { GpkgSource } from '../source/gpkg-source.js'
+import { MemSource } from '../source/mem-source.js'
 import { ShpSource } from '../source/shp-source.js'
 import type { Source } from '../source/source.js'
 import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-style.js'
@@ -66,11 +67,20 @@ export type GpkgSourceJson = {
   primaryKey?: string
 }
 
+export type MemSourceJson = {
+  type: 'mem'
+  name: string
+  title?: string
+  abstract?: string
+  source: string
+}
+
 export type SourceJson =
   | GeoJsonSourceJson
   | GmlSourceJson
   | ShpSourceJson
   | GpkgSourceJson
+  | MemSourceJson
 
 export type BuiltinStyleJson = {
   type: 'builtin'
@@ -185,20 +195,54 @@ function createSources(
   baseDir: string,
   crs: CrsRegistry
 ): Map<string, Source> {
+  const sourceEntriesByName = new Map<string, SourceJson>()
   const sources = new Map<string, Source>()
+  const creating = new Set<string>()
 
   for (const entry of sourceEntries) {
-    if (sources.has(entry.name)) {
+    if (sourceEntriesByName.has(entry.name)) {
       throw new Error(`Duplicate source "${entry.name}"`)
     }
 
-    sources.set(entry.name, createSource(entry, baseDir, crs))
+    sourceEntriesByName.set(entry.name, entry)
+  }
+
+  const resolveSource = (name: string): Source => {
+    const existing = sources.get(name)
+    if (existing) return existing
+
+    const entry = sourceEntriesByName.get(name)
+    if (!entry) {
+      throw new Error(`Unknown source "${name}"`)
+    }
+
+    if (creating.has(name)) {
+      throw new Error(`Circular source reference involving "${name}"`)
+    }
+
+    creating.add(name)
+    try {
+      const source = createSource(entry, baseDir, crs, resolveSource)
+      sources.set(name, source)
+      return source
+    } finally {
+      creating.delete(name)
+    }
+  }
+
+  for (const entry of sourceEntries) {
+    resolveSource(entry.name)
   }
 
   return sources
 }
 
-function createSource(entry: SourceJson, baseDir: string, crs: CrsRegistry): Source {
+function createSource(
+  entry: SourceJson,
+  baseDir: string,
+  crs: CrsRegistry,
+  resolveSource: (name: string) => Source
+): Source {
   switch (entry.type) {
     case 'geojson':
       return new GeoJsonSource(entry.name, resolve(baseDir, entry.path), {
@@ -236,6 +280,9 @@ function createSource(entry: SourceJson, baseDir: string, crs: CrsRegistry): Sou
         geometryColumn: entry.geometryColumn,
         primaryKey: entry.primaryKey
       })
+
+    case 'mem':
+      return new MemSource(entry.name, resolveSource(entry.source))
   }
 }
 

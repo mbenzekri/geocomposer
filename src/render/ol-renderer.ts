@@ -69,6 +69,10 @@ export class OlRenderer {
         return this.canvas.toBuffer('image/png')
     }
 
+    drawRenderer(renderer: OlRenderer): void {
+        this.context.drawImage(renderer.canvas, 0, 0)
+    }
+
     async drawPngBuffer(imageBuffer: Buffer): Promise<void> {
         const image = await loadImage(imageBuffer)
         this.context.drawImage(image, 0, 0)

@@ -6,20 +6,63 @@ import { Source, type StreamOptions } from './source.js'
 export class MemSource extends Source {
   readonly type = 'mem'
   readonly storage = 'mem' as const
+  private readonly source: Source | null
+  private readonly memoryCrs: CrsCode
+  private features: Feature[]
+  private loaded: boolean
+  private opening: Promise<void> | null = null
 
+  constructor(id: string, source: Source)
+  constructor(id: string, crs: CrsCode, features: Feature[])
   constructor(
     readonly id: string,
-    readonly crs: CrsCode,
-    private readonly features: Feature[]
+    sourceOrCrs: Source | CrsCode,
+    features: Feature[] = []
   ) {
     super()
+
+    if (isSource(sourceOrCrs)) {
+      this.source = sourceOrCrs
+      this.memoryCrs = sourceOrCrs.crs
+      this.features = []
+      this.loaded = false
+    } else {
+      this.source = null
+      this.memoryCrs = sourceOrCrs
+      this.features = features
+      this.loaded = true
+    }
   }
 
-  async open(): Promise<void> {}
+  get crs(): CrsCode {
+    return this.source?.crs ?? this.memoryCrs
+  }
 
-  async close(): Promise<void> {}
+  async open(): Promise<void> {
+    if (this.loaded) return
+
+    if (!this.opening) {
+      this.opening = this.load()
+    }
+
+    try {
+      await this.opening
+    } finally {
+      this.opening = null
+    }
+  }
+
+  async close(): Promise<void> {
+    if (!this.source) return
+
+    await this.source.close()
+    this.features = []
+    this.loaded = false
+  }
 
   async getExtent(): Promise<BBox | null> {
+    await this.open()
+
     let extent: BBox | null = null
 
     for (const feature of this.features) {
@@ -34,9 +77,16 @@ export class MemSource extends Source {
     let index = 0
 
     return new ReadableStream<Feature>({
-      pull: (controller) => {
+      pull: async (controller) => {
         if (options.signal?.aborted) {
           controller.error(options.signal.reason)
+          return
+        }
+
+        try {
+          await this.open()
+        } catch (error) {
+          controller.error(error)
           return
         }
 
@@ -52,21 +102,51 @@ export class MemSource extends Source {
   }
 
   async read(sourceRef: SourceRef): Promise<Feature | null> {
+    await this.open()
+
     const ref = this.toMemRef(sourceRef)
     const feature = this.features[ref.featureIndex]
     if (!feature) return null
     return this.withSourceRef(feature, ref.featureIndex)
   }
 
+  private async load(): Promise<void> {
+    if (!this.source) {
+      this.loaded = true
+      return
+    }
+
+    await this.source.open()
+
+    const features: Feature[] = []
+
+    await this.source.stream().pipeTo(new WritableStream<Feature>({
+      write(feature) {
+        features.push(feature)
+      }
+    }))
+
+    this.features = features
+    this.loaded = true
+  }
+
   private withSourceRef(feature: Feature, index: number): Feature {
+    const sourceRef: SourceRef = {
+      storage: 'mem',
+      sourceId: this.id,
+      featureIndex: index,
+      recordIndex: index
+    }
+
+    if (feature.sourceRef) {
+      sourceRef.related = {
+        source: feature.sourceRef
+      }
+    }
+
     return {
       ...feature,
-      sourceRef: {
-        storage: 'mem',
-        sourceId: this.id,
-        featureIndex: index,
-        recordIndex: index
-      }
+      sourceRef
     }
   }
 
@@ -85,4 +165,11 @@ export class MemSource extends Source {
 
     return sourceRef
   }
+}
+
+function isSource(value: Source | CrsCode): value is Source {
+  return typeof value === 'object'
+    && value !== null
+    && typeof (value as Source).stream === 'function'
+    && typeof (value as Source).open === 'function'
 }

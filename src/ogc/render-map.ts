@@ -34,15 +34,27 @@ export async function renderMap(options: RenderMapOptions | RenderSingleMapOptio
     ? options.layers
     : [{ source: options.source, style: options.style }]
 
+  if (layers.length === 0) {
+    return new OlRenderer(
+      options.width,
+      options.height,
+      options.bbox,
+      () => null,
+      resolution
+    ).toPngBuffer()
+  }
+
+  const [firstLayer, ...remainingLayers] = layers
   const renderer = new OlRenderer(
     options.width,
     options.height,
     options.bbox,
-    layers[0]?.style ?? (() => null),
+    firstLayer.style,
     resolution
   )
+  await renderLayer(firstLayer, renderer, options)
 
-  for (const layer of layers) {
+  for (const layer of remainingLayers) {
     const layerRenderer = new OlRenderer(
       options.width,
       options.height,
@@ -50,23 +62,25 @@ export async function renderMap(options: RenderMapOptions | RenderSingleMapOptio
       layer.style,
       resolution
     )
-    const needsReprojection = layer.source.crs !== options.crs
-    const projected = needsReprojection
-      ? layer.source
-        .stream()
-        .pipeThrough(new Reproject(layer.source.crs, options.crs))
-      : layer.source.stream()
-
-    await projected
-      .pipeThrough(new BboxFilter(options.bbox))
-      .pipeTo(new RenderWritable(layerRenderer))
-
-    await mergeRenderer(renderer, layerRenderer)
+    await renderLayer(layer, layerRenderer, options)
+    renderer.drawRenderer(layerRenderer)
   }
 
   return renderer.toPngBuffer()
 }
 
-async function mergeRenderer(base: OlRenderer, layer: OlRenderer): Promise<void> {
-  await base.drawPngBuffer(layer.toPngBuffer())
+async function renderLayer(
+  layer: RenderLayer,
+  renderer: OlRenderer,
+  options: RenderMapOptions | RenderSingleMapOptions
+): Promise<void> {
+  const needsReprojection = layer.source.crs !== options.crs
+  const features = needsReprojection
+    ? layer.source
+      .stream()
+      .pipeThrough(new Reproject(layer.source.crs, options.crs))
+      .pipeThrough(new BboxFilter(options.bbox))
+    : layer.source.query({ bbox: options.bbox })
+
+  await features.pipeTo(new RenderWritable(renderer))
 }

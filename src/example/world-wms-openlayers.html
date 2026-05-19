@@ -148,6 +148,17 @@
       </div>
     </div>
 
+    <div class="toolbar">
+      <span class="toolbar-label">Format</span>
+      <div class="segmented" role="radiogroup" aria-label="Format de source world">
+        <button type="button" role="radio" aria-checked="true" data-world-layer="world" data-format-label="GeoJSON">GeoJSON</button>
+        <button type="button" role="radio" aria-checked="false" data-world-layer="world-mem" data-format-label="Memory">MEM</button>
+        <button type="button" role="radio" aria-checked="false" data-world-layer="world-gml" data-format-label="GML">GML</button>
+        <button type="button" role="radio" aria-checked="false" data-world-layer="world-shp" data-format-label="Shapefile">SHP</button>
+        <button type="button" role="radio" aria-checked="false" data-world-layer="world-gpkg" data-format-label="GeoPackage">GPKG</button>
+      </div>
+    </div>
+
     <div class="map-shell">
       <div id="map" aria-label="Carte du monde"></div>
     </div>
@@ -176,8 +187,11 @@
     }
     const projectionSummary = document.getElementById('projection-summary')
     const projectionButtons = Array.from(document.querySelectorAll('[data-projection]'))
+    const formatButtons = Array.from(document.querySelectorAll('[data-world-layer]'))
     const requestUrlElement = document.getElementById('request-url')
     let lastRequestUrl = ''
+    let currentProjectionCode = 'EPSG:4326'
+    let currentFormatLabel = 'GeoJSON'
 
     const source = new ol.source.ImageWMS({
       url: wmsUrl,
@@ -219,10 +233,31 @@
       })
     }
 
+    function setWorldLayer(layerName, formatLabel) {
+      if (!layerName) return
+
+      lastRequestUrl = ''
+      requestUrlElement.textContent = 'En attente...'
+      currentFormatLabel = formatLabel || layerName
+      source.updateParams({
+        LAYERS: layerName,
+        STYLES: 'world'
+      })
+
+      for (const button of formatButtons) {
+        const selected = button.dataset.worldLayer === layerName
+        button.setAttribute('aria-checked', String(selected))
+      }
+
+      updateProjectionSummary()
+      updateRequestUrl()
+    }
+
     function setProjection(code) {
       const projection = projections[code]
       if (!projection) return
 
+      currentProjectionCode = code
       lastRequestUrl = ''
       requestUrlElement.textContent = 'En attente...'
       map.setView(createView(code))
@@ -231,12 +266,16 @@
         size: map.getSize()
       })
 
-      projectionSummary.textContent = `Vue ${code}, emprise monde, surface 1000 x 500 px.`
       for (const button of projectionButtons) {
         const selected = button.dataset.projection === code
         button.setAttribute('aria-checked', String(selected))
       }
+      updateProjectionSummary()
       updateRequestUrl()
+    }
+
+    function updateProjectionSummary() {
+      projectionSummary.textContent = `Vue ${currentProjectionCode}, world ${currentFormatLabel}, surface 1000 x 500 px.`
     }
 
     function updateRequestUrl() {
@@ -255,6 +294,10 @@
 
     for (const button of projectionButtons) {
       button.addEventListener('click', () => setProjection(button.dataset.projection))
+    }
+
+    for (const button of formatButtons) {
+      button.addEventListener('click', () => setWorldLayer(button.dataset.worldLayer, button.dataset.formatLabel))
     }
 
     map.once('postrender', updateRequestUrl)
