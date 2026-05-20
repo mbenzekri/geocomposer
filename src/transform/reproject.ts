@@ -19,13 +19,35 @@ export class Reproject extends TransformStream<Feature, Feature> {
 
         const geometry = transformGeometry(feature.geometry, sourceCrs, targetCrs)
         const bbox = Geom.bbox(geometry) ?? undefined
+        const properties = transformLabelPosition(feature.properties, sourceCrs, targetCrs)
+
         controller.enqueue({
           ...feature,
           geometry,
-          bbox
+          bbox,
+          properties
         })
       }
     })
+  }
+}
+
+function transformLabelPosition(
+  properties: Feature['properties'],
+  sourceCrs: string,
+  targetCrs: string
+): Feature['properties'] {
+  if (!properties) return properties
+
+  const labelX = Number(properties.label_x)
+  const labelY = Number(properties.label_y)
+  if (!Number.isFinite(labelX) || !Number.isFinite(labelY)) return properties
+
+  const [x, y] = transformPosition([labelX, labelY], sourceCrs, targetCrs)
+  return {
+    ...properties,
+    label_x: x,
+    label_y: y
   }
 }
 

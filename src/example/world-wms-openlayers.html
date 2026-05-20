@@ -137,7 +137,7 @@
 <body>
   <main>
     <h1>WMS OpenLayers</h1>
-    <p id="projection-summary">Vue EPSG:4326, emprise monde, surface 1000 x 500 px.</p>
+    <p id="projection-summary">Vue EPSG:4326, world GeoJSON + capitales GeoJSON, surface 1000 x 500 px.</p>
     <div class="meta"><code>http://localhost:3000/wms</code></div>
 
     <div class="toolbar">
@@ -199,8 +199,8 @@
         SERVICE: 'WMS',
         VERSION: '1.3.0',
         REQUEST: 'GetMap',
-        LAYERS: 'world',
-        STYLES: 'world',
+        LAYERS: 'world,capitals',
+        STYLES: 'world,default',
         FORMAT: 'image/png',
         TRANSPARENT: true
       },
@@ -240,8 +240,8 @@
       requestUrlElement.textContent = 'En attente...'
       currentFormatLabel = formatLabel || layerName
       source.updateParams({
-        LAYERS: layerName,
-        STYLES: 'world'
+        LAYERS: `${layerName},capitals`,
+        STYLES: 'world,default'
       })
 
       for (const button of formatButtons) {
@@ -275,7 +275,7 @@
     }
 
     function updateProjectionSummary() {
-      projectionSummary.textContent = `Vue ${currentProjectionCode}, world ${currentFormatLabel}, surface 1000 x 500 px.`
+      projectionSummary.textContent = `Vue ${currentProjectionCode}, world ${currentFormatLabel} + capitales GeoJSON, surface 1000 x 500 px.`
     }
 
     function updateRequestUrl() {

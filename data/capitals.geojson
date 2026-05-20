@@ -1,6 +1,7 @@
 {
     "type": "FeatureCollection",
     "features": [{
+        "type": "Feature",
         "properties": {
             "country": "Bangladesh",
             "city": "Dhaka",
@@ -14,6 +15,7 @@
         },
         "id": "BD"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Belgium",
             "city": "Brussels",
@@ -27,6 +29,7 @@
         },
         "id": "BE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Burkina Faso",
             "city": "Ouagadougou",
@@ -40,6 +43,7 @@
         },
         "id": "BF"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Bulgaria",
             "city": "Sofia",
@@ -53,6 +57,7 @@
         },
         "id": "BG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Bosnia and Herzegovina",
             "city": "Sarajevo",
@@ -66,6 +71,7 @@
         },
         "id": "BA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Barbados",
             "city": "Bridgetown",
@@ -79,6 +85,7 @@
         },
         "id": "BB"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Wallis and Futuna",
             "city": "Mata-Utu",
@@ -92,6 +99,7 @@
         },
         "id": "WF"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Saint Barthelemy",
             "city": "Gustavia",
@@ -105,6 +113,7 @@
         },
         "id": "BL"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Bermuda",
             "city": "Hamilton",
@@ -118,6 +127,7 @@
         },
         "id": "BM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Brunei",
             "city": "Bandar Seri Begawan",
@@ -131,6 +141,7 @@
         },
         "id": "BN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Bolivia",
             "city": "La Paz",
@@ -144,6 +155,7 @@
         },
         "id": "BO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Bahrain",
             "city": "Manama",
@@ -157,6 +169,7 @@
         },
         "id": "BH"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Burundi",
             "city": "Bujumbura",
@@ -170,6 +183,7 @@
         },
         "id": "BI"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Benin",
             "city": "Porto-Novo",
@@ -183,6 +197,7 @@
         },
         "id": "BJ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Bhutan",
             "city": "Thimphu",
@@ -196,6 +211,7 @@
         },
         "id": "BT"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Jamaica",
             "city": "Kingston",
@@ -209,6 +225,7 @@
         },
         "id": "JM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Bouvet Island",
             "tld": "bv",
@@ -221,6 +238,7 @@
         },
         "id": "BV"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Botswana",
             "city": "Gaborone",
@@ -234,6 +252,7 @@
         },
         "id": "BW"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Samoa",
             "city": "Apia",
@@ -247,6 +266,7 @@
         },
         "id": "WS"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Brazil",
             "city": "Brasilia",
@@ -260,6 +280,7 @@
         },
         "id": "BR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Bahamas",
             "city": "Nassau",
@@ -273,6 +294,7 @@
         },
         "id": "BS"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Jersey",
             "city": "Saint Helier",
@@ -286,6 +308,7 @@
         },
         "id": "JE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Belarus",
             "city": "Minsk",
@@ -299,6 +322,7 @@
         },
         "id": "BY"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Belize",
             "city": "Belmopan",
@@ -312,6 +336,7 @@
         },
         "id": "BZ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Russia",
             "city": "Moscow",
@@ -325,6 +350,7 @@
         },
         "id": "RU"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Rwanda",
             "city": "Kigali",
@@ -338,6 +364,7 @@
         },
         "id": "RW"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Serbia",
             "city": "Belgrade",
@@ -351,6 +378,7 @@
         },
         "id": "RS"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Timor-Leste",
             "city": "Dili",
@@ -364,6 +392,7 @@
         },
         "id": "TL"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Turkmenistan",
             "city": "Ashgabat",
@@ -377,6 +406,7 @@
         },
         "id": "TM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Tajikistan",
             "city": "Dushanbe",
@@ -390,6 +420,7 @@
         },
         "id": "TJ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Romania",
             "city": "Bucharest",
@@ -403,6 +434,7 @@
         },
         "id": "RO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Tokelau",
             "tld": "tk",
@@ -415,6 +447,7 @@
         },
         "id": "TK"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Guinea-Bissau",
             "city": "Bissau",
@@ -428,6 +461,7 @@
         },
         "id": "GW"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Guam",
             "city": "Hagatna",
@@ -441,6 +475,7 @@
         },
         "id": "GU"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Guatemala",
             "city": "Guatemala City",
@@ -454,6 +489,7 @@
         },
         "id": "GT"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Greece",
             "city": "Athens",
@@ -467,6 +503,7 @@
         },
         "id": "GR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Equatorial Guinea",
             "city": "Malabo",
@@ -480,6 +517,7 @@
         },
         "id": "GQ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Japan",
             "city": "Tokyo",
@@ -493,6 +531,7 @@
         },
         "id": "JP"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Guyana",
             "city": "Georgetown",
@@ -506,6 +545,7 @@
         },
         "id": "GY"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Guernsey",
             "city": "Saint Peter Port",
@@ -519,6 +559,7 @@
         },
         "id": "GG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Georgia",
             "city": "T'bilisi",
@@ -532,6 +573,7 @@
         },
         "id": "GE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Grenada",
             "city": "Saint George's",
@@ -545,6 +587,7 @@
         },
         "id": "GD"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "United Kingdom",
             "city": "London",
@@ -558,6 +601,7 @@
         },
         "id": "GB"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Gabon",
             "city": "Libreville",
@@ -571,6 +615,7 @@
         },
         "id": "GA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "El Salvador",
             "city": "San Salvador",
@@ -584,6 +629,7 @@
         },
         "id": "SV"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Guinea",
             "city": "Conakry",
@@ -597,6 +643,7 @@
         },
         "id": "GN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Gambia",
             "city": "Banjul",
@@ -610,6 +657,7 @@
         },
         "id": "GM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Greenland",
             "city": "Nuuk",
@@ -623,6 +671,7 @@
         },
         "id": "GL"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Gibraltar",
             "city": "Gibraltar",
@@ -636,6 +685,7 @@
         },
         "id": "GI"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Ghana",
             "city": "Accra",
@@ -649,6 +699,7 @@
         },
         "id": "GH"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Oman",
             "city": "Muscat",
@@ -662,6 +713,7 @@
         },
         "id": "OM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Tunisia",
             "city": "Tunis",
@@ -675,6 +727,7 @@
         },
         "id": "TN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Jordan",
             "city": "Amman",
@@ -688,6 +741,7 @@
         },
         "id": "JO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Croatia",
             "city": "Zagreb",
@@ -701,6 +755,7 @@
         },
         "id": "HR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Haiti",
             "city": "Port-au-Prince",
@@ -714,6 +769,7 @@
         },
         "id": "HT"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Hungary",
             "city": "Budapest",
@@ -727,6 +783,7 @@
         },
         "id": "HU"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Hong Kong",
             "city": "Hong Kong",
@@ -740,6 +797,7 @@
         },
         "id": "HK"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Honduras",
             "city": "Tegucigalpa",
@@ -753,6 +811,7 @@
         },
         "id": "HN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Heard Island and McDonald Islands",
             "tld": "hm",
@@ -765,6 +824,7 @@
         },
         "id": "HM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Venezuela",
             "city": "Caracas",
@@ -778,6 +838,7 @@
         },
         "id": "VE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Puerto Rico",
             "city": "San Juan",
@@ -791,6 +852,7 @@
         },
         "id": "PR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Palestinian Territory",
             "tld": "ps",
@@ -803,6 +865,7 @@
         },
         "id": "PS"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Palau",
             "city": "Melekeok",
@@ -816,6 +879,7 @@
         },
         "id": "PW"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Portugal",
             "city": "Lisbon",
@@ -829,6 +893,7 @@
         },
         "id": "PT"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Svalbard",
             "city": "Longyearbyen",
@@ -842,6 +907,7 @@
         },
         "id": "SJ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Paraguay",
             "city": "Asuncion",
@@ -855,6 +921,7 @@
         },
         "id": "PY"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Iraq",
             "city": "Baghdad",
@@ -868,6 +935,7 @@
         },
         "id": "IQ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Panama",
             "city": "Panama City",
@@ -881,6 +949,7 @@
         },
         "id": "PA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "French Polynesia",
             "city": "Papeete",
@@ -894,6 +963,7 @@
         },
         "id": "PF"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Papua New Guinea",
             "city": "Port Moresby",
@@ -907,6 +977,7 @@
         },
         "id": "PG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Peru",
             "city": "Lima",
@@ -920,6 +991,7 @@
         },
         "id": "PE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Pakistan",
             "city": "Islamabad",
@@ -933,6 +1005,7 @@
         },
         "id": "PK"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Philippines",
             "city": "Manila",
@@ -946,6 +1019,7 @@
         },
         "id": "PH"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Pitcairn",
             "city": "Adamstown",
@@ -959,6 +1033,7 @@
         },
         "id": "PN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Poland",
             "city": "Warsaw",
@@ -972,6 +1047,7 @@
         },
         "id": "PL"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Saint Pierre and Miquelon",
             "city": "Saint-Pierre",
@@ -985,6 +1061,7 @@
         },
         "id": "PM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Zambia",
             "city": "Lusaka",
@@ -998,6 +1075,7 @@
         },
         "id": "ZM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Western Sahara",
             "tld": "eh",
@@ -1010,6 +1088,7 @@
         },
         "id": "EH"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Estonia",
             "city": "Tallinn",
@@ -1023,6 +1102,7 @@
         },
         "id": "EE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Egypt",
             "city": "Cairo",
@@ -1036,6 +1116,7 @@
         },
         "id": "EG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "South Africa",
             "city": "Pretoria",
@@ -1049,6 +1130,7 @@
         },
         "id": "ZA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Ecuador",
             "city": "Quito",
@@ -1062,6 +1144,7 @@
         },
         "id": "EC"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Italy",
             "city": "Rome",
@@ -1075,6 +1158,7 @@
         },
         "id": "IT"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Vietnam",
             "city": "Hanoi",
@@ -1088,6 +1172,7 @@
         },
         "id": "VN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Solomon Islands",
             "city": "Honiara",
@@ -1101,6 +1186,7 @@
         },
         "id": "SB"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "European Union",
             "tld": "eu",
@@ -1113,6 +1199,7 @@
         },
         "id": "EU"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Ethiopia",
             "city": "Addis Ababa",
@@ -1126,6 +1213,7 @@
         },
         "id": "ET"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Somalia",
             "city": "Mogadishu",
@@ -1139,6 +1227,7 @@
         },
         "id": "SO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Zimbabwe",
             "city": "Harare",
@@ -1152,6 +1241,7 @@
         },
         "id": "ZW"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Saudi Arabia",
             "city": "Riyadh",
@@ -1165,6 +1255,7 @@
         },
         "id": "SA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Spain",
             "city": "Madrid",
@@ -1178,6 +1269,7 @@
         },
         "id": "ES"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Eritrea",
             "city": "Asmara",
@@ -1191,6 +1283,7 @@
         },
         "id": "ER"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Montenegro",
             "city": "Podgorica",
@@ -1204,6 +1297,7 @@
         },
         "id": "ME"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Moldova",
             "city": "Chisinau",
@@ -1217,6 +1311,7 @@
         },
         "id": "MD"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Madagascar",
             "city": "Antananarivo",
@@ -1230,6 +1325,7 @@
         },
         "id": "MG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Saint Martin",
             "city": "Marigot",
@@ -1243,6 +1339,7 @@
         },
         "id": "MF"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Morocco",
             "city": "Rabat",
@@ -1256,6 +1353,7 @@
         },
         "id": "MA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Monaco",
             "city": "Monaco",
@@ -1269,6 +1367,7 @@
         },
         "id": "MC"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Uzbekistan",
             "city": "Tashkent",
@@ -1282,6 +1381,7 @@
         },
         "id": "UZ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Myanmar",
             "city": "Rangoon",
@@ -1295,6 +1395,7 @@
         },
         "id": "MM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Mali",
             "city": "Bamako",
@@ -1308,6 +1409,7 @@
         },
         "id": "ML"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Macao",
             "tld": "mo",
@@ -1320,6 +1422,7 @@
         },
         "id": "MO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Mongolia",
             "city": "Ulaanbaatar",
@@ -1333,6 +1436,7 @@
         },
         "id": "MN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Marshall Islands",
             "city": "Majuro",
@@ -1346,6 +1450,7 @@
         },
         "id": "MH"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Macedonia",
             "city": "Skopje",
@@ -1359,6 +1464,7 @@
         },
         "id": "MK"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Mauritius",
             "city": "Port Louis",
@@ -1372,6 +1478,7 @@
         },
         "id": "MU"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Malta",
             "city": "Valletta",
@@ -1385,6 +1492,7 @@
         },
         "id": "MT"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Malawi",
             "city": "Lilongwe",
@@ -1398,6 +1506,7 @@
         },
         "id": "MW"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Maldives",
             "city": "Male",
@@ -1411,6 +1520,7 @@
         },
         "id": "MV"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Northern Mariana Islands",
             "city": "Saipan",
@@ -1424,6 +1534,7 @@
         },
         "id": "MP"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Montserrat",
             "city": "Plymouth",
@@ -1437,6 +1548,7 @@
         },
         "id": "MS"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Mauritania",
             "city": "Nouakchott",
@@ -1450,6 +1562,7 @@
         },
         "id": "MR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Isle of Man",
             "city": "Douglas",
@@ -1463,6 +1576,7 @@
         },
         "id": "IM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Uganda",
             "city": "Kampala",
@@ -1476,6 +1590,7 @@
         },
         "id": "UG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Malaysia",
             "city": "Kuala Lumpur",
@@ -1489,6 +1604,7 @@
         },
         "id": "MY"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Mexico",
             "city": "Mexico City",
@@ -1502,6 +1618,7 @@
         },
         "id": "MX"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Israel",
             "city": "Jerusalem",
@@ -1515,6 +1632,7 @@
         },
         "id": "IL"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "France",
             "city": "Paris",
@@ -1528,6 +1646,7 @@
         },
         "id": "FR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "British Indian Ocean Territory",
             "tld": "io",
@@ -1540,6 +1659,7 @@
         },
         "id": "IO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Saint Helena Ascension and Tristan da Cunha",
             "city": "Jamestown",
@@ -1553,6 +1673,7 @@
         },
         "id": "SH"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Finland",
             "city": "Helsinki",
@@ -1566,6 +1687,7 @@
         },
         "id": "FI"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Fiji",
             "city": "Suva",
@@ -1579,6 +1701,7 @@
         },
         "id": "FJ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Falkland Islands",
             "city": "Stanley",
@@ -1592,6 +1715,7 @@
         },
         "id": "FK"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Micronesia",
             "city": "Palikir",
@@ -1605,6 +1729,7 @@
         },
         "id": "FM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Faroe Islands",
             "city": "Torshavn",
@@ -1618,6 +1743,7 @@
         },
         "id": "FO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Nicaragua",
             "city": "Managua",
@@ -1631,6 +1757,7 @@
         },
         "id": "NI"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Netherlands",
             "city": "Amsterdam",
@@ -1644,6 +1771,7 @@
         },
         "id": "NL"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Norway",
             "city": "Oslo",
@@ -1657,6 +1785,7 @@
         },
         "id": "NO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Namibia",
             "city": "Windhoek",
@@ -1670,6 +1799,7 @@
         },
         "id": "NA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Vanuatu",
             "city": "Port-Vila",
@@ -1683,6 +1813,7 @@
         },
         "id": "VU"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "New Caledonia",
             "city": "Noumea",
@@ -1696,6 +1827,7 @@
         },
         "id": "NC"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Niger",
             "city": "Niamey",
@@ -1709,6 +1841,7 @@
         },
         "id": "NE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Norfolk Island",
             "city": "Kingston",
@@ -1722,6 +1855,7 @@
         },
         "id": "NF"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Nigeria",
             "city": "Abuja",
@@ -1735,6 +1869,7 @@
         },
         "id": "NG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "New Zealand",
             "city": "Wellington",
@@ -1748,6 +1883,7 @@
         },
         "id": "NZ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Nepal",
             "city": "Kathmandu",
@@ -1761,6 +1897,7 @@
         },
         "id": "NP"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Nauru",
             "tld": "nr",
@@ -1773,6 +1910,7 @@
         },
         "id": "NR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Niue",
             "city": "Alofi",
@@ -1786,6 +1924,7 @@
         },
         "id": "NU"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Cook Islands",
             "city": "Avarua",
@@ -1799,6 +1938,7 @@
         },
         "id": "CK"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Ivory Coast",
             "city": "Yamoussoukro",
@@ -1812,6 +1952,7 @@
         },
         "id": "CI"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Switzerland",
             "city": "Bern",
@@ -1825,6 +1966,7 @@
         },
         "id": "CH"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Colombia",
             "city": "Bogota",
@@ -1838,6 +1980,7 @@
         },
         "id": "CO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "China",
             "city": "Beijing",
@@ -1851,6 +1994,7 @@
         },
         "id": "CN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Cameroon",
             "city": "Yaounde",
@@ -1864,6 +2008,7 @@
         },
         "id": "CM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Chile",
             "city": "Santiago",
@@ -1877,6 +2022,7 @@
         },
         "id": "CL"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Cocos Islands",
             "city": "West Island",
@@ -1890,6 +2036,7 @@
         },
         "id": "CC"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Canada",
             "city": "Ottawa",
@@ -1903,6 +2050,7 @@
         },
         "id": "CA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Congo Republic",
             "city": "Brazzaville",
@@ -1916,6 +2064,7 @@
         },
         "id": "CG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Central African Republic",
             "city": "Bangui",
@@ -1929,6 +2078,7 @@
         },
         "id": "CF"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Congo Democratic Republic",
             "city": "Kinshasa",
@@ -1942,6 +2092,7 @@
         },
         "id": "CD"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Czech Republic",
             "city": "Prague",
@@ -1955,6 +2106,7 @@
         },
         "id": "CZ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Cyprus",
             "city": "Nicosia",
@@ -1968,6 +2120,7 @@
         },
         "id": "CY"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Christmas Island",
             "city": "The Settlement",
@@ -1981,6 +2134,7 @@
         },
         "id": "CX"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Costa Rica",
             "city": "San Jose",
@@ -1994,6 +2148,7 @@
         },
         "id": "CR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Cape Verde",
             "city": "Praia",
@@ -2007,6 +2162,7 @@
         },
         "id": "CV"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Cuba",
             "city": "Havana",
@@ -2020,6 +2176,7 @@
         },
         "id": "CU"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Swaziland",
             "city": "Mbabane",
@@ -2033,6 +2190,7 @@
         },
         "id": "SZ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Syria",
             "city": "Damascus",
@@ -2046,6 +2204,7 @@
         },
         "id": "SY"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Kyrgyzstan",
             "city": "Bishkek",
@@ -2059,6 +2218,7 @@
         },
         "id": "KG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Kenya",
             "city": "Nairobi",
@@ -2072,6 +2232,7 @@
         },
         "id": "KE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Suriname",
             "city": "Paramaribo",
@@ -2085,6 +2246,7 @@
         },
         "id": "SR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Kiribati",
             "city": "Tarawa",
@@ -2098,6 +2260,7 @@
         },
         "id": "KI"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Cambodia",
             "city": "Phnom Penh",
@@ -2111,6 +2274,7 @@
         },
         "id": "KH"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Saint Kitts and Nevis",
             "city": "Basseterre",
@@ -2124,6 +2288,7 @@
         },
         "id": "KN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Comoros",
             "city": "Moroni",
@@ -2137,6 +2302,7 @@
         },
         "id": "KM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Sao Tome and Principe",
             "city": "Sao Tome",
@@ -2150,6 +2316,7 @@
         },
         "id": "ST"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Slovakia",
             "city": "Bratislava",
@@ -2163,6 +2330,7 @@
         },
         "id": "SK"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Korea South",
             "city": "Seoul",
@@ -2176,6 +2344,7 @@
         },
         "id": "KR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Slovenia",
             "city": "Ljubljana",
@@ -2189,6 +2358,7 @@
         },
         "id": "SI"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Korea North",
             "city": "Pyongyang",
@@ -2202,6 +2372,7 @@
         },
         "id": "KP"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Kuwait",
             "city": "Kuwait City",
@@ -2215,6 +2386,7 @@
         },
         "id": "KW"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Senegal",
             "city": "Dakar",
@@ -2228,6 +2400,7 @@
         },
         "id": "SN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "San Marino",
             "city": "San Marino",
@@ -2241,6 +2414,7 @@
         },
         "id": "SM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Sierra Leone",
             "city": "Freetown",
@@ -2254,6 +2428,7 @@
         },
         "id": "SL"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Seychelles",
             "city": "Victoria",
@@ -2267,6 +2442,7 @@
         },
         "id": "SC"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Kazakhstan",
             "city": "Astana",
@@ -2280,6 +2456,7 @@
         },
         "id": "KZ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Cayman Islands",
             "city": "George Town",
@@ -2293,6 +2470,7 @@
         },
         "id": "KY"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Singapore",
             "city": "Singapore",
@@ -2306,6 +2484,7 @@
         },
         "id": "SG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Sweden",
             "city": "Stockholm",
@@ -2319,6 +2498,7 @@
         },
         "id": "SE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Sudan",
             "city": "Khartoum",
@@ -2332,6 +2512,7 @@
         },
         "id": "SD"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Dominican Republic",
             "city": "Santo Domingo",
@@ -2345,6 +2526,7 @@
         },
         "id": "DO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Dominica",
             "city": "Roseau",
@@ -2358,6 +2540,7 @@
         },
         "id": "DM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Djibouti",
             "city": "Djibouti",
@@ -2371,6 +2554,7 @@
         },
         "id": "DJ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Denmark",
             "city": "Copenhagen",
@@ -2384,6 +2568,7 @@
         },
         "id": "DK"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "British Virgin Islands",
             "city": "Road Town",
@@ -2397,6 +2582,7 @@
         },
         "id": "VG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Germany",
             "city": "Berlin",
@@ -2410,6 +2596,7 @@
         },
         "id": "DE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Yemen",
             "city": "Sanaa",
@@ -2423,6 +2610,7 @@
         },
         "id": "YE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Algeria",
             "city": "Algiers",
@@ -2436,6 +2624,7 @@
         },
         "id": "DZ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "United States",
             "city": "Washington, DC",
@@ -2449,6 +2638,7 @@
         },
         "id": "US"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Uruguay",
             "city": "Montevideo",
@@ -2462,6 +2652,7 @@
         },
         "id": "UY"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Mayotte",
             "city": "Mamoudzou",
@@ -2475,6 +2666,7 @@
         },
         "id": "YT"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Lebanon",
             "city": "Beirut",
@@ -2488,6 +2680,7 @@
         },
         "id": "LB"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Saint Lucia",
             "city": "Castries",
@@ -2501,6 +2694,7 @@
         },
         "id": "LC"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Laos",
             "city": "Vientiane",
@@ -2514,6 +2708,7 @@
         },
         "id": "LA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Tuvalu",
             "city": "Funafuti",
@@ -2527,6 +2722,7 @@
         },
         "id": "TV"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Taiwan",
             "city": "Taipei",
@@ -2540,6 +2736,7 @@
         },
         "id": "TW"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Trinidad and Tobago",
             "city": "Port-of-Spain",
@@ -2553,6 +2750,7 @@
         },
         "id": "TT"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Turkey",
             "city": "Ankara",
@@ -2566,6 +2764,7 @@
         },
         "id": "TR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Sri Lanka",
             "city": "Colombo",
@@ -2579,6 +2778,7 @@
         },
         "id": "LK"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Liechtenstein",
             "city": "Vaduz",
@@ -2592,6 +2792,7 @@
         },
         "id": "LI"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Latvia",
             "city": "Riga",
@@ -2605,6 +2806,7 @@
         },
         "id": "LV"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Tonga",
             "city": "Nuku'alofa",
@@ -2618,6 +2820,7 @@
         },
         "id": "TO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Lithuania",
             "city": "Vilnius",
@@ -2631,6 +2834,7 @@
         },
         "id": "LT"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Luxembourg",
             "city": "Luxembourg",
@@ -2644,6 +2848,7 @@
         },
         "id": "LU"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Liberia",
             "city": "Monrovia",
@@ -2657,6 +2862,7 @@
         },
         "id": "LR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Lesotho",
             "city": "Maseru",
@@ -2670,6 +2876,7 @@
         },
         "id": "LS"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Thailand",
             "city": "Bangkok",
@@ -2683,6 +2890,7 @@
         },
         "id": "TH"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "French Southern Territories",
             "tld": "tf",
@@ -2695,6 +2903,7 @@
         },
         "id": "TF"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Togo",
             "city": "Lome",
@@ -2708,6 +2917,7 @@
         },
         "id": "TG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Chad",
             "city": "N'Djamena",
@@ -2721,6 +2931,7 @@
         },
         "id": "TD"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Turks and Caicos Islands",
             "city": "Grand Turk",
@@ -2734,6 +2945,7 @@
         },
         "id": "TC"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Libya",
             "city": "Tripoli",
@@ -2747,6 +2959,7 @@
         },
         "id": "LY"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Holy See",
             "city": "Vatican City",
@@ -2760,6 +2973,7 @@
         },
         "id": "VA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Saint Vincent and the Grenadines",
             "city": "Kingstown",
@@ -2773,6 +2987,7 @@
         },
         "id": "VC"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "United Arab Emirates",
             "city": "Abu Dhabi",
@@ -2786,6 +3001,7 @@
         },
         "id": "AE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Andorra",
             "city": "Andorra la Vella",
@@ -2799,6 +3015,7 @@
         },
         "id": "AD"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Antigua and Barbuda",
             "city": "Saint John's",
@@ -2812,6 +3029,7 @@
         },
         "id": "AG"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Afghanistan",
             "city": "Kabul",
@@ -2825,6 +3043,7 @@
         },
         "id": "AF"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Anguilla",
             "city": "The Valley",
@@ -2838,6 +3057,7 @@
         },
         "id": "AI"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Virgin Islands",
             "city": "Charlotte Amalie",
@@ -2851,6 +3071,7 @@
         },
         "id": "VI"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Iceland",
             "city": "Reykjavik",
@@ -2864,6 +3085,7 @@
         },
         "id": "IS"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Iran",
             "city": "Tehran",
@@ -2877,6 +3099,7 @@
         },
         "id": "IR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Armenia",
             "city": "Yerevan",
@@ -2890,6 +3113,7 @@
         },
         "id": "AM"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Albania",
             "city": "Tirana",
@@ -2903,6 +3127,7 @@
         },
         "id": "AL"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Angola",
             "city": "Luanda",
@@ -2916,6 +3141,7 @@
         },
         "id": "AO"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Netherlands Antilles",
             "city": "Willemstad",
@@ -2929,6 +3155,7 @@
         },
         "id": "AN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Antarctica",
             "tld": "aq",
@@ -2941,6 +3168,7 @@
         },
         "id": "AQ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Asia &amp; Pacific",
             "tld": "asia",
@@ -2953,6 +3181,7 @@
         },
         "id": "AP"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "American Samoa",
             "city": "Pago Pago",
@@ -2966,6 +3195,7 @@
         },
         "id": "AS"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Argentina",
             "city": "Buenos Aires",
@@ -2979,6 +3209,7 @@
         },
         "id": "AR"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Australia",
             "city": "Canberra",
@@ -2992,6 +3223,7 @@
         },
         "id": "AU"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Austria",
             "city": "Vienna",
@@ -3005,6 +3237,7 @@
         },
         "id": "AT"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Aruba",
             "city": "Oranjestad",
@@ -3018,6 +3251,7 @@
         },
         "id": "AW"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "India",
             "city": "New Delhi",
@@ -3031,6 +3265,7 @@
         },
         "id": "IN"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Tanzania",
             "city": "Dar es Salaam",
@@ -3044,6 +3279,7 @@
         },
         "id": "TZ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Azerbaijan",
             "city": "Baku",
@@ -3057,6 +3293,7 @@
         },
         "id": "AZ"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Ireland",
             "city": "Dublin",
@@ -3070,6 +3307,7 @@
         },
         "id": "IE"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Indonesia",
             "city": "Jakarta",
@@ -3083,6 +3321,7 @@
         },
         "id": "ID"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Ukraine",
             "city": "Kiew",
@@ -3096,6 +3335,7 @@
         },
         "id": "UA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Qatar",
             "city": "Doha",
@@ -3109,6 +3349,7 @@
         },
         "id": "QA"
     }, {
+        "type": "Feature",
         "properties": {
             "country": "Mozambique",
             "city": "Maputo",

@@ -1,14 +1,38 @@
 {
-  "title": "World",
-  "static": {
-    "world": {
-      "stroke": {
-        "color": "#334155",
-        "width": 0.75
-      },
-      "fill": {
-        "color": "rgba(56, 189, 248, 0.18)"
-      }
-    }
-  }
+    "title": "World",
+    "cacheKey": "world",
+    "static": {
+        "country": {
+            "stroke": {
+                "color": "#334155",
+                "width": 0.75
+            },
+            "fill": {
+                "color": "rgba(56, 189, 248, 0.18)"
+            }
+        },
+        "country-label": {
+            "text": {
+                "text": "",
+                "font": "12px sans-serif",
+                "fill": {
+                    "color": "#0f172a"
+                },
+                "stroke": {
+                    "color": "rgba(255, 255, 255, 0.9)",
+                    "width": 3
+                }
+            }
+        }
+    },
+    "dynamic": [
+        {
+            "pointer": "#/country-label/geometry",
+            "value": "=> { const x = Number(F.properties?.label_x); const y = Number(F.properties?.label_y); return Number.isFinite(x) && Number.isFinite(y) ? { type: 'Point', coordinates: [x, y] } : undefined }"
+        },
+        {
+            "pointer": "#/country-label/text/text",
+            "value": "=> F.properties?.name_fr ?? ''"
+        }
+    ]
 }

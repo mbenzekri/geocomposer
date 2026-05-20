@@ -30,6 +30,14 @@
       "path": "data/world.geojson"
     },
     {
+      "type": "geojson",
+      "name": "capitals",
+      "title": "Capitals GeoJSON",
+      "abstract": "World capitals GeoJSON demo source.",
+      "crs": "EPSG:4326",
+      "path": "data/capitals.geojson"
+    },
+    {
       "type": "mem",
       "name": "world-mem",
       "title": "World Memory",
@@ -82,6 +90,14 @@
       "sourceCrs": "EPSG:4326",
       "extent": [-180, -90, 180, 90],
       "style": "world"
+    },
+    {
+      "name": "capitals",
+      "title": "Capitals GeoJSON",
+      "abstract": "World capitals from the GeoJSON demo dataset.",
+      "source": "capitals",
+      "sourceCrs": "EPSG:4326",
+      "extent": [-180, -90, 180, 90]
     },
     {
       "name": "world-mem",
