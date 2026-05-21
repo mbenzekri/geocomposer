@@ -1,0 +1,43 @@
+{
+    "title": "Capitals",
+    "cacheKey": "capitals",
+    "static": {
+        "capital-point": {
+            "zIndex": 20,
+            "image": {
+                "type": "Circle",
+                "radius": 3.5,
+                "fill": {
+                    "color": "rgba(220, 38, 38, 0.95)"
+                },
+                "stroke": {
+                    "color": "#ffffff",
+                    "width": 1.25
+                }
+            }
+        },
+        "capital-label": {
+            "zIndex": 30,
+            "text": {
+                "step": "map",
+                "text": "",
+                "font": "11px sans-serif",
+                "offsetY": -12,
+                "fill": {
+                    "color": "#7f1d1d"
+                },
+                "stroke": {
+                    "color": "rgba(255, 255, 255, 0.92)",
+                    "width": 3
+                },
+                "padding": [2, 3, 2, 3]
+            }
+        }
+    },
+    "dynamic": [
+        {
+            "pointer": "#/capital-label/text/text",
+            "value": "=> F.properties?.city ?? F.properties?.country ?? ''"
+        }
+    ]
+}

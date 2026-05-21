@@ -1,7 +1,7 @@
 import type { BBox, CrsCode } from '../core/types.js'
 import type { Source } from '../source/source.js'
 import type { StyleFn } from '../style/style-fn.js'
-import { OlRenderer } from '../render/ol-renderer.js'
+import { createDeferredTextRenderQueue, OlRenderer } from '../render/ol-renderer.js'
 import { RenderWritable } from '../render/render-writable.js'
 import { BboxFilter } from '../transform/bbox-filter.js'
 import { Reproject } from '../transform/reproject.js'
@@ -45,12 +45,14 @@ export async function renderMap(options: RenderMapOptions | RenderSingleMapOptio
   }
 
   const [firstLayer, ...remainingLayers] = layers
+  const deferredText = createDeferredTextRenderQueue()
   const renderer = new OlRenderer(
     options.width,
     options.height,
     options.bbox,
     firstLayer.style,
-    resolution
+    resolution,
+    deferredText
   )
   await renderLayer(firstLayer, renderer, options)
 
@@ -60,11 +62,15 @@ export async function renderMap(options: RenderMapOptions | RenderSingleMapOptio
       options.height,
       options.bbox,
       layer.style,
-      resolution
+      resolution,
+      deferredText
     )
     await renderLayer(layer, layerRenderer, options)
     renderer.drawRenderer(layerRenderer)
   }
+
+  await renderer.drawDeferredText('map')
+  await renderer.drawDeferredText('overlay')
 
   return renderer.toPngBuffer()
 }

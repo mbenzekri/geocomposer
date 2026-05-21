@@ -79,6 +79,13 @@
       "title": "World",
       "abstract": "Country boundaries rendered from a DynStyle JSON file.",
       "path": "config/styles/world.json"
+    },
+    {
+      "type": "dynamic",
+      "name": "capitals",
+      "title": "Capitals",
+      "abstract": "Capital city points and labels rendered from a DynStyle JSON file.",
+      "path": "config/styles/capitals.json"
     }
   ],
   "layers": [
@@ -97,7 +104,8 @@
       "abstract": "World capitals from the GeoJSON demo dataset.",
       "source": "capitals",
       "sourceCrs": "EPSG:4326",
-      "extent": [-180, -90, 180, 90]
+      "extent": [-180, -90, 180, 90],
+      "style": "capitals"
     },
     {
       "name": "world-mem",

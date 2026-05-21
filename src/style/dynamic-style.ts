@@ -7,6 +7,7 @@ import Style from 'ol/style/Style.js'
 import Text from 'ol/style/Text.js'
 import type { Feature } from '../geometry/feature.js'
 import type { StyleFn } from './style-fn.js'
+import { setTextRenderStep } from './text-render-step.js'
 
 type JsonObject = Record<string, unknown>
 type DynamicExpression = string | string[]
@@ -462,8 +463,10 @@ export class DynamicStyle {
     const options = copyOptions(description)
     if (options.when === false) return null
 
+    const step = options.step
     delete options.type
     delete options.when
+    delete options.step
 
     if (options.fill == null && options.color != null) {
       options.fill = { color: options.color }
@@ -475,7 +478,9 @@ export class DynamicStyle {
     options.backgroundFill = this.createFill(options.backgroundFill)
     options.backgroundStroke = this.createStroke(options.backgroundStroke)
 
-    return new Text(options as TextOptions)
+    const text = new Text(options as TextOptions)
+    setTextRenderStep(text, step)
+    return text
   }
 
   private applyColorOption(options: JsonObject, property: string): void {
@@ -709,6 +714,11 @@ function readStyleProperty(target: unknown, property: string): unknown {
 
 function writeStyleProperty(target: unknown, property: string, value: unknown): void {
   if (!isObject(target)) return
+
+  if (target instanceof Text && property === 'step') {
+    setTextRenderStep(target, value)
+    return
+  }
 
   const setter = `set${capitalize(property)}`
   const candidate = (target as Record<string, unknown>)[setter]

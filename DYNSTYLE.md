@@ -557,6 +557,7 @@ Propriétés courantes : `color`, `width`, `lineCap`, `lineJoin`, `lineDash`,
 ```json
 {
   "type": "Text",
+  "step": "map",
   "text": "",
   "font": "12px sans-serif",
   "offsetY": -12,
@@ -565,12 +566,18 @@ Propriétés courantes : `color`, `width`, `lineCap`, `lineJoin`, `lineDash`,
 }
 ```
 
-Propriétés courantes : `text`, `font`, `scale`, `rotation`, `rotateWithView`,
+Propriétés courantes : `text`, `step`, `font`, `scale`, `rotation`, `rotateWithView`,
 `offsetX`, `offsetY`, `textAlign`, `textBaseline`, `placement`, `fill`,
 `stroke`, `backgroundFill`, `backgroundStroke`, `padding`, `overflow`.
 
 Raccourci : si `color` est présent et `fill` absent, `color` devient
 `fill.color`.
+
+`step` est une option GeoComposer, pas une option OpenLayers native. Elle vaut
+`layer` par défaut. `map` diffère le texte après toutes les couches
+cartographiques ; `overlay` le dessine encore après les textes `map`. Les textes
+différés sont collectés pendant le rendu normal des features : le flux n'est pas
+reparcouru.
 
 ### Circle
 

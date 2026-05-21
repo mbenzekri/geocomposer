@@ -129,6 +129,40 @@
       word-break: break-word;
     }
 
+    .info-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .segmented.compact button {
+      min-width: 82px;
+    }
+
+    .feature-info-status {
+      margin-top: 8px;
+      color: var(--muted);
+    }
+
+    .feature-info-output {
+      display: block;
+      width: 100%;
+      max-height: 260px;
+      margin: 8px 0 0;
+      padding: 10px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      color: var(--text);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
     code {
       font-family: Consolas, Monaco, monospace;
     }
@@ -167,6 +201,19 @@
       <div><strong>Derniere requete WMS</strong></div>
       <code id="request-url" class="request-url">En attente...</code>
     </div>
+
+    <div class="request">
+      <div class="info-header">
+        <strong>GetFeatureInfo</strong>
+        <div class="segmented compact" role="radiogroup" aria-label="Format GetFeatureInfo">
+          <button type="button" role="radio" aria-checked="true" data-info-format="application/geo+json" data-info-format-label="GeoJSON">GeoJSON</button>
+          <button type="button" role="radio" aria-checked="false" data-info-format="text/xml" data-info-format-label="XML">XML</button>
+        </div>
+      </div>
+      <div id="feature-info-status" class="feature-info-status">Aucune selection</div>
+      <code id="feature-info-url" class="request-url">En attente...</code>
+      <pre id="feature-info-output" class="feature-info-output">Aucun resultat</pre>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script>
@@ -188,19 +235,26 @@
     const projectionSummary = document.getElementById('projection-summary')
     const projectionButtons = Array.from(document.querySelectorAll('[data-projection]'))
     const formatButtons = Array.from(document.querySelectorAll('[data-world-layer]'))
+    const infoFormatButtons = Array.from(document.querySelectorAll('[data-info-format]'))
     const requestUrlElement = document.getElementById('request-url')
+    const featureInfoStatusElement = document.getElementById('feature-info-status')
+    const featureInfoUrlElement = document.getElementById('feature-info-url')
+    const featureInfoOutputElement = document.getElementById('feature-info-output')
     let lastRequestUrl = ''
     let currentProjectionCode = 'EPSG:4326'
     let currentFormatLabel = 'GeoJSON'
+    let currentInfoFormat = 'application/geo+json'
+    let currentInfoFormatLabel = 'GeoJSON'
+    let lastFeatureInfoCoordinate = null
+    let featureInfoAbortController = null
 
     const source = new ol.source.ImageWMS({
       url: wmsUrl,
       params: {
         SERVICE: 'WMS',
         VERSION: '1.3.0',
-        REQUEST: 'GetMap',
         LAYERS: 'world,capitals',
-        STYLES: 'world,default',
+        STYLES: 'world,capitals',
         FORMAT: 'image/png',
         TRANSPARENT: true
       },
@@ -241,7 +295,7 @@
       currentFormatLabel = formatLabel || layerName
       source.updateParams({
         LAYERS: `${layerName},capitals`,
-        STYLES: 'world,default'
+        STYLES: 'world,capitals'
       })
 
       for (const button of formatButtons) {
@@ -250,6 +304,7 @@
       }
 
       updateProjectionSummary()
+      clearFeatureInfo()
       updateRequestUrl()
     }
 
@@ -271,7 +326,25 @@
         button.setAttribute('aria-checked', String(selected))
       }
       updateProjectionSummary()
+      lastFeatureInfoCoordinate = null
+      clearFeatureInfo()
       updateRequestUrl()
+    }
+
+    function setInfoFormat(format, label) {
+      if (!format) return
+
+      currentInfoFormat = format
+      currentInfoFormatLabel = label || format
+
+      for (const button of infoFormatButtons) {
+        const selected = button.dataset.infoFormat === format
+        button.setAttribute('aria-checked', String(selected))
+      }
+
+      if (lastFeatureInfoCoordinate) {
+        requestFeatureInfo(lastFeatureInfoCoordinate)
+      }
     }
 
     function updateProjectionSummary() {
@@ -292,6 +365,162 @@
       requestUrlElement.textContent = imageUrl || 'En attente...'
     }
 
+    async function requestFeatureInfo(coordinate) {
+      const view = map.getView()
+      const resolution = view.getResolution()
+      const projection = view.getProjection()
+      const layers = source.getParams().LAYERS
+
+      if (resolution === undefined || !layers) return
+
+      const url = source.getFeatureInfoUrl(coordinate, resolution, projection, {
+        INFO_FORMAT: currentInfoFormat,
+        QUERY_LAYERS: layers,
+        FEATURE_COUNT: 10,
+        BUFFER: 6
+      })
+
+      if (!url) return
+
+      lastFeatureInfoCoordinate = coordinate.slice()
+      if (featureInfoAbortController) {
+        featureInfoAbortController.abort()
+      }
+      featureInfoAbortController = new AbortController()
+
+      featureInfoStatusElement.textContent = `Requete ${currentInfoFormatLabel}...`
+      featureInfoUrlElement.textContent = url
+      featureInfoOutputElement.textContent = 'En attente...'
+
+      try {
+        const response = await fetch(url, {
+          headers: {
+            Accept: currentInfoFormat
+          },
+          signal: featureInfoAbortController.signal
+        })
+        const body = await response.text()
+
+        if (!response.ok) {
+          throw new Error(body || `${response.status} ${response.statusText}`)
+        }
+
+        renderFeatureInfo(body)
+      } catch (error) {
+        if (error && error.name === 'AbortError') return
+
+        featureInfoStatusElement.textContent = 'Echec de la requete GetFeatureInfo'
+        featureInfoOutputElement.textContent = error instanceof Error ? error.message : String(error)
+      }
+    }
+
+    function renderFeatureInfo(body) {
+      if (currentInfoFormat.includes('json')) {
+        renderGeoJsonInfo(body)
+        return
+      }
+
+      renderXmlInfo(body)
+    }
+
+    function renderGeoJsonInfo(body) {
+      let data
+
+      try {
+        data = JSON.parse(body)
+      } catch {
+        featureInfoStatusElement.textContent = 'Reponse GeoJSON invalide'
+        featureInfoOutputElement.textContent = body
+        return
+      }
+
+      const features = Array.isArray(data.features) ? data.features : []
+      featureInfoStatusElement.textContent = `${features.length} objet(s) trouve(s) en ${currentInfoFormatLabel}`
+      featureInfoOutputElement.textContent = formatFeatureList(features)
+    }
+
+    function renderXmlInfo(body) {
+      const documentXml = new DOMParser().parseFromString(body, 'application/xml')
+      const root = documentXml.documentElement
+      const parseError = documentXml.querySelector('parsererror')
+
+      if (parseError) {
+        featureInfoStatusElement.textContent = 'Reponse XML invalide'
+        featureInfoOutputElement.textContent = body
+        return
+      }
+
+      const count = root.getAttribute('numberReturned') || '0'
+      featureInfoStatusElement.textContent = `${count} objet(s) trouve(s) en ${currentInfoFormatLabel}`
+      featureInfoOutputElement.textContent = formatXml(body)
+    }
+
+    function formatFeatureList(features) {
+      if (features.length === 0) return 'Aucun resultat'
+
+      return features.map((feature, index) => {
+        const lines = [`#${index + 1}`]
+
+        if (feature.layer) lines.push(`Couche: ${feature.layer}`)
+        if (feature.id !== undefined) lines.push(`ID: ${feature.id}`)
+
+        const properties = feature.properties && typeof feature.properties === 'object'
+          ? Object.entries(feature.properties)
+          : []
+
+        if (properties.length > 0) {
+          lines.push('Proprietes:')
+          for (const [name, value] of properties) {
+            lines.push(`  ${name}: ${formatValue(value)}`)
+          }
+        }
+
+        if (feature.geometry && feature.geometry.type) {
+          lines.push(`Geometrie: ${feature.geometry.type}`)
+        }
+
+        return lines.join('\n')
+      }).join('\n\n')
+    }
+
+    function formatValue(value) {
+      if (value === null || value === undefined) return ''
+      if (typeof value === 'string') return value
+      if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+      return JSON.stringify(value)
+    }
+
+    function formatXml(xml) {
+      const compact = xml.replace(/>\s+</g, '><')
+      const parts = compact.split(/(?=<)/g).filter(Boolean)
+      let indent = 0
+
+      return parts.map((part) => {
+        if (/^<\//.test(part)) {
+          indent = Math.max(0, indent - 1)
+        }
+
+        const line = `${'  '.repeat(indent)}${part}`
+
+        if (/^<[^!?/][^>]*[^/]?>$/.test(part) && !part.includes('</')) {
+          indent += 1
+        }
+
+        return line
+      }).join('\n')
+    }
+
+    function clearFeatureInfo() {
+      if (featureInfoAbortController) {
+        featureInfoAbortController.abort()
+        featureInfoAbortController = null
+      }
+
+      featureInfoStatusElement.textContent = 'Aucune selection'
+      featureInfoUrlElement.textContent = 'En attente...'
+      featureInfoOutputElement.textContent = 'Aucun resultat'
+    }
+
     for (const button of projectionButtons) {
       button.addEventListener('click', () => setProjection(button.dataset.projection))
     }
@@ -300,6 +529,11 @@
       button.addEventListener('click', () => setWorldLayer(button.dataset.worldLayer, button.dataset.formatLabel))
     }
 
+    for (const button of infoFormatButtons) {
+      button.addEventListener('click', () => setInfoFormat(button.dataset.infoFormat, button.dataset.infoFormatLabel))
+    }
+
+    map.on('singleclick', (event) => requestFeatureInfo(event.coordinate))
     map.once('postrender', updateRequestUrl)
     map.on('moveend', updateRequestUrl)
     source.on('imageloadend', updateRequestUrl)

@@ -2,12 +2,19 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { TLSSocket } from 'node:tls'
 import proj4 from 'proj4'
 import type { BBox, CrsCode } from '../core/types.js'
+import {
+  featureInfoToGeoJson,
+  featureInfoToXml,
+  getFeatureInfo,
+  type FeatureInfoLayer
+} from './get-feature-info.js'
 import { renderMap, type RenderLayer } from './render-map.js'
 import type { Source } from '../source/source.js'
 import type { StyleFn } from '../style/style-fn.js'
 
 const WMS_VERSION = '1.3.0'
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
+const FEATURE_INFO_FORMATS = ['application/geo+json', 'application/json', 'text/xml', 'application/xml'] as const
 
 export type WmsLayerStyle = {
   name: string
@@ -78,6 +85,14 @@ export function createWmsApp(options: WmsAppOptions): WmsApp {
       let mapTrace: { id: number, startedAt: number } | null = null
 
       try {
+        setCorsHeaders(res)
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204
+          res.end()
+          return
+        }
+
         if (req.method !== 'GET' && req.method !== 'HEAD') {
           sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
           return
@@ -135,6 +150,24 @@ export function createWmsApp(options: WmsAppOptions): WmsApp {
           return
         }
 
+        if (request === 'GETFEATUREINFO') {
+          const featureInfoRequest = parseGetFeatureInfo(params, layerByName, crs, maxWidth, maxHeight)
+          const result = await getFeatureInfo({
+            layers: featureInfoRequest.layers,
+            bbox: featureInfoRequest.bbox,
+            width: featureInfoRequest.width,
+            height: featureInfoRequest.height,
+            crs: featureInfoRequest.crs,
+            i: featureInfoRequest.i,
+            j: featureInfoRequest.j,
+            featureCount: featureInfoRequest.featureCount,
+            tolerancePixels: featureInfoRequest.tolerancePixels
+          })
+          const body = formatFeatureInfo(result, featureInfoRequest.infoFormat)
+          sendText(res, 200, body, contentTypeForInfoFormat(featureInfoRequest.infoFormat), req.method === 'HEAD')
+          return
+        }
+
         sendWmsError(res, 'OperationNotSupported', `Unsupported REQUEST: ${params.get('REQUEST') ?? ''}`)
       } catch (error) {
         if (mapTrace || isGetMapRequest(req.url)) {
@@ -148,6 +181,7 @@ export function createWmsApp(options: WmsAppOptions): WmsApp {
 
 type MapRequest = {
   layers: RenderLayer[]
+  layerNames: string[]
   rawBbox: string
   bbox: BBox
   bboxOrder: 'xy' | 'yx'
@@ -157,6 +191,24 @@ type MapRequest = {
   version: string
   format: string
 }
+
+type FeatureInfoRequest = {
+  layers: FeatureInfoLayer[]
+  rawBbox: string
+  bbox: BBox
+  bboxOrder: 'xy' | 'yx'
+  width: number
+  height: number
+  crs: CrsCode
+  version: string
+  i: number
+  j: number
+  featureCount: number
+  tolerancePixels: number
+  infoFormat: FeatureInfoFormat
+}
+
+type FeatureInfoFormat = typeof FEATURE_INFO_FORMATS[number]
 
 function parseGetMap(
   params: Map<string, string>,
@@ -206,6 +258,7 @@ function parseGetMap(
 
   return {
     layers,
+    layerNames,
     rawBbox,
     bbox: parsedBbox.bbox,
     bboxOrder: parsedBbox.order,
@@ -214,6 +267,66 @@ function parseGetMap(
     crs,
     version,
     format
+  }
+}
+
+function parseGetFeatureInfo(
+  params: Map<string, string>,
+  layerByName: Map<string, WmsLayer>,
+  supportedCrs: CrsCode[],
+  maxWidth: number,
+  maxHeight: number
+): FeatureInfoRequest {
+  const mapRequest = parseGetMap(params, layerByName, supportedCrs, maxWidth, maxHeight)
+  const queryLayerNames = requireParam(params, 'QUERY_LAYERS')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+
+  if (queryLayerNames.length === 0) {
+    throw new Error('QUERY_LAYERS must not be empty')
+  }
+
+  const mapLayerNames = new Set(mapRequest.layerNames)
+  const layers = queryLayerNames.map((name) => {
+    if (!mapLayerNames.has(name)) {
+      throw new Error(`QUERY_LAYERS layer "${name}" must also be present in LAYERS`)
+    }
+
+    const layer = layerByName.get(name)
+    if (!layer) {
+      throw new Error(`Unknown query layer: ${name}`)
+    }
+
+    return {
+      name: layer.name,
+      source: layer.source
+    }
+  })
+  const i = parsePixelIndex(params.get('I') ?? params.get('X'), mapRequest.version === '1.3.0' ? 'I' : 'X', mapRequest.width)
+  const j = parsePixelIndex(params.get('J') ?? params.get('Y'), mapRequest.version === '1.3.0' ? 'J' : 'Y', mapRequest.height)
+  const featureCount = params.has('FEATURE_COUNT')
+    ? parsePositiveInt(requireParam(params, 'FEATURE_COUNT'), 'FEATURE_COUNT', 100)
+    : 1
+  const tolerancePixels = params.has('BUFFER')
+    ? parseNonNegativeInt(requireParam(params, 'BUFFER'), 'BUFFER', 50)
+    : 4
+  const infoFormat = normalizeInfoFormat(params.get('INFO_FORMAT'))
+
+  return {
+    layers,
+    rawBbox: mapRequest.rawBbox,
+    bbox: mapRequest.bbox,
+    bboxOrder: mapRequest.bboxOrder,
+    width: mapRequest.width,
+    height: mapRequest.height,
+    crs: mapRequest.crs,
+    version: mapRequest.version,
+    i,
+    j,
+    featureCount,
+    tolerancePixels,
+    infoFormat
   }
 }
 
@@ -230,7 +343,7 @@ async function buildCapabilitiesXml(
     const extent = layer.extent ?? await layer.source.getExtent()
     const sourceCrs = layer.sourceCrs ?? layer.source.crs
     layerXml.push([
-      '<Layer queryable="0">',
+      '<Layer queryable="1">',
       `<Name>${escapeXml(layer.name)}</Name>`,
       `<Title>${escapeXml(layer.title ?? layer.name)}</Title>`,
       layer.abstract ? `<Abstract>${escapeXml(layer.abstract)}</Abstract>` : '',
@@ -254,6 +367,7 @@ async function buildCapabilitiesXml(
     '<Request>',
     `<GetCapabilities><Format>text/xml</Format><DCPType><HTTP><Get><OnlineResource>${escapeXml(onlineResource)}</OnlineResource></Get></HTTP></DCPType></GetCapabilities>`,
     `<GetMap><Format>image/png</Format><DCPType><HTTP><Get><OnlineResource>${escapeXml(onlineResource)}</OnlineResource></Get></HTTP></DCPType></GetMap>`,
+    `<GetFeatureInfo>${FEATURE_INFO_FORMATS.map((format) => `<Format>${escapeXml(format)}</Format>`).join('')}<DCPType><HTTP><Get><OnlineResource>${escapeXml(onlineResource)}</OnlineResource></Get></HTTP></DCPType></GetFeatureInfo>`,
     '</Request>',
     '<Exception><Format>text/xml</Format></Exception>',
     '<Layer>',
@@ -450,6 +564,32 @@ function parsePositiveInt(value: string, name: string, maxValue: number): number
   return number
 }
 
+function parseNonNegativeInt(value: string, name: string, maxValue: number): number {
+  const number = Number(value)
+  if (!Number.isInteger(number) || number < 0) {
+    throw new Error(`${name} must be a non-negative integer`)
+  }
+
+  if (number > maxValue) {
+    throw new Error(`${name} exceeds maximum value ${maxValue}`)
+  }
+
+  return number
+}
+
+function parsePixelIndex(value: string | undefined, name: string, size: number): number {
+  if (value === undefined || value === '') {
+    throw new Error(`${name} is required`)
+  }
+
+  const number = Number(value)
+  if (!Number.isInteger(number) || number < 0 || number >= size) {
+    throw new Error(`${name} must be an integer pixel index between 0 and ${size - 1}`)
+  }
+
+  return number
+}
+
 function requireParam(params: Map<string, string>, name: string): string {
   const value = params.get(name)
   if (!value) {
@@ -491,6 +631,32 @@ function isGetMapRequest(urlText: string | undefined): boolean {
   }
 }
 
+function normalizeInfoFormat(value: string | undefined): FeatureInfoFormat {
+  const format = (value ?? 'application/geo+json').toLowerCase()
+  if (isFeatureInfoFormat(format)) return format
+
+  throw new Error(`Unsupported INFO_FORMAT: ${value ?? ''}`)
+}
+
+function isFeatureInfoFormat(value: string): value is FeatureInfoFormat {
+  return (FEATURE_INFO_FORMATS as readonly string[]).includes(value)
+}
+
+function formatFeatureInfo(
+  result: Awaited<ReturnType<typeof getFeatureInfo>>,
+  format: FeatureInfoFormat
+): string {
+  if (format === 'text/xml' || format === 'application/xml') {
+    return featureInfoToXml(result)
+  }
+
+  return featureInfoToGeoJson(result)
+}
+
+function contentTypeForInfoFormat(format: FeatureInfoFormat): string {
+  return `${format}; charset=utf-8`
+}
+
 function logGetMapStart(traceId: number, method: string, url: string): void {
   console.log(`[GetMap ${traceId}] IN  ${method} ${url}`)
 }
@@ -525,11 +691,17 @@ function sendWmsError(res: ServerResponse, code: string, message: string): void 
   sendText(res, 400, body, 'text/xml; charset=utf-8')
 }
 
-function sendText(res: ServerResponse, statusCode: number, body: string, contentType: string): void {
+function setCorsHeaders(res: ServerResponse): void {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Accept, Content-Type')
+}
+
+function sendText(res: ServerResponse, statusCode: number, body: string, contentType: string, headOnly = false): void {
   res.statusCode = statusCode
   res.setHeader('Content-Type', contentType)
   res.setHeader('Content-Length', Buffer.byteLength(body))
-  res.end(body)
+  res.end(headOnly ? undefined : body)
 }
 
 function escapeXml(value: string): string {
