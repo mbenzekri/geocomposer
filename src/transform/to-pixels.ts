@@ -50,7 +50,7 @@ export function toPixels(
   }
 }
 
-export function worldToPixel(
+export function coordinateToPixel(
   x: number,
   y: number,
   bbox: BBox,
@@ -71,7 +71,7 @@ export function transformPositionToPixels(
   width: number,
   height: number
 ): Position {
-  const [x, y] = worldToPixel(position[0], position[1], bbox, width, height)
+  const [x, y] = coordinateToPixel(position[0], position[1], bbox, width, height)
   return position.length > 2 ? [x, y, ...position.slice(2)] : [x, y]
 }
 

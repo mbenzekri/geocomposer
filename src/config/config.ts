@@ -11,7 +11,6 @@ import type { Source } from '../source/source.js'
 import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-style.js'
 import { defaultStyleFn } from '../style/default-style.js'
 import type { StyleFn } from '../style/style-fn.js'
-import { worldStyleFn } from '../style/world-style.js'
 import type { XyzAppOptions, XyzLayer } from '../xyz/xyz-server.js'
 
 export type CrsJson = {
@@ -85,7 +84,7 @@ export type SourceJson =
 
 export type BuiltinStyleJson = {
   type: 'builtin'
-  name: 'default' | 'world'
+  name: 'default'
   title?: string
   abstract?: string
 }
@@ -168,8 +167,7 @@ export type LoadedConfig = {
 }
 
 const BUILTIN_STYLES: Record<BuiltinStyleJson['name'], StyleFn> = {
-  default: defaultStyleFn,
-  world: worldStyleFn
+  default: defaultStyleFn
 }
 
 export async function loadConfig(configPath: string): Promise<LoadedConfig> {

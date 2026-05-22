@@ -22,19 +22,21 @@ La démo produit `map.png` à la racine du projet.
 
 ## Services
 
-Le WMS de démonstration se lance avec :
+Le serveur GeoComposer charge `config.json` une seule fois et expose les
+services configurés sur le même port :
 
 ```bash
-npm run serve:wms
+npm run serve
 ```
 
-Le service XYZ configuré dans `config.json` se lance avec :
+Vous pouvez aussi lancer directement le point d'entrée :
 
 ```bash
-npm run serve:xyz
+npx tsx geo-composer.ts
 ```
 
-Les tuiles suivent le schéma `/tiles/{layer}/{z}/{x}/{y}.png`, par exemple
+Le WMS est exposé sur le chemin `server.path` de `config.json`, par défaut
+`/wms`. Les tuiles XYZ suivent le schéma `/tiles/{layer}/{z}/{x}/{y}.png`, par exemple
 `http://localhost:3000/tiles/world/1/1/1.png`. Les couches XYZ référencent
 les layers et styles déjà déclarés dans `config.json`. L'option `xyz.cache`
 peut pointer vers un répertoire où conserver les PNG rendus.

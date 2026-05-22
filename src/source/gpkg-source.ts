@@ -41,6 +41,8 @@ export class GpkgSource extends DbSource {
 
   private readonly transformFeature?: GpkgSourceOptions['transformFeature']
   private readonly reader: GpkgReader
+  private opened = false
+  private opening: Promise<void> | null = null
 
   constructor(
     readonly id: string,
@@ -59,11 +61,30 @@ export class GpkgSource extends DbSource {
   }
 
   async open(): Promise<void> {
-    await this.reader.open()
+    if (this.opened) return
+
+    if (!this.opening) {
+      this.opening = this.reader.open().then(() => {
+        this.opened = true
+      })
+    }
+
+    try {
+      await this.opening
+    } finally {
+      this.opening = null
+    }
   }
 
   async close(): Promise<void> {
+    if (this.opening) {
+      await this.opening
+    }
+
+    if (!this.opened) return
+
     await this.reader.close()
+    this.opened = false
   }
 
   async getExtent(): Promise<BBox | null> {
@@ -82,12 +103,16 @@ export class GpkgSource extends DbSource {
   }
 
   async read(sourceRef: SourceRef): Promise<Feature | null> {
+    await this.open()
+
     const feature = await this.reader.read(sourceRef)
     if (!feature) return null
     return this.mapFeature(feature, sourceRef.recordIndex ?? 0)
   }
 
   private async *readAll(signal?: AbortSignal): AsyncGenerator<Feature> {
+    await this.open()
+
     let index = 0
 
     for await (const feature of this.reader.stream(signal)) {
