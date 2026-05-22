@@ -14,6 +14,7 @@
         "country-label": {
             "text": {
                 "step": "map",
+                "declutter": "first",
                 "text": "",
                 "font": "12px sans-serif",
                 "fill": {

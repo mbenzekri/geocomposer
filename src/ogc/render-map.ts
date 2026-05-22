@@ -89,4 +89,5 @@ async function renderLayer(
     : layer.source.query({ bbox: options.bbox })
 
   await features.pipeTo(new RenderWritable(renderer))
+  await renderer.drawLayerText()
 }

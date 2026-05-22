@@ -558,6 +558,7 @@ Propriétés courantes : `color`, `width`, `lineCap`, `lineJoin`, `lineDash`,
 {
   "type": "Text",
   "step": "map",
+  "declutter": "first",
   "text": "",
   "font": "12px sans-serif",
   "offsetY": -12,
@@ -566,8 +567,9 @@ Propriétés courantes : `color`, `width`, `lineCap`, `lineJoin`, `lineDash`,
 }
 ```
 
-Propriétés courantes : `text`, `step`, `font`, `scale`, `rotation`, `rotateWithView`,
-`offsetX`, `offsetY`, `textAlign`, `textBaseline`, `placement`, `fill`,
+Propriétés courantes : `text`, `step`, `declutter`, `rank`, `font`,
+`scale`, `rotation`, `rotateWithView`, `offsetX`, `offsetY`, `textAlign`,
+`textBaseline`, `placement`, `fill`,
 `stroke`, `backgroundFill`, `backgroundStroke`, `padding`, `overflow`.
 
 Raccourci : si `color` est présent et `fill` absent, `color` devient
@@ -578,6 +580,20 @@ Raccourci : si `color` est présent et `fill` absent, `color` devient
 cartographiques ; `overlay` le dessine encore après les textes `map`. Les textes
 différés sont collectés pendant le rendu normal des features : le flux n'est pas
 reparcouru.
+
+`declutter` est aussi une option GeoComposer. Elle vaut `none` par défaut.
+`first` conserve le premier libellé rencontré lorsqu'il y a collision.
+`rank` conserve le libellé avec le plus grand `rank` numérique ; à rang égal,
+le premier rencontré gagne.
+
+Exemple avec un rang par feature :
+
+```json
+{
+  "pointer": "#/capital/text/rank",
+  "value": "=> Number(F.properties?.population) || 0"
+}
+```
 
 ### Circle
 

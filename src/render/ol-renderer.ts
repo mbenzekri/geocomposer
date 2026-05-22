@@ -12,7 +12,14 @@ import type { BBox } from '../core/types.js'
 import type { Feature } from '../geometry/feature.js'
 import type { Geometry } from '../geometry/geometry.js'
 import type { StyleFn } from '../style/style-fn.js'
-import { getStyleTextRenderStep, type TextRenderStep } from '../style/text-render-step.js'
+import {
+    copyTextRenderMetadata,
+    getStyleTextDeclutterMode,
+    getStyleTextDeclutterRank,
+    getStyleTextRenderStep,
+    type TextDeclutterMode,
+    type TextRenderStep
+} from '../style/text-render-step.js'
 import { toPixels } from '../transform/to-pixels.js'
 import { OlGeometryAdapter } from './ol-geometry-adapter.js'
 
@@ -24,6 +31,21 @@ type DeferredTextRenderItem = {
     style: Style
 }
 
+type TextDeclutterCandidate = {
+    item: DeferredTextRenderItem
+    index: number
+    mode: TextDeclutterMode
+    rank: number
+    box: TextBox
+}
+
+type TextBox = {
+    minX: number
+    minY: number
+    maxX: number
+    maxY: number
+}
+
 export type DeferredTextRenderQueue = Record<DeferredTextRenderStep, DeferredTextRenderItem[]>
 
 export class OlRenderer {
@@ -31,6 +53,7 @@ export class OlRenderer {
     private readonly context: CanvasRenderingContext2D
     private readonly vectorContext: ReturnType<typeof toContext>
     private readonly geometryAdapter = new OlGeometryAdapter()
+    private readonly layerText: DeferredTextRenderItem[] = []
 
     constructor(
         readonly width: number,
@@ -87,21 +110,23 @@ export class OlRenderer {
 
     async drawDeferredText(step: DeferredTextRenderStep): Promise<void> {
         const items = this.deferredText[step].splice(0)
+        await this.renderTextItems(items)
+    }
 
-        for (const item of items) {
-            await this.drawResolvedStyle(item.style, item.geometry, true)
-        }
+    async drawLayerText(): Promise<void> {
+        const items = this.layerText.splice(0)
+        await this.renderTextItems(items)
     }
 
     private async drawResolvedStyle(
         style: Style,
-        geometry: OlGeometry,
-        forceLayerStep = false
+        geometry: OlGeometry
     ): Promise<void> {
         const text = style.getText()
-        const step = forceLayerStep ? 'layer' : getStyleTextRenderStep(style)
+        const step = getStyleTextRenderStep(style)
+        const declutterMode = getStyleTextDeclutterMode(style)
 
-        if (text && step !== 'layer') {
+        if (text && (step !== 'layer' || declutterMode !== 'none')) {
             const immediateStyle = cloneStyleWithoutText(style)
             if (immediateStyle) {
                 await this.renderStyle(immediateStyle, geometry)
@@ -109,7 +134,7 @@ export class OlRenderer {
 
             const deferredStyle = cloneTextOnlyStyle(style)
             if (deferredStyle) {
-                this.deferredText[step].push({
+                this.pushTextItem(step, {
                     geometry: cloneGeometry(geometry),
                     style: deferredStyle
                 })
@@ -120,10 +145,109 @@ export class OlRenderer {
         await this.renderStyle(style, geometry)
     }
 
+    private pushTextItem(step: TextRenderStep, item: DeferredTextRenderItem): void {
+        if (step === 'layer') {
+            this.layerText.push(item)
+            return
+        }
+
+        this.deferredText[step].push(item)
+    }
+
     private async renderStyle(style: Style, geometry: OlGeometry): Promise<void> {
         await waitForStyleImages(style)
         this.vectorContext.setStyle(style)
         this.vectorContext.drawGeometry(geometry)
+    }
+
+    private async renderTextItems(items: DeferredTextRenderItem[]): Promise<void> {
+        const selectedItems = this.selectTextItems(items)
+
+        for (const item of items) {
+            if (selectedItems.has(item)) {
+                await this.renderStyle(item.style, item.geometry)
+            }
+        }
+    }
+
+    private selectTextItems(items: DeferredTextRenderItem[]): Set<DeferredTextRenderItem> {
+        const selected = new Set<DeferredTextRenderItem>()
+        const candidates: TextDeclutterCandidate[] = []
+
+        items.forEach((item, index) => {
+            const mode = getStyleTextDeclutterMode(item.style)
+            if (mode === 'none') {
+                selected.add(item)
+                return
+            }
+
+            const box = this.textBox(item.style, item.geometry)
+            if (!box) {
+                selected.add(item)
+                return
+            }
+
+            candidates.push({
+                item,
+                index,
+                mode,
+                rank: getStyleTextDeclutterRank(item.style),
+                box
+            })
+        })
+
+        const orderedCandidates = candidates.some((candidate) => candidate.mode === 'rank')
+            ? [...candidates].sort((a, b) => b.rank - a.rank || a.index - b.index)
+            : candidates
+        const occupied: TextBox[] = []
+
+        for (const candidate of orderedCandidates) {
+            if (occupied.some((box) => boxesOverlap(box, candidate.box))) {
+                continue
+            }
+
+            occupied.push(candidate.box)
+            selected.add(candidate.item)
+        }
+
+        return selected
+    }
+
+    private textBox(style: Style, geometry: OlGeometry): TextBox | null {
+        const text = style.getText()
+        const anchor = labelAnchor(geometry)
+        if (!text || !anchor) return null
+
+        const lines = textToLines(text.getText())
+        if (lines.length === 0) return null
+
+        const font = text.getFont() ?? '10px sans-serif'
+        this.context.save()
+        this.context.font = font
+
+        const textWidth = Math.max(...lines.map((line) => this.context.measureText(line).width))
+        this.context.restore()
+
+        const [scaleX, scaleY] = text.getScaleArray()
+        const fontSize = fontSizeFromCssFont(font)
+        const lineHeight = fontSize * 1.2
+        const strokeWidth = text.getStroke()?.getWidth() ?? 0
+        const padding = normalizePadding(text.getPadding())
+        const width = textWidth * Math.abs(scaleX) + strokeWidth * 2 + padding[1] + padding[3]
+        const height = lineHeight * lines.length * Math.abs(scaleY) + strokeWidth * 2 + padding[0] + padding[2]
+        const x = anchor[0] + text.getOffsetX()
+        const y = anchor[1] + text.getOffsetY()
+        const align = text.getTextAlign() ?? 'center'
+        const baseline = text.getTextBaseline() ?? 'middle'
+        const left = alignedLeft(x, width, align)
+        const top = alignedTop(y, height, baseline)
+
+        return rotatedBox({
+            minX: left,
+            minY: top,
+            maxX: left + width,
+            maxY: top + height
+        }, text.getRotation() ?? 0)
     }
 
     private resolveStyleGeometry(
@@ -173,9 +297,11 @@ export function createDeferredTextRenderQueue(): DeferredTextRenderQueue {
 function cloneTextOnlyStyle(style: Style): Style | null {
     const text = style.getText()
     if (!text || isEmptyText(text.getText())) return null
+    const textClone = text.clone()
+    copyTextRenderMetadata(text, textClone)
 
     return new Style({
-        text: text.clone(),
+        text: textClone,
         zIndex: style.getZIndex()
     })
 }
@@ -213,6 +339,129 @@ function isGeoComposerGeometry(value: unknown): value is Geometry {
 
     const geometry = value as { type?: unknown; coordinates?: unknown }
     return typeof geometry.type === 'string' && 'coordinates' in geometry
+}
+
+function labelAnchor(geometry: OlGeometry): [number, number] | null {
+    const candidate = geometry as {
+        getType?: () => string
+        getCoordinates?: () => unknown
+        getCoordinateAt?: (fraction: number) => unknown
+        getInteriorPoint?: () => { getCoordinates?: () => unknown }
+        getInteriorPoints?: () => { getCoordinates?: () => unknown }
+        getExtent?: () => number[]
+    }
+    const type = candidate.getType?.()
+
+    if (type === 'Point') {
+        return coordinateFromValue(candidate.getCoordinates?.())
+    }
+
+    if (type === 'LineString') {
+        return coordinateFromValue(candidate.getCoordinateAt?.(0.5))
+    }
+
+    if (type === 'Polygon') {
+        return coordinateFromValue(candidate.getInteriorPoint?.().getCoordinates?.())
+    }
+
+    if (type === 'MultiPolygon') {
+        return coordinateFromValue(candidate.getInteriorPoints?.().getCoordinates?.())
+    }
+
+    const extent = candidate.getExtent?.()
+    if (!extent || extent.length < 4 || extent.some((value) => !Number.isFinite(value))) {
+        return null
+    }
+
+    return [
+        (extent[0] + extent[2]) / 2,
+        (extent[1] + extent[3]) / 2
+    ]
+}
+
+function coordinateFromValue(value: unknown): [number, number] | null {
+    if (!Array.isArray(value)) return null
+
+    if (
+        typeof value[0] === 'number'
+        && typeof value[1] === 'number'
+        && Number.isFinite(value[0])
+        && Number.isFinite(value[1])
+    ) {
+        return [value[0], value[1]]
+    }
+
+    for (const item of value) {
+        const coordinate = coordinateFromValue(item)
+        if (coordinate) return coordinate
+    }
+
+    return null
+}
+
+function textToLines(value: string | string[] | undefined): string[] {
+    if (typeof value === 'string') return value.split('\n').filter((line) => line.length > 0)
+    if (!Array.isArray(value)) return []
+
+    return value
+        .filter((_item, index) => index % 2 === 0)
+        .join('')
+        .split('\n')
+        .filter((line) => line.length > 0)
+}
+
+function normalizePadding(value: number[] | null): [number, number, number, number] {
+    return [
+        value?.[0] ?? 0,
+        value?.[1] ?? 0,
+        value?.[2] ?? 0,
+        value?.[3] ?? 0
+    ]
+}
+
+function fontSizeFromCssFont(font: string): number {
+    const match = /(\d+(?:\.\d+)?)px/.exec(font)
+    return match ? Number(match[1]) : 10
+}
+
+function alignedLeft(x: number, width: number, align: CanvasTextAlign): number {
+    if (align === 'right' || align === 'end') return x - width
+    if (align === 'left' || align === 'start') return x
+    return x - width / 2
+}
+
+function alignedTop(y: number, height: number, baseline: CanvasTextBaseline): number {
+    if (baseline === 'top' || baseline === 'hanging') return y
+    if (baseline === 'bottom' || baseline === 'ideographic') return y - height
+    if (baseline === 'alphabetic') return y - height * 0.8
+    return y - height / 2
+}
+
+function rotatedBox(box: TextBox, rotation: number): TextBox {
+    if (rotation === 0) return box
+
+    const width = box.maxX - box.minX
+    const height = box.maxY - box.minY
+    const centerX = (box.minX + box.maxX) / 2
+    const centerY = (box.minY + box.maxY) / 2
+    const cos = Math.abs(Math.cos(rotation))
+    const sin = Math.abs(Math.sin(rotation))
+    const rotatedWidth = width * cos + height * sin
+    const rotatedHeight = width * sin + height * cos
+
+    return {
+        minX: centerX - rotatedWidth / 2,
+        minY: centerY - rotatedHeight / 2,
+        maxX: centerX + rotatedWidth / 2,
+        maxY: centerY + rotatedHeight / 2
+    }
+}
+
+function boxesOverlap(a: TextBox, b: TextBox): boolean {
+    return a.minX < b.maxX
+        && a.maxX > b.minX
+        && a.minY < b.maxY
+        && a.maxY > b.minY
 }
 
 function waitForStyleImages(style: Style): Promise<void> {

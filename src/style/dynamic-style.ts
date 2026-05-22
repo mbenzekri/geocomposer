@@ -7,7 +7,11 @@ import Style from 'ol/style/Style.js'
 import Text from 'ol/style/Text.js'
 import type { Feature } from '../geometry/feature.js'
 import type { StyleFn } from './style-fn.js'
-import { setTextRenderStep } from './text-render-step.js'
+import {
+  setTextDeclutterMode,
+  setTextDeclutterRank,
+  setTextRenderStep
+} from './text-render-step.js'
 
 type JsonObject = Record<string, unknown>
 type DynamicExpression = string | string[]
@@ -464,9 +468,13 @@ export class DynamicStyle {
     if (options.when === false) return null
 
     const step = options.step
+    const declutter = options.declutter
+    const rank = options.rank
     delete options.type
     delete options.when
     delete options.step
+    delete options.declutter
+    delete options.rank
 
     if (options.fill == null && options.color != null) {
       options.fill = { color: options.color }
@@ -480,6 +488,8 @@ export class DynamicStyle {
 
     const text = new Text(options as TextOptions)
     setTextRenderStep(text, step)
+    setTextDeclutterMode(text, declutter)
+    setTextDeclutterRank(text, rank)
     return text
   }
 
@@ -717,6 +727,16 @@ function writeStyleProperty(target: unknown, property: string, value: unknown): 
 
   if (target instanceof Text && property === 'step') {
     setTextRenderStep(target, value)
+    return
+  }
+
+  if (target instanceof Text && property === 'declutter') {
+    setTextDeclutterMode(target, value)
+    return
+  }
+
+  if (target instanceof Text && property === 'rank') {
+    setTextDeclutterRank(target, value)
     return
   }
 
