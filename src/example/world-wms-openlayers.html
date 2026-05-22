@@ -269,6 +269,10 @@
     let currentInfoFormatLabel = 'GeoJSON'
     let lastFeatureInfoCoordinate = null
     let featureInfoAbortController = null
+    let pointerDownPixel = null
+    let lastMapDragAt = 0
+    const featureInfoDragDelayMs = 350
+    const featureInfoDragTolerancePx = 4
 
     const source = new ol.source.ImageWMS({
       url: wmsUrl,
@@ -460,6 +464,44 @@
       }
     }
 
+    function abortFeatureInfoRequest() {
+      if (!featureInfoAbortController) return
+
+      featureInfoAbortController.abort()
+      featureInfoAbortController = null
+    }
+
+    function handleMapPointerDown(event) {
+      pointerDownPixel = event.pixel ? event.pixel.slice() : null
+    }
+
+    function handleMapPointerDrag() {
+      lastMapDragAt = Date.now()
+      abortFeatureInfoRequest()
+    }
+
+    function handleMapPointerUp(event) {
+      if (pointerDownPixel && event.pixel && pixelDistance(pointerDownPixel, event.pixel) > featureInfoDragTolerancePx) {
+        lastMapDragAt = Date.now()
+      }
+
+      pointerDownPixel = null
+    }
+
+    function handleFeatureInfoClick(event) {
+      if (Date.now() - lastMapDragAt < featureInfoDragDelayMs) {
+        return
+      }
+
+      requestFeatureInfo(event.coordinate)
+    }
+
+    function pixelDistance(a, b) {
+      const dx = a[0] - b[0]
+      const dy = a[1] - b[1]
+      return Math.sqrt(dx * dx + dy * dy)
+    }
+
     function renderFeatureInfo(body) {
       if (currentInfoFormat.includes('json')) {
         renderGeoJsonInfo(body)
@@ -557,10 +599,7 @@
     }
 
     function clearFeatureInfo() {
-      if (featureInfoAbortController) {
-        featureInfoAbortController.abort()
-        featureInfoAbortController = null
-      }
+      abortFeatureInfoRequest()
 
       featureInfoStatusElement.textContent = 'Aucune selection'
       featureInfoUrlElement.textContent = 'En attente...'
@@ -579,7 +618,10 @@
       button.addEventListener('click', () => setInfoFormat(button.dataset.infoFormat, button.dataset.infoFormatLabel))
     }
 
-    map.on('singleclick', (event) => requestFeatureInfo(event.coordinate))
+    map.on('pointerdown', handleMapPointerDown)
+    map.on('pointerdrag', handleMapPointerDrag)
+    map.on('pointerup', handleMapPointerUp)
+    map.on('singleclick', handleFeatureInfoClick)
     map.once('postrender', () => {
       updateRequestUrl()
       updateScaleReadout()
