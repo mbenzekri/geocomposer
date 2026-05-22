@@ -133,7 +133,8 @@ export function createWmsApp(options: WmsAppOptions): WmsApp {
             bbox: mapRequest.bbox,
             width: mapRequest.width,
             height: mapRequest.height,
-            crs: mapRequest.crs
+            crs: mapRequest.crs,
+            pixelRatio: mapRequest.pixelRatio
           })
 
           res.statusCode = 200
@@ -188,6 +189,7 @@ type MapRequest = {
   width: number
   height: number
   crs: CrsCode
+  pixelRatio: number
   version: string
   format: string
 }
@@ -238,6 +240,7 @@ function parseGetMap(
   const version = params.get('VERSION') ?? WMS_VERSION
   const width = parsePositiveInt(requireParam(params, 'WIDTH'), 'WIDTH', maxWidth)
   const height = parsePositiveInt(requireParam(params, 'HEIGHT'), 'HEIGHT', maxHeight)
+  const pixelRatio = parseWmsPixelRatio(params)
   const crs = params.get('CRS') ?? params.get('SRS')
   if (!crs) {
     throw new Error('CRS is required')
@@ -265,6 +268,7 @@ function parseGetMap(
     width,
     height,
     crs,
+    pixelRatio,
     version,
     format
   }
@@ -564,6 +568,27 @@ function parsePositiveInt(value: string, name: string, maxValue: number): number
   return number
 }
 
+function parseWmsPixelRatio(params: Map<string, string>): number {
+  const dpiValue = params.get('MAP_RESOLUTION')
+    ?? params.get('DPI')
+    ?? getFormatOptionsDpi(params.get('FORMAT_OPTIONS'))
+
+  if (dpiValue === undefined) return 1
+
+  const dpi = Number(dpiValue)
+  if (!Number.isFinite(dpi) || dpi <= 0) {
+    throw new Error('WMS DPI must be a positive number')
+  }
+
+  return dpi / 90
+}
+
+function getFormatOptionsDpi(value: string | undefined): string | undefined {
+  if (!value) return undefined
+
+  return value.match(/(?:^|;)\s*dpi\s*:\s*([^;]+)/i)?.[1]?.trim()
+}
+
 function parseNonNegativeInt(value: string, name: string, maxValue: number): number {
   const number = Number(value)
   if (!Number.isInteger(number) || number < 0) {
@@ -669,7 +694,7 @@ function logGetMapDone(traceId: number, statusCode: number, startedAt: number, s
 function logGetMapParams(traceId: number, request: MapRequest): void {
   console.log(`[GetMap ${traceId}] BBOX raw  = ${request.rawBbox}`)
   console.log(`[GetMap ${traceId}] BBOX used = ${request.bbox.join(',')}`)
-  console.log(`[GetMap ${traceId}] CRS=${request.crs} VERSION=${request.version} ORDER=${request.bboxOrder} SIZE=${request.width}x${request.height}`)
+  console.log(`[GetMap ${traceId}] CRS=${request.crs} VERSION=${request.version} ORDER=${request.bboxOrder} SIZE=${request.width}x${request.height} PIXEL_RATIO=${request.pixelRatio}`)
 }
 
 function logGetMapError(traceId: number | undefined, url: string, startedAt: number | undefined, error: unknown): void {

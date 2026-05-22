@@ -11,7 +11,7 @@ import Style from 'ol/style/Style.js'
 import type { BBox } from '../core/types.js'
 import type { Feature } from '../geometry/feature.js'
 import type { Geometry } from '../geometry/geometry.js'
-import type { StyleFn } from '../style/style-fn.js'
+import type { StyleContext, StyleFn } from '../style/style-fn.js'
 import {
     copyTextRenderMetadata,
     getStyleTextDeclutterMode,
@@ -61,7 +61,8 @@ export class OlRenderer {
         private readonly bbox: BBox,
         private readonly style: StyleFn,
         private readonly resolution: number,
-        private readonly deferredText: DeferredTextRenderQueue = createDeferredTextRenderQueue()
+        private readonly deferredText: DeferredTextRenderQueue = createDeferredTextRenderQueue(),
+        private readonly styleContext?: StyleContext
     ) {
         this.canvas = createCanvas(width, height)
         this.context = this.canvas.getContext('2d')
@@ -85,7 +86,7 @@ export class OlRenderer {
     async draw(feature: Feature): Promise<void> {
         if (!feature.geometry) return
 
-        const styles = this.style(feature, this.resolution)
+        const styles = this.style(feature, this.resolution, this.styleContext)
         if (!styles) return
 
         const pixelGeometry = toPixels(feature.geometry, this.bbox, this.width, this.height)

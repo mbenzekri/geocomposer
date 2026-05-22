@@ -6,7 +6,7 @@ import Stroke from 'ol/style/Stroke.js'
 import Style from 'ol/style/Style.js'
 import Text from 'ol/style/Text.js'
 import type { Feature } from '../geometry/feature.js'
-import type { StyleFn } from './style-fn.js'
+import type { StyleContext, StyleFn } from './style-fn.js'
 import {
   setTextDeclutterMode,
   setTextDeclutterRank,
@@ -49,7 +49,7 @@ export type DynamicStyleOptions = {
   userdata?: () => unknown
   units?: 'm' | 'dd'
   dotsPerInch?: number
-  scale?: (feature: Feature, resolution: number) => number
+  scale?: (feature: Feature, resolution: number, context?: StyleContext) => number
 }
 
 type DynamicStyleContext = {
@@ -86,7 +86,7 @@ export class DynamicStyle {
   private readonly userdata: () => unknown
   private readonly units: 'm' | 'dd'
   private readonly dotsPerInch: number
-  private readonly scaleOverride?: (feature: Feature, resolution: number) => number
+  private readonly scaleOverride?: (feature: Feature, resolution: number, context?: StyleContext) => number
   private context: DynamicStyleContext | null = null
   private lastScaleRange: [number | undefined, number | undefined] = [undefined, undefined]
   private compiled = false
@@ -110,13 +110,13 @@ export class DynamicStyle {
       this.compiled = true
     }
 
-    return (feature, resolution) => this.resolve(feature, resolution)
+    return (feature, resolution, context) => this.resolve(feature, resolution, context)
   }
 
-  private resolve(feature: Feature, resolution: number): Style[] | null {
+  private resolve(feature: Feature, resolution: number, context?: StyleContext): Style[] | null {
     if (!this.jsonStyle.visible) return null
 
-    const scale = this.scale(feature, resolution)
+    const scale = this.scale(feature, resolution, context)
     if (scale < this.minscale || scale >= this.maxscale) return null
 
     this.setContext(feature, resolution, scale)
@@ -166,9 +166,12 @@ export class DynamicStyle {
     }
   }
 
-  private scale(feature: Feature, resolution: number): number {
-    if (this.scaleOverride) return this.scaleOverride(feature, resolution)
-    return INCHES_PER_UNIT[this.units] * this.dotsPerInch * resolution
+  private scale(feature: Feature, resolution: number, context?: StyleContext): number {
+    if (this.scaleOverride) return this.scaleOverride(feature, resolution, context)
+    if (context?.scaleDenominator !== undefined) return context.scaleDenominator
+
+    const unitResolution = context?.resolutionByUnit?.[this.units] ?? resolution
+    return INCHES_PER_UNIT[this.units] * this.dotsPerInch * unitResolution
   }
 
   private rangeScale(mapscale: number): [number, number] {

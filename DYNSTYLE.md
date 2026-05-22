@@ -24,8 +24,13 @@ Le style est chargé depuis `config.json` avec une entrée `type: "dynamic"` :
 ```
 
 `name` est le nom du style côté WMS. `path` pointe vers le fichier DynStyle.
-`units` vaut `"m"` ou `"dd"` et sert au calcul de l'échelle. `dotsPerInch`
-vaut `90` par défaut.
+Dans un rendu WMS, `SCALE` reprend le calcul d'OpenLayers `ScaleLine` :
+résolution terrain au centre de la vue, en mètres par pixel d'affichage,
+convertie avec le DPI OGC par défaut (`25.4 / 0.28`). Le serveur tient compte
+des requêtes HiDPI OpenLayers (`MAP_RESOLUTION`, `DPI` ou
+`FORMAT_OPTIONS=dpi:...`) pour retrouver la résolution de vue avant de calculer
+l'échelle. `units` (`"m"` ou `"dd"`) et `dotsPerInch` servent seulement au
+calcul de secours quand le style est appelé sans contexte WMS.
 
 ## Exemple simple
 
@@ -197,8 +202,8 @@ Variables disponibles :
 | Nom | Usage |
 | --- | --- |
 | `F` | Feature courante. `F.get('name')` lit une propriété. `F.properties`, `F.geometry`, `F.id`, `F.bbox`, `F.crs` et `F.sourceRef` sont aussi disponibles. |
-| `R` | Résolution courante du rendu. |
-| `SCALE` | Échelle calculée. |
+| `R` | Résolution courante du rendu, dans l'unité du CRS demandé. |
+| `SCALE` | Dénominateur d'échelle métrique calculé comme OpenLayers `ScaleLine`. En WMS, `SCALE = getPointResolution(..., 'm') * (1000 / 25.4) * (25.4 / 0.28)`. |
 | `LSCALE` | Borne basse de la plage d'échelle courante. |
 | `USCALE` | Borne haute de la plage d'échelle courante. |
 | `C` | Constantes définies dans `constants`. |
