@@ -10,6 +10,39 @@
     "abstract": "Minimal WMS server backed by the GeoComposer render pipeline.",
     "onlineResource": "http://localhost:3000/wms"
   },
+  "xyz": {
+    "path": "/tiles",
+    "tileSize": 256,
+    "minZoom": 0,
+    "maxZoom": 8,
+    "maxScaleFactor": 4,
+    "cacheControl": "public, max-age=3600",
+    "cache": "cache/xyz",
+    "layers": [
+      {
+        "name": "world",
+        "title": "World XYZ",
+        "abstract": "XYZ tiles for the world country boundaries.",
+        "layer": "world",
+        "style": "world"
+      },
+      {
+        "name": "world-capitals",
+        "title": "World and Capitals XYZ",
+        "abstract": "XYZ tiles combining country boundaries and capital city labels.",
+        "layers": [
+          {
+            "layer": "world",
+            "style": "world"
+          },
+          {
+            "layer": "capitals",
+            "style": "capitals"
+          }
+        ]
+      }
+    ]
+  },
   "crs": [
     {
       "name": "EPSG:4326",
