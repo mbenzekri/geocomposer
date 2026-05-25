@@ -8,6 +8,10 @@
 - Do not introduce GDAL/OGR in this project. Geo formats must be handled natively or through focused non-GDAL libraries.
 - Keep source abstractions separated: `FileSource` is for byte-range indexable files, while `DbSource` is for sources such as GeoPackage that carry their own table/index model.
 
+## Coding style
+
+- Object-oriented design is mandatory. Prefer classes, encapsulated services, and explicit domain objects for new behavior instead of procedural modules built mostly from standalone functions.
+
 ## Shell policy
 
 - Prefer bash-compatible commands whenever possible.
