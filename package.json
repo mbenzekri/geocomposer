@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "serve": "tsx geo-composer.ts",
+    "serve": "tsx src/geo-composer.ts",
     "serve:wms": "tsx src/example/run-world-wms-server.ts",
     "serve:xyz": "tsx src/example/run-world-xyz-server.ts",
     "demo": "tsx src/example/render-demo.ts",

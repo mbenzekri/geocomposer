@@ -32,7 +32,7 @@ npm run serve
 Vous pouvez aussi lancer directement le point d'entrée :
 
 ```bash
-npx tsx geo-composer.ts
+npx tsx src/geo-composer.ts
 ```
 
 Le WMS est exposé sur le chemin `server.path` de `config.json`, par défaut
