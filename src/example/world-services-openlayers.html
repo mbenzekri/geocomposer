@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>OpenLayers WMS Test</title>
+  <title>OpenLayers Services Test</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css">
   <style>
     :root {
@@ -104,6 +104,12 @@
       font-weight: 700;
     }
 
+    .segmented button:disabled {
+      color: var(--muted);
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
     .segmented button:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
@@ -186,19 +192,28 @@
 </head>
 <body>
   <main>
-    <h1>WMS OpenLayers</h1>
-    <p id="projection-summary">Vue EPSG:4326, world GeoJSON + capitales GeoJSON, surface 1000 x 500 px.</p>
-    <div class="meta"><code>http://localhost:3000/wms</code></div>
+    <h1>GeoComposer OpenLayers</h1>
+    <p id="projection-summary">Vue EPSG:3857, WMS, world GeoJSON + capitales GeoJSON, surface 1000 x 500 px.</p>
+    <div class="meta"><code id="service-url">http://localhost:3000/wms</code></div>
 
     <div class="toolbar">
-      <span class="toolbar-label">CRS</span>
-      <div class="segmented" role="radiogroup" aria-label="CRS">
-        <button type="button" role="radio" aria-checked="true" data-projection="EPSG:4326">EPSG:4326</button>
-        <button type="button" role="radio" aria-checked="false" data-projection="EPSG:3857">EPSG:3857</button>
+      <span class="toolbar-label">Service</span>
+      <div class="segmented" role="radiogroup" aria-label="Service OGC">
+        <button type="button" role="radio" aria-checked="true" data-service="wms">WMS</button>
+        <button type="button" role="radio" aria-checked="false" data-service="wmts">WMTS</button>
+        <button type="button" role="radio" aria-checked="false" data-service="xyz">XYZ</button>
       </div>
     </div>
 
     <div class="toolbar">
+      <span class="toolbar-label">Projection</span>
+      <div class="segmented" role="radiogroup" aria-label="Projection">
+        <button type="button" role="radio" aria-checked="false" data-projection="EPSG:4326">EPSG:4326</button>
+        <button type="button" role="radio" aria-checked="true" data-projection="EPSG:3857">EPSG:3857</button>
+      </div>
+    </div>
+
+    <div id="format-toolbar" class="toolbar">
       <span class="toolbar-label">Format</span>
       <div class="segmented" role="radiogroup" aria-label="Format de source world">
         <button type="button" role="radio" aria-checked="true" data-world-layer="world" data-format-label="GeoJSON">GeoJSON</button>
@@ -206,6 +221,14 @@
         <button type="button" role="radio" aria-checked="false" data-world-layer="world-gml" data-format-label="GML">GML</button>
         <button type="button" role="radio" aria-checked="false" data-world-layer="world-shp" data-format-label="Shapefile">SHP</button>
         <button type="button" role="radio" aria-checked="false" data-world-layer="world-gpkg" data-format-label="GeoPackage">GPKG</button>
+      </div>
+    </div>
+
+    <div id="tileset-toolbar" class="toolbar" hidden>
+      <span class="toolbar-label">Tileset</span>
+      <div class="segmented" role="radiogroup" aria-label="Tileset">
+        <button type="button" role="radio" aria-checked="false" data-tileset="world">World</button>
+        <button type="button" role="radio" aria-checked="true" data-tileset="world-capitals">World + Capitals</button>
       </div>
     </div>
 
@@ -219,7 +242,7 @@
     </div>
 
     <div class="request">
-      <div><strong>Derniere requete WMS</strong></div>
+      <div><strong>Derniere requete</strong></div>
       <code id="request-url" class="request-url">En attente...</code>
     </div>
 
@@ -239,23 +262,48 @@
 
   <script src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script>
   <script>
-    const wmsUrl = 'http://localhost:3000/wms'
+    const serviceUrls = {
+      wms: 'http://localhost:3000/wms',
+      wmts: 'http://localhost:3000/wmts',
+      xyz: 'http://localhost:3000/tiles'
+    }
     const webMercatorMax = 20037508.342789244
+    const tileSize = 256
+    const tileMinZoom = 0
+    const tileMaxZoom = 8
+    const tileResolutions = []
+    const tileMatrixIds = []
+    for (let z = tileMinZoom; z <= tileMaxZoom; z += 1) {
+      tileResolutions.push((webMercatorMax * 2) / (tileSize * Math.pow(2, z)))
+      tileMatrixIds.push(String(z))
+    }
     const projections = {
       'EPSG:4326': {
-        extent: [-180, -90, 180, 90],
         center: [0, 0],
         zoom: 1
       },
       'EPSG:3857': {
-        extent: [-webMercatorMax, -webMercatorMax, webMercatorMax, webMercatorMax],
         center: [0, 0],
         zoom: 1
       }
     }
+    const serviceLabels = {
+      wms: 'WMS',
+      wmts: 'WMTS',
+      xyz: 'XYZ'
+    }
+    const tilesetLabels = {
+      world: 'World',
+      'world-capitals': 'World + Capitals'
+    }
     const projectionSummary = document.getElementById('projection-summary')
+    const serviceUrlElement = document.getElementById('service-url')
+    const serviceButtons = Array.from(document.querySelectorAll('[data-service]'))
     const projectionButtons = Array.from(document.querySelectorAll('[data-projection]'))
+    const formatToolbar = document.getElementById('format-toolbar')
     const formatButtons = Array.from(document.querySelectorAll('[data-world-layer]'))
+    const tilesetToolbar = document.getElementById('tileset-toolbar')
+    const tilesetButtons = Array.from(document.querySelectorAll('[data-tileset]'))
     const infoFormatButtons = Array.from(document.querySelectorAll('[data-info-format]'))
     const requestUrlElement = document.getElementById('request-url')
     const scaleDenominatorElement = document.getElementById('scale-denominator')
@@ -263,7 +311,10 @@
     const featureInfoUrlElement = document.getElementById('feature-info-url')
     const featureInfoOutputElement = document.getElementById('feature-info-output')
     let lastRequestUrl = ''
-    let currentProjectionCode = 'EPSG:4326'
+    let currentService = 'wms'
+    let currentProjectionCode = 'EPSG:3857'
+    let currentTileset = 'world-capitals'
+    let currentWorldLayer = 'world'
     let currentFormatLabel = 'GeoJSON'
     let currentInfoFormat = 'application/geo+json'
     let currentInfoFormatLabel = 'GeoJSON'
@@ -271,36 +322,17 @@
     let featureInfoAbortController = null
     let pointerDownPixel = null
     let lastMapDragAt = 0
+    let sourceVersion = 0
     const featureInfoDragDelayMs = 350
     const featureInfoDragTolerancePx = 4
 
-    const source = new ol.source.ImageWMS({
-      url: wmsUrl,
-      params: {
-        SERVICE: 'WMS',
-        VERSION: '1.3.0',
-        LAYERS: 'world,capitals',
-        STYLES: 'world,capitals',
-        FORMAT: 'image/png',
-        TRANSPARENT: true
-      },
-      ratio: 1,
-      serverType: 'mapserver',
-      imageLoadFunction: (image, src) => {
-        lastRequestUrl = src
-        requestUrlElement.textContent = src
-        image.getImage().src = src
-      }
-    })
-
-    const layer = new ol.layer.Image({
-      source
-    })
+    let source = createSourceForService(currentService, sourceVersion)
+    let layer = createLayerForService(currentService, source)
 
     const map = new ol.Map({
       target: 'map',
       layers: [layer],
-      view: createView('EPSG:4326')
+      view: createView(currentProjectionCode)
     })
     map.addControl(new ol.control.ScaleLine({
       units: 'metric',
@@ -310,22 +342,209 @@
       minWidth: 140
     }))
 
+    function createSourceForService(service, version) {
+      if (service === 'wms') return createWmsSource(version)
+      if (service === 'wmts') return createWmtsSource(version)
+      return createXyzSource(version)
+    }
+
+    function createLayerForService(service, source) {
+      if (service === 'wms') {
+        return new ol.layer.Image({ source })
+      }
+
+      return new ol.layer.Tile({ source })
+    }
+
+    function createWmsSource(version) {
+      return new ol.source.ImageWMS({
+        url: serviceUrls.wms,
+        params: {
+          SERVICE: 'WMS',
+          VERSION: '1.3.0',
+          LAYERS: `${currentWorldLayer},capitals`,
+          STYLES: 'world,capitals',
+          FORMAT: 'image/png',
+          TRANSPARENT: true
+        },
+        ratio: 1,
+        serverType: 'mapserver',
+        imageLoadFunction: (image, src) => {
+          if (!isActiveSource('wms', version)) return
+
+          setLastRequestUrl(src, 'wms', version)
+          image.getImage().src = src
+        }
+      })
+    }
+
+    function createXyzSource(version) {
+      return new ol.source.XYZ({
+        projection: 'EPSG:3857',
+        tileSize,
+        minZoom: tileMinZoom,
+        maxZoom: tileMaxZoom,
+        wrapX: false,
+        url: `${serviceUrls.xyz}/${encodeURIComponent(currentTileset)}/{z}/{x}/{y}.png`,
+        tileLoadFunction: (tile, src) => {
+          if (!isActiveSource('xyz', version)) return
+
+          setLastRequestUrl(src, 'xyz', version)
+          tile.getImage().src = src
+        }
+      })
+    }
+
+    function createWmtsSource(version) {
+      return new ol.source.WMTS({
+        url: serviceUrls.wmts,
+        layer: currentTileset,
+        matrixSet: 'WebMercatorQuad',
+        format: 'image/png',
+        projection: 'EPSG:3857',
+        requestEncoding: 'KVP',
+        style: 'default',
+        wrapX: false,
+        tileGrid: new ol.tilegrid.WMTS({
+          origin: [-webMercatorMax, webMercatorMax],
+          resolutions: tileResolutions,
+          matrixIds: tileMatrixIds
+        }),
+        tileLoadFunction: (tile, src) => {
+          if (!isActiveSource('wmts', version)) return
+
+          setLastRequestUrl(src, 'wmts', version)
+          tile.getImage().src = src
+        }
+      })
+    }
+
+    function isActiveSource(service, version) {
+      return currentService === service && sourceVersion === version
+    }
+
+    function setLastRequestUrl(url, service, version) {
+      if (!isActiveSource(service, version)) return
+
+      lastRequestUrl = url
+      requestUrlElement.textContent = url
+    }
+
+    function replaceMapLayer() {
+      sourceVersion += 1
+      source = createSourceForService(currentService, sourceVersion)
+      const nextLayer = createLayerForService(currentService, source)
+      map.getLayers().clear()
+      map.addLayer(nextLayer)
+      layer = nextLayer
+    }
+
     function createView(code) {
       const projection = projections[code]
       return new ol.View({
         projection: code,
-        extent: projection.extent,
         center: projection.center,
-        zoom: projection.zoom
+        zoom: projection.zoom,
+        multiWorld: true
       })
     }
 
+    function setService(service) {
+      if (!service || !serviceUrls[service]) return
+
+      currentService = service
+      if (currentService !== 'wms' && currentProjectionCode !== 'EPSG:3857') {
+        currentProjectionCode = 'EPSG:3857'
+        map.setView(createView(currentProjectionCode))
+      }
+      lastRequestUrl = ''
+      requestUrlElement.textContent = 'En attente...'
+      replaceMapLayer()
+
+      syncServiceControls()
+      updateProjectionSummary()
+      clearFeatureInfo()
+      updateScaleReadout()
+      updateRequestUrl()
+    }
+
+    function setTileset(tileset) {
+      if (!tileset || !tilesetLabels[tileset]) return
+
+      currentTileset = tileset
+      for (const button of tilesetButtons) {
+        const selected = button.dataset.tileset === tileset
+        button.setAttribute('aria-checked', String(selected))
+      }
+
+      if (currentService !== 'wms') {
+        lastRequestUrl = ''
+        requestUrlElement.textContent = 'En attente...'
+        replaceMapLayer()
+        updateProjectionSummary()
+        updateRequestUrl()
+      }
+
+    }
+
+    function setProjection(code) {
+      if (!projections[code]) return
+      if (currentService !== 'wms' && code !== 'EPSG:3857') return
+
+      currentProjectionCode = code
+      lastRequestUrl = ''
+      requestUrlElement.textContent = 'En attente...'
+      map.setView(createView(currentProjectionCode))
+
+      if (currentService === 'wms') {
+        replaceMapLayer()
+      }
+
+      syncServiceControls()
+      updateProjectionSummary()
+      clearFeatureInfo()
+      updateScaleReadout()
+      updateRequestUrl()
+    }
+
+    function syncServiceControls() {
+      serviceUrlElement.textContent = serviceUrls[currentService]
+
+      for (const button of serviceButtons) {
+        const selected = button.dataset.service === currentService
+        button.setAttribute('aria-checked', String(selected))
+      }
+
+      const wmsMode = currentService === 'wms'
+      formatToolbar.hidden = !wmsMode
+      tilesetToolbar.hidden = wmsMode
+
+      for (const button of projectionButtons) {
+        const supported = wmsMode || button.dataset.projection === 'EPSG:3857'
+        const selected = button.dataset.projection === currentProjectionCode
+        button.disabled = !supported
+        button.setAttribute('aria-checked', String(selected))
+      }
+
+      for (const button of formatButtons) {
+        const selected = button.dataset.worldLayer === currentWorldLayer
+        button.setAttribute('aria-checked', String(selected))
+      }
+
+      for (const button of tilesetButtons) {
+        const selected = button.dataset.tileset === currentTileset
+        button.setAttribute('aria-checked', String(selected))
+      }
+    }
+
     function setWorldLayer(layerName, formatLabel) {
+      if (currentService !== 'wms') return
       if (!layerName) return
 
       lastRequestUrl = ''
       requestUrlElement.textContent = 'En attente...'
       currentFormatLabel = formatLabel || layerName
+      currentWorldLayer = layerName
       source.updateParams({
         LAYERS: `${layerName},capitals`,
         STYLES: 'world,capitals'
@@ -338,30 +557,6 @@
 
       updateProjectionSummary()
       clearFeatureInfo()
-      updateRequestUrl()
-    }
-
-    function setProjection(code) {
-      const projection = projections[code]
-      if (!projection) return
-
-      currentProjectionCode = code
-      lastRequestUrl = ''
-      requestUrlElement.textContent = 'En attente...'
-      map.setView(createView(code))
-      map.updateSize()
-      map.getView().fit(projection.extent, {
-        size: map.getSize()
-      })
-
-      for (const button of projectionButtons) {
-        const selected = button.dataset.projection === code
-        button.setAttribute('aria-checked', String(selected))
-      }
-      updateProjectionSummary()
-      lastFeatureInfoCoordinate = null
-      clearFeatureInfo()
-      updateScaleReadout()
       updateRequestUrl()
     }
 
@@ -382,7 +577,10 @@
     }
 
     function updateProjectionSummary() {
-      projectionSummary.textContent = `Vue ${currentProjectionCode}, world ${currentFormatLabel} + capitales GeoJSON, surface 1000 x 500 px.`
+      const content = currentService === 'wms'
+        ? `world ${currentFormatLabel} + capitales GeoJSON`
+        : `tileset ${tilesetLabels[currentTileset]}`
+      projectionSummary.textContent = `Vue ${currentProjectionCode}, ${serviceLabels[currentService]}, ${content}, surface 1000 x 500 px.`
     }
 
     function updateScaleReadout() {
@@ -402,6 +600,11 @@
     }
 
     function updateRequestUrl() {
+      if (currentService !== 'wms') {
+        requestUrlElement.textContent = lastRequestUrl || tileRequestTemplate()
+        return
+      }
+
       const size = map.getSize()
       if (!size) return
 
@@ -415,7 +618,22 @@
       requestUrlElement.textContent = imageUrl || 'En attente...'
     }
 
+    function tileRequestTemplate() {
+      if (currentService === 'xyz') {
+        return `${serviceUrls.xyz}/${encodeURIComponent(currentTileset)}/{z}/{x}/{y}.png`
+      }
+
+      return `${serviceUrls.wmts}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(currentTileset)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX={TileMatrix}&TILEROW={TileRow}&TILECOL={TileCol}&FORMAT=image/png`
+    }
+
     async function requestFeatureInfo(coordinate) {
+      if (currentService !== 'wms') {
+        featureInfoStatusElement.textContent = 'GetFeatureInfo disponible uniquement en WMS'
+        featureInfoUrlElement.textContent = 'En attente...'
+        featureInfoOutputElement.textContent = 'Aucun resultat'
+        return
+      }
+
       const view = map.getView()
       const resolution = view.getResolution()
       const projection = view.getProjection()
@@ -601,9 +819,15 @@
     function clearFeatureInfo() {
       abortFeatureInfoRequest()
 
-      featureInfoStatusElement.textContent = 'Aucune selection'
+      featureInfoStatusElement.textContent = currentService === 'wms'
+        ? 'Aucune selection'
+        : 'GetFeatureInfo disponible uniquement en WMS'
       featureInfoUrlElement.textContent = 'En attente...'
       featureInfoOutputElement.textContent = 'Aucun resultat'
+    }
+
+    for (const button of serviceButtons) {
+      button.addEventListener('click', () => setService(button.dataset.service))
     }
 
     for (const button of projectionButtons) {
@@ -612,6 +836,10 @@
 
     for (const button of formatButtons) {
       button.addEventListener('click', () => setWorldLayer(button.dataset.worldLayer, button.dataset.formatLabel))
+    }
+
+    for (const button of tilesetButtons) {
+      button.addEventListener('click', () => setTileset(button.dataset.tileset))
     }
 
     for (const button of infoFormatButtons) {
@@ -628,10 +856,12 @@
     })
     map.on('moveend', updateRequestUrl)
     map.on('moveend', updateScaleReadout)
-    source.on('imageloadend', updateRequestUrl)
-    source.on('imageloaderror', updateRequestUrl)
 
-    setProjection('EPSG:4326')
+    syncServiceControls()
+    updateProjectionSummary()
+    clearFeatureInfo()
+    updateScaleReadout()
+    updateRequestUrl()
   </script>
 </body>
 </html>

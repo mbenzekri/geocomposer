@@ -16,40 +16,53 @@
       "path": "/tiles",
       "maxScaleFactor": 4,
       "cache": "cache/xyz",
-      "tilesets": {
-        "world": {
-          "title": "World XYZ",
-          "abstract": "XYZ tiles for the world country boundaries.",
-          "tileSize": 256,
-          "minZoom": 0,
-          "maxZoom": 8,
-          "cacheControl": "public, max-age=3600",
-          "layers": [
-            {
-              "layer": "world",
-              "style": "world"
-            }
-          ]
-        },
-        "world-capitals": {
-          "title": "World and Capitals XYZ",
-          "abstract": "XYZ tiles combining country boundaries and capital city labels.",
-          "tileSize": 256,
-          "minZoom": 0,
-          "maxZoom": 8,
-          "cacheControl": "public, max-age=3600",
-          "layers": [
-            {
-              "layer": "world",
-              "style": "world"
-            },
-            {
-              "layer": "capitals",
-              "style": "capitals"
-            }
-          ]
+      "tilesets": ["world", "world-capitals"]
+    },
+    "wmts": {
+      "path": "/wmts",
+      "title": "GeoComposer WMTS",
+      "abstract": "WMTS service backed by GeoComposer tilesets.",
+      "onlineResource": "http://localhost:3000/wmts",
+      "cache": "cache/wmts",
+      "tilesets": ["world", "world-capitals"]
+    }
+  },
+  "tilesets": {
+    "world": {
+      "title": "World",
+      "abstract": "XYZ and WMTS tiles for the world country boundaries.",
+      "tileMatrixSet": "WebMercatorQuad",
+      "format": "image/png",
+      "tileSize": 256,
+      "minZoom": 0,
+      "maxZoom": 8,
+      "cacheControl": "public, max-age=3600",
+      "layers": [
+        {
+          "layer": "world",
+          "style": "world"
         }
-      }
+      ]
+    },
+    "world-capitals": {
+      "title": "World and Capitals",
+      "abstract": "Tiles combining country boundaries and capital city labels.",
+      "tileMatrixSet": "WebMercatorQuad",
+      "format": "image/png",
+      "tileSize": 256,
+      "minZoom": 0,
+      "maxZoom": 8,
+      "cacheControl": "public, max-age=3600",
+      "layers": [
+        {
+          "layer": "world",
+          "style": "world"
+        },
+        {
+          "layer": "capitals",
+          "style": "capitals"
+        }
+      ]
     }
   },
   "projections": {

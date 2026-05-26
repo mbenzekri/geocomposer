@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { loadConfig, type LoadedConfig } from './config/config.js'
 import type { Service } from './service/service.js'
 import { Wms } from './service/wms.js'
+import { Wmts } from './service/wmts.js'
 import { Xyz } from './service/xyz.js'
 
 export class GeoComposer {
@@ -13,11 +14,13 @@ export class GeoComposer {
   readonly paths: {
     readonly wms: string
     readonly xyz?: string
+    readonly wmts?: string
   }
 
   private readonly services: readonly Service[]
   private readonly wms: Wms
   private readonly xyz?: Xyz
+  private readonly wmts?: Wmts
   private readonly sockets = new Set<Socket>()
   private shuttingDown = false
 
@@ -27,14 +30,17 @@ export class GeoComposer {
   ) {
     this.wms = new Wms(loaded.wms)
     this.xyz = loaded.xyz ? new Xyz(loaded.xyz) : undefined
+    this.wmts = loaded.wmts ? new Wmts(loaded.wmts) : undefined
     this.services = [
       this.wms,
-      ...(this.xyz ? [this.xyz] : [])
+      ...(this.xyz ? [this.xyz] : []),
+      ...(this.wmts ? [this.wmts] : [])
     ]
 
     this.paths = {
       wms: this.wms.path,
-      ...(this.xyz ? { xyz: this.xyz.path } : {})
+      ...(this.xyz ? { xyz: this.xyz.path } : {}),
+      ...(this.wmts ? { wmts: this.wmts.path } : {})
     }
 
     this.server = createServer((req, res) => {
@@ -164,6 +170,16 @@ export class GeoComposer {
       if (sampleTileset) {
         console.log(`Sample tile: ${baseUrl}${this.paths.xyz}/${encodeURIComponent(sampleTileset)}/1/1/1.png`)
         console.log(`Retina sample: ${baseUrl}${this.paths.xyz}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`)
+      }
+    }
+
+    if (this.paths.wmts && this.loaded.wmts) {
+      console.log(`WMTS listening on ${baseUrl}${this.paths.wmts}`)
+      console.log(`WMTS GetCapabilities: ${baseUrl}${this.paths.wmts}?SERVICE=WMTS&REQUEST=GetCapabilities`)
+
+      const sampleTileset = this.loaded.wmts.tilesets[0]?.name
+      if (sampleTileset) {
+        console.log(`WMTS sample tile: ${baseUrl}${this.paths.wmts}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(sampleTileset)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=1&TILEROW=1&TILECOL=1&FORMAT=image%2Fpng`)
       }
     }
   }

@@ -1,46 +1,19 @@
-import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { dirname, join } from 'node:path'
 import { TLSSocket } from 'node:tls'
 import type { BBox } from '../core/types.js'
-import type { Layer } from '../layer/layer.js'
-import { renderMap, type RenderLayer } from '../ogc/render-map.js'
+import { renderMap } from '../ogc/render-map.js'
+import { TileCache } from '../tileset/tile-cache.js'
+import { getTileMatrixSet } from '../tileset/tile-matrix-set.js'
+import { Tileset } from '../tileset/tileset.js'
 import { Service } from './service.js'
 
-const WEB_MERCATOR_HALF_WORLD = 20037508.342789244
-const DEFAULT_TILE_SIZE = 256
-const DEFAULT_MIN_ZOOM = 0
-const DEFAULT_MAX_ZOOM = 22
 const DEFAULT_MAX_SCALE_FACTOR = 4
 
 export type XyzOptions = {
   path?: string
-  tilesets: Array<{
-    name: string
-    title?: string
-    summary?: string
-    tileSize?: number
-    minZoom?: number
-    maxZoom?: number
-    cacheControl?: string
-    layers: Array<{
-      layer: Layer
-      style?: string
-    }>
-  }>
+  tilesets: Tileset[]
   maxScaleFactor?: number
   cache?: string
-}
-
-type Tileset = {
-  name: string
-  title?: string
-  summary?: string
-  tileSize: number
-  minZoom: number
-  maxZoom: number
-  cacheControl?: string
-  layers: RenderLayer[]
 }
 
 type TileRequest = {
@@ -58,7 +31,7 @@ export class Xyz extends Service {
   private readonly maxScaleFactor: number
   private readonly tilesets: Tileset[]
   private readonly tilesetByName: Map<string, Tileset>
-  private readonly layers: Layer[]
+  private readonly cache?: TileCache
   private nextTraceId = 1
 
   constructor(private readonly options: XyzOptions) {
@@ -67,28 +40,9 @@ export class Xyz extends Service {
     this.maxScaleFactor = options.maxScaleFactor ?? DEFAULT_MAX_SCALE_FACTOR
     validateXyzOptions(this.maxScaleFactor)
 
-    this.tilesets = options.tilesets.map((tileset) => {
-      const tileSize = tileset.tileSize ?? DEFAULT_TILE_SIZE
-      const minZoom = tileset.minZoom ?? DEFAULT_MIN_ZOOM
-      const maxZoom = tileset.maxZoom ?? DEFAULT_MAX_ZOOM
-      validateTilesetOptions(tileset.name, tileSize, minZoom, maxZoom)
-
-      return {
-        name: tileset.name,
-        title: tileset.title,
-        summary: tileset.summary,
-        tileSize,
-        minZoom,
-        maxZoom,
-        cacheControl: tileset.cacheControl,
-        layers: tileset.layers.map((entry) => ({
-          layer: entry.layer,
-          style: entry.layer.resolveStyle(entry.style)
-        }))
-      }
-    })
+    this.tilesets = options.tilesets
     this.tilesetByName = new Map(this.tilesets.map((tileset) => [tileset.name, tileset]))
-    this.layers = uniqueLayers(options.tilesets)
+    this.cache = options.cache ? new TileCache(options.cache) : undefined
   }
 
   matches(pathname: string): boolean {
@@ -96,13 +50,13 @@ export class Xyz extends Service {
   }
 
   async open(): Promise<void> {
-    for (const layer of this.layers) {
+    for (const layer of uniqueLayers(this.tilesets)) {
       await layer.open()
     }
   }
 
   async close(): Promise<void> {
-    for (const layer of this.layers) {
+    for (const layer of uniqueLayers(this.tilesets)) {
       await layer.close()
     }
   }
@@ -144,20 +98,20 @@ export class Xyz extends Service {
       })
       logTileParams(traceId, tileRequest)
 
-      const cachedImage = this.options.cache
-        ? await readCachedTile(this.options.cache, tileRequest)
+      const cachedImage = this.cache
+        ? await this.cache.read(tileCacheKey(tileRequest))
         : null
       const image = cachedImage ?? await renderMap({
         layers: tileRequest.tileset.layers,
         bbox: tileRequest.bbox,
         width: tileRequest.width,
         height: tileRequest.height,
-        crs: 'EPSG:3857',
+        crs: tileRequest.tileset.crs,
         pixelRatio: tileRequest.scale
       })
 
-      if (!cachedImage && this.options.cache) {
-        await writeCachedTile(this.options.cache, tileRequest, image)
+      if (!cachedImage && this.cache) {
+        await this.cache.write(tileCacheKey(tileRequest), image)
       }
 
       res.statusCode = 200
@@ -188,14 +142,7 @@ export class Xyz extends Service {
 }
 
 export function xyzTileBBox(z: number, x: number, y: number): BBox {
-  const tilesPerAxis = 2 ** z
-  const tileSpan = (WEB_MERCATOR_HALF_WORLD * 2) / tilesPerAxis
-  const minX = -WEB_MERCATOR_HALF_WORLD + x * tileSpan
-  const maxX = minX + tileSpan
-  const maxY = WEB_MERCATOR_HALF_WORLD - y * tileSpan
-  const minY = maxY - tileSpan
-
-  return [minX, minY, maxX, maxY]
+  return getTileMatrixSet('WebMercatorQuad').bbox(z, x, y)
 }
 
 function parseTileRequest(
@@ -223,7 +170,7 @@ function parseTileRequest(
   const y = parsedY.y
   const scale = parseScale(url.searchParams.get('scale'), parsedY.scale, options.maxScaleFactor)
 
-  validateTileCoord(z, x, y, tileset.minZoom, tileset.maxZoom)
+  tileset.validateCoord(z, x, y)
 
   const pixelSize = Math.round(tileset.tileSize * scale)
   return {
@@ -266,64 +213,6 @@ function parseScale(queryValue: string | null, pathValue: number | undefined, ma
   return scale
 }
 
-async function readCachedTile(cacheDir: string, request: TileRequest): Promise<Buffer | null> {
-  try {
-    return await readFile(tileCachePath(cacheDir, request))
-  } catch (error) {
-    if (isNodeError(error) && error.code === 'ENOENT') {
-      return null
-    }
-
-    throw error
-  }
-}
-
-async function writeCachedTile(cacheDir: string, request: TileRequest, image: Buffer): Promise<void> {
-  const path = tileCachePath(cacheDir, request)
-  const tmpPath = `${path}.${process.pid}.${Date.now()}.tmp`
-
-  await mkdir(dirname(path), { recursive: true })
-  await writeFile(tmpPath, image)
-
-  try {
-    await rename(tmpPath, path)
-  } catch (error) {
-    await unlink(tmpPath).catch(() => {})
-    throw error
-  }
-}
-
-function tileCachePath(cacheDir: string, request: TileRequest): string {
-  const fileName = request.scale === 1
-    ? `${request.y}.png`
-    : `${request.y}@${encodeURIComponent(String(request.scale))}x.png`
-
-  return join(
-    cacheDir,
-    encodeURIComponent(request.tileset.name),
-    String(request.z),
-    String(request.x),
-    fileName
-  )
-}
-
-function validateTileCoord(
-  z: number,
-  x: number,
-  y: number,
-  minZoom: number,
-  maxZoom: number
-): void {
-  if (z < minZoom || z > maxZoom) {
-    throw new Error(`z must be between ${minZoom} and ${maxZoom}`)
-  }
-
-  const tilesPerAxis = 2 ** z
-  if (x < 0 || x >= tilesPerAxis || y < 0 || y >= tilesPerAxis) {
-    throw new Error(`x and y must be between 0 and ${tilesPerAxis - 1} at z=${z}`)
-  }
-}
-
 function parseInteger(value: string, name: string): number {
   if (!/^\d+$/.test(value)) {
     throw new Error(`${name} must be a non-negative integer`)
@@ -343,20 +232,6 @@ function validateXyzOptions(maxScaleFactor: number): void {
   }
 }
 
-function validateTilesetOptions(name: string, tileSize: number, minZoom: number, maxZoom: number): void {
-  if (!Number.isInteger(tileSize) || tileSize <= 0) {
-    throw new Error(`XYZ tileset "${name}" tileSize must be a positive integer`)
-  }
-
-  if (!Number.isInteger(minZoom) || minZoom < 0) {
-    throw new Error(`XYZ tileset "${name}" minZoom must be a non-negative integer`)
-  }
-
-  if (!Number.isInteger(maxZoom) || maxZoom < minZoom) {
-    throw new Error(`XYZ tileset "${name}" maxZoom must be an integer greater than or equal to minZoom`)
-  }
-}
-
 function isPathMatch(pathname: string, basePath: string): boolean {
   return pathname === basePath || pathname.startsWith(`${basePath}/`)
 }
@@ -368,8 +243,18 @@ function pathSegmentsAfter(pathname: string, basePath: string): string[] {
     .filter(Boolean)
 }
 
-function uniqueLayers(tilesets: XyzOptions['tilesets']): Layer[] {
-  return [...new Set(tilesets.flatMap((tileset) => tileset.layers.map((entry) => entry.layer)))]
+function uniqueLayers(tilesets: Tileset[]) {
+  return [...new Set(tilesets.flatMap((tileset) => tileset.mapLayers))]
+}
+
+function tileCacheKey(request: TileRequest) {
+  return {
+    tileset: request.tileset.name,
+    z: request.z,
+    x: request.x,
+    y: request.y,
+    scale: request.scale
+  }
 }
 
 function getRequestUrl(req: IncomingMessage): string {
@@ -415,8 +300,4 @@ function sendText(res: ServerResponse, statusCode: number, body: string, content
   res.setHeader('Content-Type', contentType)
   res.setHeader('Content-Length', Buffer.byteLength(body))
   res.end(headOnly ? undefined : body)
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && 'code' in error
 }

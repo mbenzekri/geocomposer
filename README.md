@@ -35,17 +35,24 @@ Vous pouvez aussi lancer directement le point d'entrée :
 npx tsx src/geo-composer.ts
 ```
 
+Le viewer OpenLayers de test est `src/example/world-services-openlayers.html`.
+
 Le WMS est exposé sur le chemin `services.wms.path` de `config.json`, par
 défaut `/wms`. Les tuiles XYZ sont exposées sur `services.xyz.path` et suivent
 le schéma `/tiles/{tileset}/{z}/{x}/{y}.png`, par exemple
-`http://localhost:3000/tiles/world/1/1/1.png`. Les tilesets XYZ référencent les
-layers et styles déjà déclarés dans `config.json` avec une propriété `layers`,
-même quand un tileset ne contient qu'une seule couche. L'option
-`services.xyz.cache` peut pointer vers un répertoire où conserver les PNG rendus.
-Les options `tileSize`, `minZoom`, `maxZoom` et `cacheControl` appartiennent à
-chaque tileset.
+`http://localhost:3000/tiles/world/1/1/1.png`.
+
+Le WMTS est exposé sur `services.wmts.path`, par défaut `/wmts`. Il supporte
+`GetCapabilities` et `GetTile` en KVP, par exemple
+`/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=world&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=1&TILEROW=1&TILECOL=1&FORMAT=image/png`.
+
+Les tilesets sont déclarés à la racine dans `tilesets`. Les services `xyz` et
+`wmts` ne font que sélectionner ces tilesets par nom. Chaque tileset référence
+les layers et styles déjà déclarés dans `config.json` avec une propriété
+`layers`, même quand il ne contient qu'une seule couche. Les options `tileSize`,
+`minZoom`, `maxZoom` et `cacheControl` appartiennent à chaque tileset.
 
 La configuration est décrite par `config.schema.json`. Les sections
-`projections`, `sources`, `styles`, `layers` et `services.xyz.tilesets` sont des
-objets nommés : la clé porte l'identifiant, ce qui évite les doublons de nom dans
-les objets eux-mêmes.
+`projections`, `sources`, `styles`, `layers` et `tilesets` sont des objets
+nommés : la clé porte l'identifiant, ce qui évite les doublons de nom dans les
+objets eux-mêmes.

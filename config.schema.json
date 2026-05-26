@@ -15,6 +15,9 @@
     "services": {
       "$ref": "#/$defs/services"
     },
+    "tilesets": {
+      "$ref": "#/$defs/tilesets"
+    },
     "projections": {
       "$ref": "#/$defs/projections"
     },
@@ -50,6 +53,9 @@
         },
         "xyz": {
           "$ref": "#/$defs/xyz"
+        },
+        "wmts": {
+          "$ref": "#/$defs/wmts"
         }
       }
     },
@@ -102,12 +108,46 @@
           "type": "string"
         },
         "tilesets": {
-          "$ref": "#/$defs/tilesets"
+          "$ref": "#/$defs/tilesetRefs"
         }
       }
     },
+    "wmts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "title": {
+          "type": "string"
+        },
+        "abstract": {
+          "type": "string"
+        },
+        "onlineResource": {
+          "type": "string"
+        },
+        "cache": {
+          "type": "string"
+        },
+        "tilesets": {
+          "$ref": "#/$defs/tilesetRefs"
+        }
+      }
+    },
+    "tilesetRefs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
     "tilesets": {
       "type": "object",
+      "minProperties": 1,
       "additionalProperties": {
         "$ref": "#/$defs/tileset"
       }
@@ -122,6 +162,12 @@
         },
         "abstract": {
           "type": "string"
+        },
+        "tileMatrixSet": {
+          "enum": ["WebMercatorQuad"]
+        },
+        "format": {
+          "enum": ["image/png"]
         },
         "tileSize": {
           "type": "integer",

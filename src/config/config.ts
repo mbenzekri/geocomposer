@@ -13,6 +13,8 @@ import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-st
 import { defaultStyleFn } from '../style/default-style.js'
 import type { StyleFn } from '../style/style-fn.js'
 import type { XyzOptions } from '../service/xyz.js'
+import type { WmtsInfo, WmtsOptions } from '../service/wmts.js'
+import { Tileset } from '../tileset/tileset.js'
 
 export type NamedConfig<T> = Record<string, T>
 
@@ -114,26 +116,28 @@ export type ServerJson = {
   port?: number
 }
 
-export type XyzTilesetLayerJson = {
+export type TilesetLayerJson = {
   layer: string
   style?: string
 }
 
-export type XyzTilesetJson = {
+export type TilesetJson = {
   title?: string
   abstract?: string
+  tileMatrixSet?: string
+  format?: string
   tileSize?: number
   minZoom?: number
   maxZoom?: number
   cacheControl?: string
-  layers: XyzTilesetLayerJson[]
+  layers: TilesetLayerJson[]
 }
 
 export type XyzJson = {
   path?: string
   maxScaleFactor?: number
   cache?: string
-  tilesets?: NamedConfig<XyzTilesetJson>
+  tilesets?: string[]
 }
 
 export type WmsJson = WmsInfo & {
@@ -143,9 +147,16 @@ export type WmsJson = WmsInfo & {
   layers?: string[]
 }
 
+export type WmtsJson = WmtsInfo & {
+  path?: string
+  cache?: string
+  tilesets?: string[]
+}
+
 export type ServicesJson = {
   wms: WmsJson
   xyz?: XyzJson
+  wmts?: WmtsJson
 }
 
 export type GeoComposerJson = {
@@ -156,6 +167,7 @@ export type GeoComposerJson = {
   sources: NamedConfig<SourceJson>
   styles?: NamedConfig<StyleJson>
   layers: NamedConfig<LayerJson>
+  tilesets?: NamedConfig<TilesetJson>
 }
 
 export type LoadedConfig = {
@@ -164,6 +176,7 @@ export type LoadedConfig = {
   server: Required<ServerJson>
   wms: WmsOptions
   xyz?: XyzOptions
+  wmts?: WmtsOptions
 }
 
 const BUILTIN_STYLES: Record<string, StyleFn> = {
@@ -178,7 +191,9 @@ export async function loadConfig(configPath: string): Promise<LoadedConfig> {
   const sources = createSources(config.sources, dir, crs)
   const styles = await createStyles(config.styles ?? {}, dir)
   const layers = createLayers(config.layers, sources, styles, crs)
-  const xyz = config.services.xyz ? createXyzOptions(config.services.xyz, layers, dir) : undefined
+  const tilesets = createTilesets(config.tilesets ?? {}, layers)
+  const xyz = config.services.xyz ? createXyzOptions(config.services.xyz, tilesets, dir) : undefined
+  const wmts = config.services.wmts ? createWmtsOptions(config.services.wmts, tilesets, dir) : undefined
   const wmsLayers = selectLayers(config.services.wms.layers, layers, 'WMS')
   const wmsCrs = crs.codes()
 
@@ -200,7 +215,8 @@ export async function loadConfig(configPath: string): Promise<LoadedConfig> {
       ...(wmsCrs.length > 0 ? { crs: wmsCrs } : {}),
       layers: wmsLayers
     },
-    ...(xyz ? { xyz } : {})
+    ...(xyz ? { xyz } : {}),
+    ...(wmts ? { wmts } : {})
   }
 }
 
@@ -397,43 +413,49 @@ function createLayers(
   })
 }
 
-function createXyzOptions(
-  xyz: XyzJson,
-  mapLayers: Layer[],
-  baseDir: string
-): XyzOptions {
-  const layersByName = new Map(mapLayers.map((layer) => [layer.name, layer]))
-  const tilesetEntries: Array<[string, XyzTilesetJson]> = xyz.tilesets
-    ? Object.entries(xyz.tilesets)
-    : mapLayers.map((layer): [string, XyzTilesetJson] => [layer.name, {
-      title: layer.title,
-      abstract: layer.summary,
-      layers: [{ layer: layer.name }]
-    }])
-  const tilesets = tilesetEntries.map(([name, entry]) => createTileset(name, entry, layersByName))
-
+function createXyzOptions(xyz: XyzJson, tilesets: Tileset[], baseDir: string): XyzOptions {
   return {
     path: xyz.path,
     maxScaleFactor: xyz.maxScaleFactor,
     cache: xyz.cache ? resolve(baseDir, xyz.cache) : undefined,
-    tilesets
+    tilesets: selectTilesets(xyz.tilesets, tilesets, 'XYZ')
   }
+}
+
+function createWmtsOptions(wmts: WmtsJson, tilesets: Tileset[], baseDir: string): WmtsOptions {
+  return {
+    path: wmts.path,
+    info: {
+      title: wmts.title,
+      abstract: wmts.abstract,
+      onlineResource: wmts.onlineResource
+    },
+    cache: wmts.cache ? resolve(baseDir, wmts.cache) : undefined,
+    tilesets: selectTilesets(wmts.tilesets, tilesets, 'WMTS')
+  }
+}
+
+function createTilesets(tilesetEntries: NamedConfig<TilesetJson>, layers: Layer[]): Tileset[] {
+  const layersByName = new Map(layers.map((layer) => [layer.name, layer]))
+  return Object.entries(tilesetEntries).map(([name, entry]) => createTileset(name, entry, layersByName))
 }
 
 function createTileset(
   name: string,
-  entry: XyzTilesetJson,
+  entry: TilesetJson,
   layersByName: Map<string, Layer>
-): XyzOptions['tilesets'][number] {
+): Tileset {
   const layerRefs = normalizeTilesetLayers(name, entry)
   if (layerRefs.length === 0) {
-    throw new Error(`XYZ tileset "${name}" must reference at least one configured layer`)
+    throw new Error(`Tileset "${name}" must reference at least one configured layer`)
   }
 
-  return {
+  return new Tileset({
     name,
     title: entry.title,
     summary: entry.abstract,
+    tileMatrixSet: entry.tileMatrixSet,
+    format: entry.format,
     tileSize: entry.tileSize,
     minZoom: entry.minZoom,
     maxZoom: entry.maxZoom,
@@ -441,7 +463,7 @@ function createTileset(
     layers: layerRefs.map((ref) => {
       const layer = layersByName.get(ref.layer)
       if (!layer) {
-        throw new Error(`Unknown layer "${ref.layer}" in XYZ tileset "${name}"`)
+        throw new Error(`Unknown layer "${ref.layer}" in tileset "${name}"`)
       }
 
       validateTilesetLayerStyle(layer, ref.style, name)
@@ -451,12 +473,12 @@ function createTileset(
         style: ref.style
       }
     })
-  }
+  })
 }
 
-function normalizeTilesetLayers(name: string, entry: XyzTilesetJson): XyzTilesetLayerJson[] {
+function normalizeTilesetLayers(name: string, entry: TilesetJson): TilesetLayerJson[] {
   if (!entry.layers || entry.layers.length === 0) {
-    throw new Error(`XYZ tileset "${name}" must define at least one entry in "layers"`)
+    throw new Error(`Tileset "${name}" must define at least one entry in "layers"`)
   }
 
   return entry.layers.map((ref) => ({
@@ -470,8 +492,34 @@ function validateTilesetLayerStyle(layer: Layer, styleName: string | undefined, 
     layer.resolveStyle(styleName)
   } catch (error) {
     if (!styleName) throw error
-    throw new Error(`Unknown style "${styleName}" for layer "${layer.name}" in XYZ tileset "${tilesetName}"`)
+    throw new Error(`Unknown style "${styleName}" for layer "${layer.name}" in tileset "${tilesetName}"`)
   }
+}
+
+function selectTilesets(tilesetNames: string[] | undefined, tilesets: Tileset[], serviceName: string): Tileset[] {
+  if (!tilesetNames) {
+    if (tilesets.length === 0) {
+      throw new Error(`${serviceName} service requires at least one configured tileset`)
+    }
+
+    return tilesets
+  }
+
+  const tilesetsByName = new Map(tilesets.map((tileset) => [tileset.name, tileset]))
+  const selected = tilesetNames.map((name) => {
+    const tileset = tilesetsByName.get(name)
+    if (!tileset) {
+      throw new Error(`Unknown tileset "${name}" in ${serviceName} service`)
+    }
+
+    return tileset
+  })
+
+  if (selected.length === 0) {
+    throw new Error(`${serviceName} service requires at least one tileset`)
+  }
+
+  return selected
 }
 
 function selectLayers(layerNames: string[] | undefined, layers: Layer[], serviceName: string): Layer[] {
