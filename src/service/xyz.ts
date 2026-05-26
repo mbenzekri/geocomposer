@@ -3,10 +3,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { dirname, join } from 'node:path'
 import { TLSSocket } from 'node:tls'
 import type { BBox } from '../core/types.js'
-import type { XyzLayer } from '../layer/xyz-layer.js'
-import { renderMap } from '../ogc/render-map.js'
+import type { Layer } from '../layer/layer.js'
+import { renderMap, type RenderLayer } from '../ogc/render-map.js'
 import { Service } from './service.js'
-import type { Source } from '../source/source.js'
 
 const WEB_MERCATOR_HALF_WORLD = 20037508.342789244
 const DEFAULT_TILE_SIZE = 256
@@ -16,7 +15,15 @@ const DEFAULT_MAX_SCALE_FACTOR = 4
 
 export type XyzOptions = {
   path?: string
-  layers: XyzLayer[]
+  tilesets: Array<{
+    name: string
+    title?: string
+    summary?: string
+    layers: Array<{
+      layer: Layer
+      style?: string
+    }>
+  }>
   tileSize?: number
   minZoom?: number
   maxZoom?: number
@@ -25,8 +32,15 @@ export type XyzOptions = {
   cache?: string
 }
 
+type Tileset = {
+  name: string
+  title?: string
+  summary?: string
+  layers: RenderLayer[]
+}
+
 type TileRequest = {
-  tileLayer: XyzLayer
+  tileset: Tileset
   z: number
   x: number
   y: number
@@ -41,8 +55,9 @@ export class Xyz extends Service {
   private readonly minZoom: number
   private readonly maxZoom: number
   private readonly maxScaleFactor: number
-  private readonly layerByName: Map<string, XyzLayer>
-  private readonly sources: Source[]
+  private readonly tilesets: Tileset[]
+  private readonly tilesetByName: Map<string, Tileset>
+  private readonly layers: Layer[]
   private nextTraceId = 1
 
   constructor(private readonly options: XyzOptions) {
@@ -52,8 +67,17 @@ export class Xyz extends Service {
     this.minZoom = options.minZoom ?? DEFAULT_MIN_ZOOM
     this.maxZoom = options.maxZoom ?? DEFAULT_MAX_ZOOM
     this.maxScaleFactor = options.maxScaleFactor ?? DEFAULT_MAX_SCALE_FACTOR
-    this.layerByName = new Map(options.layers.map((layer) => [layer.name, layer]))
-    this.sources = uniqueSources(options.layers)
+    this.tilesets = options.tilesets.map((tileset) => ({
+      name: tileset.name,
+      title: tileset.title,
+      summary: tileset.summary,
+      layers: tileset.layers.map((entry) => ({
+        layer: entry.layer,
+        style: entry.layer.resolveStyle(entry.style)
+      }))
+    }))
+    this.tilesetByName = new Map(this.tilesets.map((tileset) => [tileset.name, tileset]))
+    this.layers = uniqueLayers(options.tilesets)
 
     validateXyzOptions(this.tileSize, this.minZoom, this.maxZoom, this.maxScaleFactor)
   }
@@ -63,14 +87,14 @@ export class Xyz extends Service {
   }
 
   async open(): Promise<void> {
-    for (const source of this.sources) {
-      await source.open()
+    for (const layer of this.layers) {
+      await layer.open()
     }
   }
 
   async close(): Promise<void> {
-    for (const source of this.sources) {
-      await source.close()
+    for (const layer of this.layers) {
+      await layer.close()
     }
   }
 
@@ -106,7 +130,7 @@ export class Xyz extends Service {
 
       const tileRequest = parseTileRequest(url, {
         path: this.path,
-        layerByName: this.layerByName,
+        tilesetByName: this.tilesetByName,
         tileSize: this.tileSize,
         minZoom: this.minZoom,
         maxZoom: this.maxZoom,
@@ -118,7 +142,7 @@ export class Xyz extends Service {
         ? await readCachedTile(this.options.cache, tileRequest)
         : null
       const image = cachedImage ?? await renderMap({
-        layers: tileRequest.tileLayer.layers,
+        layers: tileRequest.tileset.layers,
         bbox: tileRequest.bbox,
         width: tileRequest.width,
         height: tileRequest.height,
@@ -172,7 +196,7 @@ function parseTileRequest(
   url: URL,
   options: {
     path: string
-    layerByName: Map<string, XyzLayer>
+    tilesetByName: Map<string, Tileset>
     tileSize: number
     minZoom: number
     maxZoom: number
@@ -181,13 +205,13 @@ function parseTileRequest(
 ): TileRequest {
   const segments = pathSegmentsAfter(url.pathname, options.path)
   if (segments.length !== 4) {
-    throw new Error(`XYZ tile path must be ${options.path}/{layer}/{z}/{x}/{y}.png`)
+    throw new Error(`XYZ tile path must be ${options.path}/{tileset}/{z}/{x}/{y}.png`)
   }
 
-  const layerName = decodeURIComponent(segments[0])
-  const tileLayer = options.layerByName.get(layerName)
-  if (!tileLayer) {
-    throw new Error(`Unknown XYZ layer: ${layerName}`)
+  const tilesetName = decodeURIComponent(segments[0])
+  const tileset = options.tilesetByName.get(tilesetName)
+  if (!tileset) {
+    throw new Error(`Unknown XYZ tileset: ${tilesetName}`)
   }
 
   const z = parseInteger(segments[1], 'z')
@@ -200,7 +224,7 @@ function parseTileRequest(
 
   const pixelSize = Math.round(options.tileSize * scale)
   return {
-    tileLayer,
+    tileset,
     z,
     x,
     y,
@@ -273,7 +297,7 @@ function tileCachePath(cacheDir: string, request: TileRequest): string {
 
   return join(
     cacheDir,
-    encodeURIComponent(request.tileLayer.name),
+    encodeURIComponent(request.tileset.name),
     String(request.z),
     String(request.x),
     fileName
@@ -339,8 +363,8 @@ function pathSegmentsAfter(pathname: string, basePath: string): string[] {
     .filter(Boolean)
 }
 
-function uniqueSources(layers: XyzLayer[]): Source[] {
-  return [...new Set(layers.flatMap((layer) => layer.layers.map((renderLayer) => renderLayer.source)))]
+function uniqueLayers(tilesets: XyzOptions['tilesets']): Layer[] {
+  return [...new Set(tilesets.flatMap((tileset) => tileset.layers.map((entry) => entry.layer)))]
 }
 
 function getRequestUrl(req: IncomingMessage): string {
@@ -363,7 +387,7 @@ function logTileDone(traceId: number, statusCode: number, startedAt: number, siz
 }
 
 function logTileParams(traceId: number, request: TileRequest): void {
-  console.log(`[XYZ ${traceId}] LAYER=${request.tileLayer.name} ZXY=${request.z}/${request.x}/${request.y} SIZE=${request.width}x${request.height} SCALE=${request.scale}`)
+  console.log(`[XYZ ${traceId}] TILESET=${request.tileset.name} ZXY=${request.z}/${request.x}/${request.y} SIZE=${request.width}x${request.height} SCALE=${request.scale}`)
   console.log(`[XYZ ${traceId}] BBOX=${request.bbox.join(',')}`)
 }
 

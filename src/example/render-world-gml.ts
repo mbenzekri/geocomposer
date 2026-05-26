@@ -1,4 +1,5 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { Layer } from '../layer/layer.js'
 import { renderMap } from '../ogc/render-map.js'
 import { GmlSource } from '../source/gml-source.js'
 import {
@@ -13,21 +14,27 @@ const source = new GmlSource('world-gml', 'data/world.gml', {
   crs: 'EPSG:4326',
   axisOrder: 'auto'
 })
+const layer = new Layer('world-gml', {
+  source,
+  styles: [{
+    name: 'default',
+    style: worldStyleFn
+  }]
+})
 
-await source.open()
+await layer.open()
 try {
   const image = await renderMap({
-    source,
+    layer,
     bbox: WORLD_BBOX_3857,
     width: 500,
     height: 500,
-    crs: 'EPSG:3857',
-    style: worldStyleFn
+    crs: 'EPSG:3857'
   })
 
   await writeFile('style-smoke/world_gml.png', image)
 } finally {
-  await source.close()
+  await layer.close()
 }
 
 console.log('style-smoke/world_gml.png generated')

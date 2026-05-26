@@ -160,10 +160,10 @@ export class GeoComposer {
     if (this.paths.xyz && this.loaded.xyz) {
       console.log(`XYZ listening on ${baseUrl}${this.paths.xyz}`)
 
-      const sampleLayer = this.loaded.xyz.layers[0]?.name
-      if (sampleLayer) {
-        console.log(`Sample tile: ${baseUrl}${this.paths.xyz}/${encodeURIComponent(sampleLayer)}/1/1/1.png`)
-        console.log(`Retina sample: ${baseUrl}${this.paths.xyz}/${encodeURIComponent(sampleLayer)}/1/1/1@2x.png`)
+      const sampleTileset = this.loaded.xyz.tilesets[0]?.name
+      if (sampleTileset) {
+        console.log(`Sample tile: ${baseUrl}${this.paths.xyz}/${encodeURIComponent(sampleTileset)}/1/1/1.png`)
+        console.log(`Retina sample: ${baseUrl}${this.paths.xyz}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`)
       }
     }
   }

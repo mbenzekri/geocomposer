@@ -11,6 +11,7 @@ import RegularShape from 'ol/style/RegularShape.js'
 import Text from 'ol/style/Text.js'
 import Icon from 'ol/style/Icon.js'
 import type { Feature } from '../geometry/feature.js'
+import { Layer } from '../layer/layer.js'
 import { renderMap } from '../ogc/render-map.js'
 import { MemSource } from '../source/mem-source.js'
 import type { StyleFn } from '../style/style-fn.js'
@@ -211,14 +212,20 @@ for (const smokeCase of smokeCases) {
     const source = new MemSource(smokeCase.name, 'EPSG:4326', [smokeCase.feature])
     const olStyle = await smokeCase.style()
     const style: StyleFn = () => olStyle
+    const layer = new Layer(smokeCase.name, {
+      source,
+      styles: [{
+        name: 'default',
+        style
+      }]
+    })
 
     const image = await renderMap({
-      source,
+      layer,
       bbox: [-1, -1, 1, 1],
       width: 180,
       height: 140,
-      crs: 'EPSG:4326',
-      style
+      crs: 'EPSG:4326'
     })
 
     await writeFile(`style-smoke/${smokeCase.name}.png`, image)

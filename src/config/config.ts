@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import type { BBox, CrsCode } from '../core/types.js'
 import { Layer, type LayerStyle } from '../layer/layer.js'
-import { XyzLayer } from '../layer/xyz-layer.js'
 import type { WmsInfo, WmsOptions } from '../service/wms.js'
 import { GeoJsonSource } from '../source/geojson-source.js'
 import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
@@ -125,18 +124,18 @@ export type ServerJson = {
   maxHeight?: number
 }
 
-export type XyzLayerRefJson = {
+export type XyzTilesetLayerJson = {
   layer: string
   style?: string
 }
 
-export type XyzLayerJson = {
+export type XyzTilesetJson = {
   name: string
   title?: string
   abstract?: string
   layer?: string
   style?: string
-  layers?: XyzLayerRefJson[]
+  layers?: XyzTilesetLayerJson[]
 }
 
 export type XyzJson = {
@@ -147,7 +146,7 @@ export type XyzJson = {
   maxScaleFactor?: number
   cacheControl?: string
   cache?: string
-  layers?: XyzLayerJson[]
+  layers?: XyzTilesetJson[]
 }
 
 export type GeoComposerJson = {
@@ -406,7 +405,7 @@ function createXyzOptions(
   baseDir: string
 ): XyzOptions {
   const layersByName = new Map(mapLayers.map((layer) => [layer.name, layer]))
-  const xyzLayers = (xyz.layers && xyz.layers.length > 0
+  const tilesets = (xyz.layers && xyz.layers.length > 0
     ? xyz.layers
     : mapLayers.map((layer) => ({
       name: layer.name,
@@ -414,7 +413,7 @@ function createXyzOptions(
       abstract: layer.summary,
       layer: layer.name
     }))
-  ).map((entry) => createXyzLayer(entry, layersByName))
+  ).map((entry) => createTileset(entry, layersByName))
 
   return {
     path: xyz.path,
@@ -424,37 +423,40 @@ function createXyzOptions(
     maxScaleFactor: xyz.maxScaleFactor,
     cacheControl: xyz.cacheControl,
     cache: xyz.cache ? resolve(baseDir, xyz.cache) : undefined,
-    layers: xyzLayers
+    tilesets
   }
 }
 
-function createXyzLayer(
-  entry: XyzLayerJson,
+function createTileset(
+  entry: XyzTilesetJson,
   layersByName: Map<string, Layer>
-): XyzLayer {
-  const layerRefs = normalizeXyzLayerRefs(entry)
+): XyzOptions['tilesets'][number] {
+  const layerRefs = normalizeTilesetLayers(entry)
   if (layerRefs.length === 0) {
-    throw new Error(`XYZ layer "${entry.name}" must reference at least one configured layer`)
+    throw new Error(`XYZ tileset "${entry.name}" must reference at least one configured layer`)
   }
 
-  return new XyzLayer(entry.name, {
+  return {
+    name: entry.name,
     title: entry.title,
     summary: entry.abstract,
     layers: layerRefs.map((ref) => {
       const layer = layersByName.get(ref.layer)
       if (!layer) {
-        throw new Error(`Unknown layer "${ref.layer}" in XYZ layer "${entry.name}"`)
+        throw new Error(`Unknown layer "${ref.layer}" in XYZ tileset "${entry.name}"`)
       }
+
+      validateTilesetLayerStyle(layer, ref.style, entry.name)
 
       return {
-        source: layer.source,
-        style: resolveConfiguredLayerStyle(layer, ref.style, entry.name)
+        layer,
+        style: ref.style
       }
     })
-  })
+  }
 }
 
-function normalizeXyzLayerRefs(entry: XyzLayerJson): XyzLayerRefJson[] {
+function normalizeTilesetLayers(entry: XyzTilesetJson): XyzTilesetLayerJson[] {
   if (entry.layers && entry.layers.length > 0) {
     return entry.layers.map((ref) => ({
       layer: ref.layer,
@@ -463,7 +465,7 @@ function normalizeXyzLayerRefs(entry: XyzLayerJson): XyzLayerRefJson[] {
   }
 
   if (!entry.layer) {
-    throw new Error(`XYZ layer "${entry.name}" must define "layer" or "layers"`)
+    throw new Error(`XYZ tileset "${entry.name}" must define "layer" or "layers"`)
   }
 
   return [{
@@ -472,16 +474,12 @@ function normalizeXyzLayerRefs(entry: XyzLayerJson): XyzLayerRefJson[] {
   }]
 }
 
-function resolveConfiguredLayerStyle(
-  layer: Layer,
-  styleName: string | undefined,
-  xyzLayerName: string
-): StyleFn {
+function validateTilesetLayerStyle(layer: Layer, styleName: string | undefined, tilesetName: string): void {
   try {
-    return layer.resolveStyle(styleName)
+    layer.resolveStyle(styleName)
   } catch (error) {
     if (!styleName) throw error
-    throw new Error(`Unknown style "${styleName}" for layer "${layer.name}" in XYZ layer "${xyzLayerName}"`)
+    throw new Error(`Unknown style "${styleName}" for layer "${layer.name}" in XYZ tileset "${tilesetName}"`)
   }
 }
 

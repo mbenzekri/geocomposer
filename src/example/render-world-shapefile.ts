@@ -1,4 +1,5 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { Layer } from '../layer/layer.js'
 import { renderMap } from '../ogc/render-map.js'
 import { ShpSource } from '../source/shp-source.js'
 import {
@@ -14,21 +15,27 @@ const source = new ShpSource(
   'data/shapefile/world.shp',
   'data/shapefile/world.dbf'
 )
+const layer = new Layer('world-shp', {
+  source,
+  styles: [{
+    name: 'default',
+    style: worldStyleFn
+  }]
+})
 
-await source.open()
+await layer.open()
 try {
   const image = await renderMap({
-    source,
+    layer,
     bbox: WORLD_BBOX_3857,
     width: 500,
     height: 500,
-    crs: 'EPSG:3857',
-    style: worldStyleFn
+    crs: 'EPSG:3857'
   })
 
   await writeFile('style-smoke/world_shp.png', image)
 } finally {
-  await source.close()
+  await layer.close()
 }
 
 console.log('style-smoke/world_shp.png generated')

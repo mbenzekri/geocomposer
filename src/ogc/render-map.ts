@@ -1,14 +1,12 @@
 import { get as getProjection, getPointResolution } from 'ol/proj.js'
 import type { BBox, CrsCode } from '../core/types.js'
-import type { Source } from '../source/source.js'
+import type { Layer } from '../layer/layer.js'
 import type { StyleContext, StyleFn } from '../style/style-fn.js'
 import { createDeferredTextRenderQueue, OlRenderer } from '../render/ol-renderer.js'
 import { RenderWritable } from '../render/render-writable.js'
-import { BboxFilter } from '../transform/bbox-filter.js'
-import { Reproject } from '../transform/reproject.js'
 
 export type RenderLayer = {
-  source: Source
+  layer: Layer
   style: StyleFn
 }
 
@@ -22,12 +20,12 @@ export type RenderMapOptions = {
 }
 
 export type RenderSingleMapOptions = {
-  source: Source
+  layer: Layer
   bbox: BBox
   width: number
   height: number
   crs: CrsCode
-  style: StyleFn
+  style?: StyleFn
   pixelRatio?: number
 }
 
@@ -40,7 +38,7 @@ export async function renderMap(options: RenderMapOptions | RenderSingleMapOptio
   const styleContext = createStyleContext(options.crs, options.bbox, resolution, options.pixelRatio ?? 1)
   const layers = 'layers' in options
     ? options.layers
-    : [{ source: options.source, style: options.style }]
+    : [{ layer: options.layer, style: options.style ?? options.layer.style }]
 
   if (layers.length === 0) {
     return new OlRenderer(
@@ -126,13 +124,10 @@ async function renderLayer(
   renderer: OlRenderer,
   options: RenderMapOptions | RenderSingleMapOptions
 ): Promise<void> {
-  const needsReprojection = layer.source.crs !== options.crs
-  const features = needsReprojection
-    ? layer.source
-      .stream()
-      .pipeThrough(new Reproject(layer.source.crs, options.crs))
-      .pipeThrough(new BboxFilter(options.bbox))
-    : layer.source.query({ bbox: options.bbox })
+  const features = layer.layer.query({
+    bbox: options.bbox,
+    crs: options.crs
+  })
 
   await features.pipeTo(new RenderWritable(renderer))
   await renderer.drawLayerText()

@@ -30,9 +30,9 @@ server.on('connection', (socket) => {
 
 server.listen(port, () => {
   const baseUrl = `http://localhost:${port}${service.path}`
-  const sampleLayer = loaded.xyz?.layers[0]?.name ?? 'world'
-  const sample = `${baseUrl}/${encodeURIComponent(sampleLayer)}/1/1/1.png`
-  const retinaSample = `${baseUrl}/${encodeURIComponent(sampleLayer)}/1/1/1@2x.png`
+  const sampleTileset = loaded.xyz?.tilesets[0]?.name ?? 'world'
+  const sample = `${baseUrl}/${encodeURIComponent(sampleTileset)}/1/1/1.png`
+  const retinaSample = `${baseUrl}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`
   console.log(`Config: ${loaded.path}`)
   console.log(`XYZ listening on ${baseUrl}`)
   console.log(`Sample tile: ${sample}`)

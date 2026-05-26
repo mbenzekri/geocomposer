@@ -5,13 +5,11 @@ import type { BBox, CrsCode } from '../core/types.js'
 import {
   featureInfoToGeoJson,
   featureInfoToXml,
-  getFeatureInfo,
-  type FeatureInfoLayer
+  getFeatureInfo
 } from '../ogc/get-feature-info.js'
 import { renderMap, type RenderLayer } from '../ogc/render-map.js'
 import type { Layer } from '../layer/layer.js'
 import { Service } from './service.js'
-import type { Source } from '../source/source.js'
 import type { StyleFn } from '../style/style-fn.js'
 
 const WMS_VERSION = '1.3.0'
@@ -37,7 +35,6 @@ export class Wms extends Service {
   private readonly maxWidth: number
   private readonly maxHeight: number
   private readonly layerByName: Map<string, Layer>
-  private readonly sources: Source[]
   private readonly crs: CrsCode[]
   private nextTraceId = 1
 
@@ -47,22 +44,21 @@ export class Wms extends Service {
     this.maxWidth = options.maxWidth ?? 4096
     this.maxHeight = options.maxHeight ?? 4096
     this.layerByName = new Map(options.layers.map((layer) => [layer.name, layer]))
-    this.sources = [...new Set(options.layers.map((layer) => layer.source))]
     this.crs = unique(options.crs && options.crs.length > 0
       ? options.crs
-      : options.layers.map((layer) => layer.source.crs)
+      : options.layers.map((layer) => layer.sourceCrs)
     )
   }
 
   async open(): Promise<void> {
-    for (const source of this.sources) {
-      await source.open()
+    for (const layer of this.options.layers) {
+      await layer.open()
     }
   }
 
   async close(): Promise<void> {
-    for (const source of this.sources) {
-      await source.close()
+    for (const layer of this.options.layers) {
+      await layer.close()
     }
   }
 
@@ -180,7 +176,7 @@ type MapRequest = {
 }
 
 type FeatureInfoRequest = {
-  layers: FeatureInfoLayer[]
+  layers: Layer[]
   rawBbox: string
   bbox: BBox
   bboxOrder: 'xy' | 'yx'
@@ -235,7 +231,7 @@ function parseGetMap(
   validateCrs(supportedCrs, crs)
   const styleNames = parseStyles(params.get('STYLES'), selectedLayers.length)
   const layers = selectedLayers.map((layer, index) => ({
-    source: layer.source,
+    layer,
     style: resolveLayerStyle(layer, styleNames[index])
   }))
 
@@ -287,10 +283,7 @@ function parseGetFeatureInfo(
       throw new Error(`Unknown query layer: ${name}`)
     }
 
-    return {
-      name: layer.name,
-      source: layer.source
-    }
+    return layer
   })
   const i = parsePixelIndex(params.get('I') ?? params.get('X'), mapRequest.version === '1.3.0' ? 'I' : 'X', mapRequest.width)
   const j = parsePixelIndex(params.get('J') ?? params.get('Y'), mapRequest.version === '1.3.0' ? 'J' : 'Y', mapRequest.height)
@@ -329,7 +322,7 @@ async function buildCapabilitiesXml(
   const onlineResource = service.onlineResource ?? path
 
   for (const layer of layers) {
-    const extent = layer.extent ?? await layer.source.getExtent()
+    const extent = await layer.getExtent()
     const sourceCrs = layer.sourceCrs
     layerXml.push([
       '<Layer queryable="1">',

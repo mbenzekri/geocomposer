@@ -1,4 +1,5 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { Layer } from '../layer/layer.js'
 import { renderMap } from '../ogc/render-map.js'
 import { MemSource } from '../source/mem-source.js'
 import { createDynamicStyleFn } from '../style/dynamic-style.js'
@@ -90,17 +91,23 @@ const style = await createDynamicStyleFn('dynamic-demo', {
     { pointer: '#/*/text/text', value: '=> D.label' }
   ]
 })
+const layer = new Layer('dynamic-style-demo', {
+  source,
+  styles: [{
+    name: 'default',
+    style
+  }]
+})
 
 await rm('style-smoke/dynamic-style.png', { force: true })
 await mkdir('style-smoke', { recursive: true })
 
 const image = await renderMap({
-  source,
+  layer,
   bbox: [-6, 42, 6, 50],
   width: 800,
   height: 600,
-  crs: 'EPSG:4326',
-  style
+  crs: 'EPSG:4326'
 })
 
 await writeFile('style-smoke/dynamic-style.png', image)

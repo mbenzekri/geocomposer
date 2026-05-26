@@ -1,6 +1,9 @@
 import type { BBox, CrsCode } from '../core/types.js'
-import type { Source } from '../source/source.js'
+import type { Feature } from '../geometry/feature.js'
+import type { QueryOptions, Source, StreamOptions } from '../source/source.js'
 import type { StyleFn } from '../style/style-fn.js'
+import { BboxFilter } from '../transform/bbox-filter.js'
+import { Reproject } from '../transform/reproject.js'
 
 export type LayerStyle = {
   name: string
@@ -44,6 +47,44 @@ export class Layer {
 
   get style(): StyleFn {
     return this.styles[0].style
+  }
+
+  async open(): Promise<void> {
+    await this.source.open()
+  }
+
+  async close(): Promise<void> {
+    await this.source.close()
+  }
+
+  async getExtent(): Promise<BBox | null> {
+    return this.extent ?? await this.source.getExtent()
+  }
+
+  stream(options?: StreamOptions): ReadableStream<Feature> {
+    return this.source.stream(options)
+  }
+
+  query(options: QueryOptions = {}): ReadableStream<Feature> {
+    const crs = options.crs ?? this.sourceCrs
+
+    if (crs === this.sourceCrs) {
+      return this.source.query({
+        bbox: options.bbox,
+        signal: options.signal,
+        properties: options.properties
+      })
+    }
+
+    const input = this.source.query({
+      signal: options.signal,
+      properties: options.properties
+    })
+
+    const reprojected = input.pipeThrough(new Reproject(this.sourceCrs, crs))
+    return options.bbox
+      ? reprojected.pipeThrough(new BboxFilter(options.bbox))
+      : reprojected
   }
 
   resolveStyle(name: string | undefined): StyleFn {

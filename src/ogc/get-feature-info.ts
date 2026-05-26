@@ -2,14 +2,7 @@ import type { BBox, CrsCode, Props } from '../core/types.js'
 import { Geom } from '../geometry/geom.js'
 import type { Feature } from '../geometry/feature.js'
 import type { Geometry, Position } from '../geometry/geometry.js'
-import type { Source } from '../source/source.js'
-import { BboxFilter } from '../transform/bbox-filter.js'
-import { Reproject } from '../transform/reproject.js'
-
-export type FeatureInfoLayer = {
-  name: string
-  source: Source
-}
+import type { Layer } from '../layer/layer.js'
 
 export type FeatureInfoHit = {
   layerName: string
@@ -30,7 +23,7 @@ export type FeatureInfoResult = {
 }
 
 export type GetFeatureInfoOptions = {
-  layers: FeatureInfoLayer[]
+  layers: Layer[]
   bbox: BBox
   width: number
   height: number
@@ -136,18 +129,16 @@ function pixelToCoordinate(bbox: BBox, width: number, height: number, i: number,
 }
 
 async function collectLayerHits(
-  layer: FeatureInfoLayer,
+  layer: Layer,
   targetCrs: CrsCode,
   context: HitContext,
   featureCount: number,
   hits: FeatureInfoHit[]
 ): Promise<void> {
-  const features = layer.source.crs === targetCrs
-    ? layer.source.query({ bbox: context.bbox })
-    : layer.source
-      .stream()
-      .pipeThrough(new Reproject(layer.source.crs, targetCrs))
-      .pipeThrough(new BboxFilter(context.bbox))
+  const features = layer.query({
+    bbox: context.bbox,
+    crs: targetCrs
+  })
   const reader = features.getReader()
   let done = false
 
