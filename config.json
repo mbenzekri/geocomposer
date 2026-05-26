@@ -1,121 +1,112 @@
 {
+  "$schema": "./config.schema.json",
   "server": {
-    "port": 3000,
-    "path": "/wms",
-    "maxWidth": 4096,
-    "maxHeight": 4096
+    "port": 3000
   },
-  "service": {
-    "title": "GeoComposer WMS",
-    "abstract": "Minimal WMS server backed by the GeoComposer render pipeline.",
-    "onlineResource": "http://localhost:3000/wms"
-  },
-  "xyz": {
-    "path": "/tiles",
-    "tileSize": 256,
-    "minZoom": 0,
-    "maxZoom": 8,
-    "maxScaleFactor": 4,
-    "cacheControl": "public, max-age=3600",
-    "cache": "cache/xyz",
-    "layers": [
-      {
-        "name": "world",
-        "title": "World XYZ",
-        "abstract": "XYZ tiles for the world country boundaries.",
-        "layer": "world",
-        "style": "world"
-      },
-      {
-        "name": "world-capitals",
-        "title": "World and Capitals XYZ",
-        "abstract": "XYZ tiles combining country boundaries and capital city labels.",
-        "layers": [
-          {
-            "layer": "world",
-            "style": "world"
-          },
-          {
-            "layer": "capitals",
-            "style": "capitals"
-          }
-        ]
+  "services": {
+    "wms": {
+      "path": "/wms",
+      "title": "GeoComposer WMS",
+      "abstract": "Minimal WMS server backed by the GeoComposer render pipeline.",
+      "onlineResource": "http://localhost:3000/wms",
+      "maxWidth": 4096,
+      "maxHeight": 4096
+    },
+    "xyz": {
+      "path": "/tiles",
+      "tileSize": 256,
+      "minZoom": 0,
+      "maxZoom": 8,
+      "maxScaleFactor": 4,
+      "cacheControl": "public, max-age=3600",
+      "cache": "cache/xyz",
+      "tilesets": {
+        "world": {
+          "title": "World XYZ",
+          "abstract": "XYZ tiles for the world country boundaries.",
+          "layer": "world",
+          "style": "world"
+        },
+        "world-capitals": {
+          "title": "World and Capitals XYZ",
+          "abstract": "XYZ tiles combining country boundaries and capital city labels.",
+          "layers": [
+            {
+              "layer": "world",
+              "style": "world"
+            },
+            {
+              "layer": "capitals",
+              "style": "capitals"
+            }
+          ]
+        }
       }
-    ]
+    }
   },
-  "crs": [
-    {
-      "name": "EPSG:4326",
+  "projections": {
+    "EPSG:4326": {
       "title": "WGS84"
     },
-    {
-      "name": "EPSG:3857",
+    "EPSG:3857": {
       "title": "Web Mercator"
     }
-  ],
-  "sources": [
-    {
+  },
+  "sources": {
+    "world": {
       "type": "geojson",
-      "name": "world",
       "title": "World GeoJSON",
       "abstract": "World country boundaries GeoJSON demo source.",
       "crs": "EPSG:4326",
       "path": "data/world.geojson"
     },
-    {
+    "capitals": {
       "type": "geojson",
-      "name": "capitals",
       "title": "Capitals GeoJSON",
       "abstract": "World capitals GeoJSON demo source.",
       "crs": "EPSG:4326",
       "path": "data/capitals.geojson"
     },
-    {
+    "world-mem": {
       "type": "mem",
-      "name": "world-mem",
       "title": "World Memory",
       "abstract": "World country boundaries loaded in memory from the GeoJSON source.",
       "source": "world"
     },
-    {
+    "world-gml": {
       "type": "gml",
-      "name": "world-gml",
       "title": "World GML",
       "abstract": "World country boundaries GML demo source.",
       "crs": "EPSG:4326",
       "path": "data/world.gml",
       "axisOrder": "auto"
     },
-    {
+    "world-shp": {
       "type": "shp",
-      "name": "world-shp",
       "title": "World Shapefile",
       "abstract": "World country boundaries shapefile demo source.",
       "crs": "EPSG:4326",
       "shpPath": "data/shapefile/world.shp",
       "dbfPath": "data/shapefile/world.dbf"
     },
-    {
+    "world-gpkg": {
       "type": "gpkg",
-      "name": "world-gpkg",
       "title": "World GeoPackage",
       "abstract": "World country boundaries GeoPackage demo source.",
       "path": "data/world.gpkg",
       "tableName": "world",
       "geometryColumn": "geom"
     }
-  ],
-  "styles": [
-    {
+  },
+  "styles": {
+    "world": {
       "type": "dynamic",
-      "name": "world",
       "title": "World",
       "abstract": "Country boundaries rendered from a DynStyle JSON file.",
       "path": "config/styles/world.json"
     },
-    {
+    "capitals": {
       "type": "dynamic",
-      "name": "capitals",
       "title": "Capitals",
       "abstract": "Capital city points and labels rendered from a DynStyle JSON file.",
       "path": "config/styles/capitals.json",
@@ -123,10 +114,9 @@
         "units": "dd"
       }
     }
-  ],
-  "layers": [
-    {
-      "name": "world",
+  },
+  "layers": {
+    "world": {
       "title": "World GeoJSON",
       "abstract": "World country boundaries from the GeoJSON demo dataset.",
       "source": "world",
@@ -134,8 +124,7 @@
       "extent": [-180, -90, 180, 90],
       "style": "world"
     },
-    {
-      "name": "capitals",
+    "capitals": {
       "title": "Capitals GeoJSON",
       "abstract": "World capitals from the GeoJSON demo dataset.",
       "source": "capitals",
@@ -143,8 +132,7 @@
       "extent": [-180, -90, 180, 90],
       "style": "capitals"
     },
-    {
-      "name": "world-mem",
+    "world-mem": {
       "title": "World Memory",
       "abstract": "World country boundaries loaded in memory from the GeoJSON demo dataset.",
       "source": "world-mem",
@@ -152,8 +140,7 @@
       "extent": [-180, -90, 180, 90],
       "style": "world"
     },
-    {
-      "name": "world-gml",
+    "world-gml": {
       "title": "World GML",
       "abstract": "World country boundaries from the GML demo dataset.",
       "source": "world-gml",
@@ -161,8 +148,7 @@
       "extent": [-180, -90, 180, 90],
       "style": "world"
     },
-    {
-      "name": "world-shp",
+    "world-shp": {
       "title": "World Shapefile",
       "abstract": "World country boundaries from the shapefile demo dataset.",
       "source": "world-shp",
@@ -170,8 +156,7 @@
       "extent": [-180, -90, 180, 90],
       "style": "world"
     },
-    {
-      "name": "world-gpkg",
+    "world-gpkg": {
       "title": "World GeoPackage",
       "abstract": "World country boundaries from the GeoPackage demo dataset.",
       "source": "world-gpkg",
@@ -179,5 +164,5 @@
       "extent": [-180, -90, 180, 90],
       "style": "world"
     }
-  ]
+  }
 }

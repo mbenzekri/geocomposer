@@ -14,14 +14,14 @@ import { defaultStyleFn } from '../style/default-style.js'
 import type { StyleFn } from '../style/style-fn.js'
 import type { XyzOptions } from '../service/xyz.js'
 
-export type CrsJson = {
-  name: CrsCode
+export type NamedConfig<T> = Record<string, T>
+
+export type ProjectionJson = {
   title: string
 }
 
 export type GeoJsonSourceJson = {
   type: 'geojson'
-  name: string
   title?: string
   abstract?: string
   crs?: string
@@ -32,7 +32,6 @@ export type GeoJsonSourceJson = {
 
 export type GmlSourceJson = {
   type: 'gml'
-  name: string
   title?: string
   abstract?: string
   crs?: string
@@ -46,7 +45,6 @@ export type GmlSourceJson = {
 
 export type ShpSourceJson = {
   type: 'shp'
-  name: string
   title?: string
   abstract?: string
   crs?: string
@@ -58,7 +56,6 @@ export type ShpSourceJson = {
 
 export type GpkgSourceJson = {
   type: 'gpkg'
-  name: string
   title?: string
   abstract?: string
   crs?: string
@@ -70,7 +67,6 @@ export type GpkgSourceJson = {
 
 export type MemSourceJson = {
   type: 'mem'
-  name: string
   title?: string
   abstract?: string
   source: string
@@ -85,7 +81,6 @@ export type SourceJson =
 
 export type BuiltinStyleJson = {
   type: 'builtin'
-  name: 'default'
   title?: string
   abstract?: string
 }
@@ -97,7 +92,6 @@ export type DynamicStyleOptionsJson = {
 
 export type DynamicStyleFileJson = {
   type: 'dynamic'
-  name: string
   title?: string
   abstract?: string
   path: string
@@ -107,7 +101,6 @@ export type DynamicStyleFileJson = {
 export type StyleJson = BuiltinStyleJson | DynamicStyleFileJson
 
 export type LayerJson = {
-  name: string
   title?: string
   abstract?: string
   source: string
@@ -119,9 +112,6 @@ export type LayerJson = {
 
 export type ServerJson = {
   port?: number
-  path?: string
-  maxWidth?: number
-  maxHeight?: number
 }
 
 export type XyzTilesetLayerJson = {
@@ -130,7 +120,6 @@ export type XyzTilesetLayerJson = {
 }
 
 export type XyzTilesetJson = {
-  name: string
   title?: string
   abstract?: string
   layer?: string
@@ -146,17 +135,29 @@ export type XyzJson = {
   maxScaleFactor?: number
   cacheControl?: string
   cache?: string
-  layers?: XyzTilesetJson[]
+  tilesets?: NamedConfig<XyzTilesetJson>
+}
+
+export type WmsJson = WmsInfo & {
+  path?: string
+  maxWidth?: number
+  maxHeight?: number
+  layers?: string[]
+}
+
+export type ServicesJson = {
+  wms: WmsJson
+  xyz?: XyzJson
 }
 
 export type GeoComposerJson = {
+  $schema?: string
   server?: ServerJson
-  service: WmsInfo
-  xyz?: XyzJson
-  crs?: CrsJson[]
-  sources: SourceJson[]
-  styles?: StyleJson[]
-  layers: LayerJson[]
+  services: ServicesJson
+  projections?: NamedConfig<ProjectionJson>
+  sources: NamedConfig<SourceJson>
+  styles?: NamedConfig<StyleJson>
+  layers: NamedConfig<LayerJson>
 }
 
 export type LoadedConfig = {
@@ -167,7 +168,7 @@ export type LoadedConfig = {
   xyz?: XyzOptions
 }
 
-const BUILTIN_STYLES: Record<BuiltinStyleJson['name'], StyleFn> = {
+const BUILTIN_STYLES: Record<string, StyleFn> = {
   default: defaultStyleFn
 }
 
@@ -175,29 +176,31 @@ export async function loadConfig(configPath: string): Promise<LoadedConfig> {
   const path = resolve(configPath)
   const dir = dirname(path)
   const config = await readJsonFile<GeoComposerJson>(path)
-  const crs = new CrsRegistry(config.crs)
+  const crs = new CrsRegistry(config.projections)
   const sources = createSources(config.sources, dir, crs)
-  const styles = await createStyles(config.styles ?? [], dir)
+  const styles = await createStyles(config.styles ?? {}, dir)
   const layers = createLayers(config.layers, sources, styles, crs)
-  const xyz = config.xyz ? createXyzOptions(config.xyz, layers, dir) : undefined
+  const xyz = config.services.xyz ? createXyzOptions(config.services.xyz, layers, dir) : undefined
+  const wmsLayers = selectLayers(config.services.wms.layers, layers, 'WMS')
   const wmsCrs = crs.codes()
 
   return {
     path,
     dir,
     server: {
-      port: config.server?.port ?? 3000,
-      path: config.server?.path ?? '/wms',
-      maxWidth: config.server?.maxWidth ?? 4096,
-      maxHeight: config.server?.maxHeight ?? 4096
+      port: config.server?.port ?? 3000
     },
     wms: {
-      path: config.server?.path ?? '/wms',
-      maxWidth: config.server?.maxWidth ?? 4096,
-      maxHeight: config.server?.maxHeight ?? 4096,
-      info: config.service,
+      path: config.services.wms.path ?? '/wms',
+      maxWidth: config.services.wms.maxWidth ?? 4096,
+      maxHeight: config.services.wms.maxHeight ?? 4096,
+      info: {
+        title: config.services.wms.title,
+        abstract: config.services.wms.abstract,
+        onlineResource: config.services.wms.onlineResource
+      },
       ...(wmsCrs.length > 0 ? { crs: wmsCrs } : {}),
-      layers
+      layers: wmsLayers
     },
     ...(xyz ? { xyz } : {})
   }
@@ -220,21 +223,13 @@ async function readJsonFile<T>(path: string): Promise<T> {
 }
 
 function createSources(
-  sourceEntries: SourceJson[],
+  sourceEntries: NamedConfig<SourceJson>,
   baseDir: string,
   crs: CrsRegistry
 ): Map<string, Source> {
-  const sourceEntriesByName = new Map<string, SourceJson>()
+  const sourceEntriesByName = new Map(Object.entries(sourceEntries))
   const sources = new Map<string, Source>()
   const creating = new Set<string>()
-
-  for (const entry of sourceEntries) {
-    if (sourceEntriesByName.has(entry.name)) {
-      throw new Error(`Duplicate source "${entry.name}"`)
-    }
-
-    sourceEntriesByName.set(entry.name, entry)
-  }
 
   const resolveSource = (name: string): Source => {
     const existing = sources.get(name)
@@ -251,7 +246,7 @@ function createSources(
 
     creating.add(name)
     try {
-      const source = createSource(entry, baseDir, crs, resolveSource)
+      const source = createSource(name, entry, baseDir, crs, resolveSource)
       sources.set(name, source)
       return source
     } finally {
@@ -259,14 +254,15 @@ function createSources(
     }
   }
 
-  for (const entry of sourceEntries) {
-    resolveSource(entry.name)
+  for (const name of sourceEntriesByName.keys()) {
+    resolveSource(name)
   }
 
   return sources
 }
 
 function createSource(
+  name: string,
   entry: SourceJson,
   baseDir: string,
   crs: CrsRegistry,
@@ -274,14 +270,14 @@ function createSource(
 ): Source {
   switch (entry.type) {
     case 'geojson':
-      return new GeoJsonSource(entry.name, resolve(baseDir, entry.path), {
+      return new GeoJsonSource(name, resolve(baseDir, entry.path), {
         crs: crs.resolve(entry.crs),
         encoding: entry.encoding,
         highWaterMark: entry.highWaterMark
       })
 
     case 'gml':
-      return new GmlSource(entry.name, resolve(baseDir, entry.path), {
+      return new GmlSource(name, resolve(baseDir, entry.path), {
         crs: crs.resolve(entry.crs),
         encoding: entry.encoding,
         highWaterMark: entry.highWaterMark,
@@ -292,7 +288,7 @@ function createSource(
 
     case 'shp':
       return new ShpSource(
-        entry.name,
+        name,
         resolve(baseDir, entry.shpPath),
         resolve(baseDir, entry.dbfPath),
         {
@@ -303,7 +299,7 @@ function createSource(
       )
 
     case 'gpkg':
-      return new GpkgSource(entry.name, resolve(baseDir, entry.path), {
+      return new GpkgSource(name, resolve(baseDir, entry.path), {
         crs: crs.resolve(entry.crs),
         tableName: entry.tableName,
         geometryColumn: entry.geometryColumn,
@@ -311,12 +307,12 @@ function createSource(
       })
 
     case 'mem':
-      return new MemSource(entry.name, resolveSource(entry.source))
+      return new MemSource(name, resolveSource(entry.source))
   }
 }
 
 async function createStyles(
-  styleEntries: StyleJson[],
+  styleEntries: NamedConfig<StyleJson>,
   baseDir: string
 ): Promise<Map<string, LayerStyle>> {
   const styles = new Map<string, LayerStyle>([
@@ -330,32 +326,36 @@ async function createStyles(
     ]
   ])
 
-  for (const entry of styleEntries) {
-    styles.set(entry.name, await createStyle(entry, baseDir))
+  for (const [name, entry] of Object.entries(styleEntries)) {
+    styles.set(name, await createStyle(name, entry, baseDir))
   }
 
   return styles
 }
 
-async function createStyle(entry: StyleJson, baseDir: string): Promise<LayerStyle> {
+async function createStyle(name: string, entry: StyleJson, baseDir: string): Promise<LayerStyle> {
   switch (entry.type) {
     case 'builtin':
+      if (!BUILTIN_STYLES[name]) {
+        throw new Error(`Unknown builtin style "${name}"`)
+      }
+
       return {
-        name: entry.name,
-        title: entry.title ?? titleFromId(entry.name),
+        name,
+        title: entry.title ?? titleFromId(name),
         summary: entry.abstract,
-        style: BUILTIN_STYLES[entry.name]
+        style: BUILTIN_STYLES[name]
       }
 
     case 'dynamic': {
       const json = await readJsonFile<DynamicStyleJson>(resolve(baseDir, entry.path))
-      const style = await createDynamicStyleFn(entry.name, json, {
+      const style = await createDynamicStyleFn(name, json, {
         units: entry.options?.units,
         dotsPerInch: entry.options?.dotsPerInch
       })
       return {
-        name: entry.name,
-        title: entry.title ?? json.title ?? titleFromId(entry.name),
+        name,
+        title: entry.title ?? json.title ?? titleFromId(name),
         summary: entry.abstract,
         style
       }
@@ -364,15 +364,15 @@ async function createStyle(entry: StyleJson, baseDir: string): Promise<LayerStyl
 }
 
 function createLayers(
-  layerEntries: LayerJson[],
+  layerEntries: NamedConfig<LayerJson>,
   sources: Map<string, Source>,
   styles: Map<string, LayerStyle>,
   crs: CrsRegistry
 ): Layer[] {
-  return layerEntries.map((entry) => {
+  return Object.entries(layerEntries).map(([name, entry]) => {
     const source = sources.get(entry.source)
     if (!source) {
-      throw new Error(`Unknown source "${entry.source}" in layer "${entry.name}"`)
+      throw new Error(`Unknown source "${entry.source}" in layer "${name}"`)
     }
 
     const defaultStyleId = entry.style ?? entry.styles?.[0] ?? 'default'
@@ -381,19 +381,19 @@ function createLayers(
     const layerStyles = styleIds.map((styleId) => {
       const style = styles.get(styleId)
       if (!style) {
-        throw new Error(`Unknown style "${styleId}" in layer "${entry.name}"`)
+        throw new Error(`Unknown style "${styleId}" in layer "${name}"`)
       }
 
       return style
     })
-    const sourceCrs = normalizeSourceCrs(entry.sourceCrs, source, entry.name, crs)
+    const sourceCrs = normalizeSourceCrs(entry.sourceCrs, source, name, crs)
 
-    return new Layer(entry.name, {
+    return new Layer(name, {
       title: entry.title,
       summary: entry.abstract,
       source,
       sourceCrs,
-      extent: normalizeExtent(entry.extent, entry.name),
+      extent: normalizeExtent(entry.extent, name),
       styles: layerStyles
     })
   })
@@ -405,15 +405,14 @@ function createXyzOptions(
   baseDir: string
 ): XyzOptions {
   const layersByName = new Map(mapLayers.map((layer) => [layer.name, layer]))
-  const tilesets = (xyz.layers && xyz.layers.length > 0
-    ? xyz.layers
-    : mapLayers.map((layer) => ({
-      name: layer.name,
+  const tilesetEntries = xyz.tilesets
+    ? Object.entries(xyz.tilesets)
+    : mapLayers.map((layer) => [layer.name, {
       title: layer.title,
       abstract: layer.summary,
       layer: layer.name
-    }))
-  ).map((entry) => createTileset(entry, layersByName))
+    }] as const)
+  const tilesets = tilesetEntries.map(([name, entry]) => createTileset(name, entry, layersByName))
 
   return {
     path: xyz.path,
@@ -428,25 +427,26 @@ function createXyzOptions(
 }
 
 function createTileset(
+  name: string,
   entry: XyzTilesetJson,
   layersByName: Map<string, Layer>
 ): XyzOptions['tilesets'][number] {
-  const layerRefs = normalizeTilesetLayers(entry)
+  const layerRefs = normalizeTilesetLayers(name, entry)
   if (layerRefs.length === 0) {
-    throw new Error(`XYZ tileset "${entry.name}" must reference at least one configured layer`)
+    throw new Error(`XYZ tileset "${name}" must reference at least one configured layer`)
   }
 
   return {
-    name: entry.name,
+    name,
     title: entry.title,
     summary: entry.abstract,
     layers: layerRefs.map((ref) => {
       const layer = layersByName.get(ref.layer)
       if (!layer) {
-        throw new Error(`Unknown layer "${ref.layer}" in XYZ tileset "${entry.name}"`)
+        throw new Error(`Unknown layer "${ref.layer}" in XYZ tileset "${name}"`)
       }
 
-      validateTilesetLayerStyle(layer, ref.style, entry.name)
+      validateTilesetLayerStyle(layer, ref.style, name)
 
       return {
         layer,
@@ -456,7 +456,7 @@ function createTileset(
   }
 }
 
-function normalizeTilesetLayers(entry: XyzTilesetJson): XyzTilesetLayerJson[] {
+function normalizeTilesetLayers(name: string, entry: XyzTilesetJson): XyzTilesetLayerJson[] {
   if (entry.layers && entry.layers.length > 0) {
     return entry.layers.map((ref) => ({
       layer: ref.layer,
@@ -465,7 +465,7 @@ function normalizeTilesetLayers(entry: XyzTilesetJson): XyzTilesetLayerJson[] {
   }
 
   if (!entry.layer) {
-    throw new Error(`XYZ tileset "${entry.name}" must define "layer" or "layers"`)
+    throw new Error(`XYZ tileset "${name}" must define "layer" or "layers"`)
   }
 
   return [{
@@ -481,6 +481,20 @@ function validateTilesetLayerStyle(layer: Layer, styleName: string | undefined, 
     if (!styleName) throw error
     throw new Error(`Unknown style "${styleName}" for layer "${layer.name}" in XYZ tileset "${tilesetName}"`)
   }
+}
+
+function selectLayers(layerNames: string[] | undefined, layers: Layer[], serviceName: string): Layer[] {
+  if (!layerNames) return layers
+
+  const layersByName = new Map(layers.map((layer) => [layer.name, layer]))
+  return layerNames.map((name) => {
+    const layer = layersByName.get(name)
+    if (!layer) {
+      throw new Error(`Unknown layer "${name}" in ${serviceName} service`)
+    }
+
+    return layer
+  })
 }
 
 function normalizeSourceCrs(
@@ -528,9 +542,9 @@ function unique<T>(items: T[]): T[] {
 class CrsRegistry {
   private readonly refs = new Map<string, CrsCode>()
 
-  constructor(entries: CrsJson[] = []) {
-    for (const entry of entries) {
-      this.refs.set(entry.name, entry.name)
+  constructor(entries: NamedConfig<ProjectionJson> = {}) {
+    for (const name of Object.keys(entries)) {
+      this.refs.set(name, name)
     }
   }
 
