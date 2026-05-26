@@ -14,22 +14,30 @@
     },
     "xyz": {
       "path": "/tiles",
-      "tileSize": 256,
-      "minZoom": 0,
-      "maxZoom": 8,
       "maxScaleFactor": 4,
-      "cacheControl": "public, max-age=3600",
       "cache": "cache/xyz",
       "tilesets": {
         "world": {
           "title": "World XYZ",
           "abstract": "XYZ tiles for the world country boundaries.",
-          "layer": "world",
-          "style": "world"
+          "tileSize": 256,
+          "minZoom": 0,
+          "maxZoom": 8,
+          "cacheControl": "public, max-age=3600",
+          "layers": [
+            {
+              "layer": "world",
+              "style": "world"
+            }
+          ]
         },
         "world-capitals": {
           "title": "World and Capitals XYZ",
           "abstract": "XYZ tiles combining country boundaries and capital city labels.",
+          "tileSize": 256,
+          "minZoom": 0,
+          "maxZoom": 8,
+          "cacheControl": "public, max-age=3600",
           "layers": [
             {
               "layer": "world",

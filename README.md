@@ -35,8 +35,17 @@ Vous pouvez aussi lancer directement le point d'entrée :
 npx tsx src/geo-composer.ts
 ```
 
-Le WMS est exposé sur le chemin `server.path` de `config.json`, par défaut
-`/wms`. Les tuiles XYZ suivent le schéma `/tiles/{layer}/{z}/{x}/{y}.png`, par exemple
-`http://localhost:3000/tiles/world/1/1/1.png`. Les couches XYZ référencent
-les layers et styles déjà déclarés dans `config.json`. L'option `xyz.cache`
-peut pointer vers un répertoire où conserver les PNG rendus.
+Le WMS est exposé sur le chemin `services.wms.path` de `config.json`, par
+défaut `/wms`. Les tuiles XYZ sont exposées sur `services.xyz.path` et suivent
+le schéma `/tiles/{tileset}/{z}/{x}/{y}.png`, par exemple
+`http://localhost:3000/tiles/world/1/1/1.png`. Les tilesets XYZ référencent les
+layers et styles déjà déclarés dans `config.json` avec une propriété `layers`,
+même quand un tileset ne contient qu'une seule couche. L'option
+`services.xyz.cache` peut pointer vers un répertoire où conserver les PNG rendus.
+Les options `tileSize`, `minZoom`, `maxZoom` et `cacheControl` appartiennent à
+chaque tileset.
+
+La configuration est décrite par `config.schema.json`. Les sections
+`projections`, `sources`, `styles`, `layers` et `services.xyz.tilesets` sont des
+objets nommés : la clé porte l'identifiant, ce qui évite les doublons de nom dans
+les objets eux-mêmes.

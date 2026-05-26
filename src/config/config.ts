@@ -122,18 +122,16 @@ export type XyzTilesetLayerJson = {
 export type XyzTilesetJson = {
   title?: string
   abstract?: string
-  layer?: string
-  style?: string
-  layers?: XyzTilesetLayerJson[]
+  tileSize?: number
+  minZoom?: number
+  maxZoom?: number
+  cacheControl?: string
+  layers: XyzTilesetLayerJson[]
 }
 
 export type XyzJson = {
   path?: string
-  tileSize?: number
-  minZoom?: number
-  maxZoom?: number
   maxScaleFactor?: number
-  cacheControl?: string
   cache?: string
   tilesets?: NamedConfig<XyzTilesetJson>
 }
@@ -405,22 +403,18 @@ function createXyzOptions(
   baseDir: string
 ): XyzOptions {
   const layersByName = new Map(mapLayers.map((layer) => [layer.name, layer]))
-  const tilesetEntries = xyz.tilesets
+  const tilesetEntries: Array<[string, XyzTilesetJson]> = xyz.tilesets
     ? Object.entries(xyz.tilesets)
-    : mapLayers.map((layer) => [layer.name, {
+    : mapLayers.map((layer): [string, XyzTilesetJson] => [layer.name, {
       title: layer.title,
       abstract: layer.summary,
-      layer: layer.name
-    }] as const)
+      layers: [{ layer: layer.name }]
+    }])
   const tilesets = tilesetEntries.map(([name, entry]) => createTileset(name, entry, layersByName))
 
   return {
     path: xyz.path,
-    tileSize: xyz.tileSize,
-    minZoom: xyz.minZoom,
-    maxZoom: xyz.maxZoom,
     maxScaleFactor: xyz.maxScaleFactor,
-    cacheControl: xyz.cacheControl,
     cache: xyz.cache ? resolve(baseDir, xyz.cache) : undefined,
     tilesets
   }
@@ -440,6 +434,10 @@ function createTileset(
     name,
     title: entry.title,
     summary: entry.abstract,
+    tileSize: entry.tileSize,
+    minZoom: entry.minZoom,
+    maxZoom: entry.maxZoom,
+    cacheControl: entry.cacheControl,
     layers: layerRefs.map((ref) => {
       const layer = layersByName.get(ref.layer)
       if (!layer) {
@@ -457,21 +455,14 @@ function createTileset(
 }
 
 function normalizeTilesetLayers(name: string, entry: XyzTilesetJson): XyzTilesetLayerJson[] {
-  if (entry.layers && entry.layers.length > 0) {
-    return entry.layers.map((ref) => ({
-      layer: ref.layer,
-      style: ref.style
-    }))
+  if (!entry.layers || entry.layers.length === 0) {
+    throw new Error(`XYZ tileset "${name}" must define at least one entry in "layers"`)
   }
 
-  if (!entry.layer) {
-    throw new Error(`XYZ tileset "${name}" must define "layer" or "layers"`)
-  }
-
-  return [{
-    layer: entry.layer,
-    style: entry.style
-  }]
+  return entry.layers.map((ref) => ({
+    layer: ref.layer,
+    style: ref.style
+  }))
 }
 
 function validateTilesetLayerStyle(layer: Layer, styleName: string | undefined, tilesetName: string): void {

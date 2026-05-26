@@ -19,16 +19,16 @@ export type XyzOptions = {
     name: string
     title?: string
     summary?: string
+    tileSize?: number
+    minZoom?: number
+    maxZoom?: number
+    cacheControl?: string
     layers: Array<{
       layer: Layer
       style?: string
     }>
   }>
-  tileSize?: number
-  minZoom?: number
-  maxZoom?: number
   maxScaleFactor?: number
-  cacheControl?: string
   cache?: string
 }
 
@@ -36,6 +36,10 @@ type Tileset = {
   name: string
   title?: string
   summary?: string
+  tileSize: number
+  minZoom: number
+  maxZoom: number
+  cacheControl?: string
   layers: RenderLayer[]
 }
 
@@ -51,9 +55,6 @@ type TileRequest = {
 }
 
 export class Xyz extends Service {
-  private readonly tileSize: number
-  private readonly minZoom: number
-  private readonly maxZoom: number
   private readonly maxScaleFactor: number
   private readonly tilesets: Tileset[]
   private readonly tilesetByName: Map<string, Tileset>
@@ -63,23 +64,31 @@ export class Xyz extends Service {
   constructor(private readonly options: XyzOptions) {
     super('xyz', options.path ?? '/tiles')
 
-    this.tileSize = options.tileSize ?? DEFAULT_TILE_SIZE
-    this.minZoom = options.minZoom ?? DEFAULT_MIN_ZOOM
-    this.maxZoom = options.maxZoom ?? DEFAULT_MAX_ZOOM
     this.maxScaleFactor = options.maxScaleFactor ?? DEFAULT_MAX_SCALE_FACTOR
-    this.tilesets = options.tilesets.map((tileset) => ({
-      name: tileset.name,
-      title: tileset.title,
-      summary: tileset.summary,
-      layers: tileset.layers.map((entry) => ({
-        layer: entry.layer,
-        style: entry.layer.resolveStyle(entry.style)
-      }))
-    }))
+    validateXyzOptions(this.maxScaleFactor)
+
+    this.tilesets = options.tilesets.map((tileset) => {
+      const tileSize = tileset.tileSize ?? DEFAULT_TILE_SIZE
+      const minZoom = tileset.minZoom ?? DEFAULT_MIN_ZOOM
+      const maxZoom = tileset.maxZoom ?? DEFAULT_MAX_ZOOM
+      validateTilesetOptions(tileset.name, tileSize, minZoom, maxZoom)
+
+      return {
+        name: tileset.name,
+        title: tileset.title,
+        summary: tileset.summary,
+        tileSize,
+        minZoom,
+        maxZoom,
+        cacheControl: tileset.cacheControl,
+        layers: tileset.layers.map((entry) => ({
+          layer: entry.layer,
+          style: entry.layer.resolveStyle(entry.style)
+        }))
+      }
+    })
     this.tilesetByName = new Map(this.tilesets.map((tileset) => [tileset.name, tileset]))
     this.layers = uniqueLayers(options.tilesets)
-
-    validateXyzOptions(this.tileSize, this.minZoom, this.maxZoom, this.maxScaleFactor)
   }
 
   matches(pathname: string): boolean {
@@ -131,9 +140,6 @@ export class Xyz extends Service {
       const tileRequest = parseTileRequest(url, {
         path: this.path,
         tilesetByName: this.tilesetByName,
-        tileSize: this.tileSize,
-        minZoom: this.minZoom,
-        maxZoom: this.maxZoom,
         maxScaleFactor: this.maxScaleFactor
       })
       logTileParams(traceId, tileRequest)
@@ -157,8 +163,8 @@ export class Xyz extends Service {
       res.statusCode = 200
       res.setHeader('Content-Type', 'image/png')
       res.setHeader('Content-Length', image.byteLength)
-      if (this.options.cacheControl) {
-        res.setHeader('Cache-Control', this.options.cacheControl)
+      if (tileRequest.tileset.cacheControl) {
+        res.setHeader('Cache-Control', tileRequest.tileset.cacheControl)
       }
 
       if (req.method !== 'HEAD') {
@@ -197,9 +203,6 @@ function parseTileRequest(
   options: {
     path: string
     tilesetByName: Map<string, Tileset>
-    tileSize: number
-    minZoom: number
-    maxZoom: number
     maxScaleFactor: number
   }
 ): TileRequest {
@@ -220,9 +223,9 @@ function parseTileRequest(
   const y = parsedY.y
   const scale = parseScale(url.searchParams.get('scale'), parsedY.scale, options.maxScaleFactor)
 
-  validateTileCoord(z, x, y, options.minZoom, options.maxZoom)
+  validateTileCoord(z, x, y, tileset.minZoom, tileset.maxZoom)
 
-  const pixelSize = Math.round(options.tileSize * scale)
+  const pixelSize = Math.round(tileset.tileSize * scale)
   return {
     tileset,
     z,
@@ -334,21 +337,23 @@ function parseInteger(value: string, name: string): number {
   return number
 }
 
-function validateXyzOptions(tileSize: number, minZoom: number, maxZoom: number, maxScaleFactor: number): void {
+function validateXyzOptions(maxScaleFactor: number): void {
+  if (!Number.isFinite(maxScaleFactor) || maxScaleFactor <= 0) {
+    throw new Error('XYZ maxScaleFactor must be a positive number')
+  }
+}
+
+function validateTilesetOptions(name: string, tileSize: number, minZoom: number, maxZoom: number): void {
   if (!Number.isInteger(tileSize) || tileSize <= 0) {
-    throw new Error('XYZ tileSize must be a positive integer')
+    throw new Error(`XYZ tileset "${name}" tileSize must be a positive integer`)
   }
 
   if (!Number.isInteger(minZoom) || minZoom < 0) {
-    throw new Error('XYZ minZoom must be a non-negative integer')
+    throw new Error(`XYZ tileset "${name}" minZoom must be a non-negative integer`)
   }
 
   if (!Number.isInteger(maxZoom) || maxZoom < minZoom) {
-    throw new Error('XYZ maxZoom must be an integer greater than or equal to minZoom')
-  }
-
-  if (!Number.isFinite(maxScaleFactor) || maxScaleFactor <= 0) {
-    throw new Error('XYZ maxScaleFactor must be a positive number')
+    throw new Error(`XYZ tileset "${name}" maxZoom must be an integer greater than or equal to minZoom`)
   }
 }
 

@@ -94,24 +94,9 @@
         "path": {
           "$ref": "#/$defs/path"
         },
-        "tileSize": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "minZoom": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "maxZoom": {
-          "type": "integer",
-          "minimum": 0
-        },
         "maxScaleFactor": {
           "type": "number",
           "exclusiveMinimum": 0
-        },
-        "cacheControl": {
-          "type": "string"
         },
         "cache": {
           "type": "string"
@@ -130,6 +115,7 @@
     "tileset": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["layers"],
       "properties": {
         "title": {
           "type": "string"
@@ -137,10 +123,19 @@
         "abstract": {
           "type": "string"
         },
-        "layer": {
-          "type": "string"
+        "tileSize": {
+          "type": "integer",
+          "minimum": 1
         },
-        "style": {
+        "minZoom": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxZoom": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheControl": {
           "type": "string"
         },
         "layers": {
@@ -150,21 +145,7 @@
             "$ref": "#/$defs/tilesetLayer"
           }
         }
-      },
-      "oneOf": [
-        {
-          "required": ["layer"],
-          "not": {
-            "required": ["layers"]
-          }
-        },
-        {
-          "required": ["layers"],
-          "not": {
-            "required": ["layer"]
-          }
-        }
-      ]
+      }
     },
     "tilesetLayer": {
       "type": "object",
