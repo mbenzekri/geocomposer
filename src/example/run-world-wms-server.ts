@@ -2,7 +2,7 @@ import { createServer } from 'node:http'
 import type { Socket } from 'node:net'
 import { resolve } from 'node:path'
 import { loadConfig } from '../config/config.js'
-import { Wms } from '../ogc/wms.js'
+import { Wms } from '../service/wms.js'
 
 const loaded = await loadConfig(resolve(process.cwd(), process.env.CONFIG ?? 'config.json'))
 const port = Number.parseInt(process.env.PORT ?? String(loaded.server.port), 10)

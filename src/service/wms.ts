@@ -7,9 +7,9 @@ import {
   featureInfoToXml,
   getFeatureInfo,
   type FeatureInfoLayer
-} from './get-feature-info.js'
-import { renderMap, type RenderLayer } from './render-map.js'
-import { Service } from '../service/service.js'
+} from '../ogc/get-feature-info.js'
+import { renderMap, type RenderLayer } from '../ogc/render-map.js'
+import { Service } from './service.js'
 import type { Source } from '../source/source.js'
 import type { StyleFn } from '../style/style-fn.js'
 

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import type { BBox, CrsCode } from '../core/types.js'
-import type { WmsInfo, WmsLayer, WmsLayerStyle, WmsOptions } from '../ogc/wms.js'
+import type { WmsInfo, WmsLayer, WmsLayerStyle, WmsOptions } from '../service/wms.js'
 import { GeoJsonSource } from '../source/geojson-source.js'
 import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
 import { GpkgSource } from '../source/gpkg-source.js'
@@ -11,7 +11,7 @@ import type { Source } from '../source/source.js'
 import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-style.js'
 import { defaultStyleFn } from '../style/default-style.js'
 import type { StyleFn } from '../style/style-fn.js'
-import type { XyzLayer, XyzOptions } from '../xyz/xyz.js'
+import type { XyzLayer, XyzOptions } from '../service/xyz.js'
 
 export type CrsJson = {
   name: CrsCode

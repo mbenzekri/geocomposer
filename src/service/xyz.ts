@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { TLSSocket } from 'node:tls'
 import type { BBox } from '../core/types.js'
 import { renderMap, type RenderLayer } from '../ogc/render-map.js'
-import { Service } from '../service/service.js'
+import { Service } from './service.js'
 import type { Source } from '../source/source.js'
 
 const WEB_MERCATOR_HALF_WORLD = 20037508.342789244

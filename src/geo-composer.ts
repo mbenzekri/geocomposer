@@ -4,9 +4,9 @@ import type { Socket } from 'node:net'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadConfig, type LoadedConfig } from './config/config.js'
-import { Wms } from './ogc/wms.js'
 import type { Service } from './service/service.js'
-import { Xyz } from './xyz/xyz.js'
+import { Wms } from './service/wms.js'
+import { Xyz } from './service/xyz.js'
 
 export class GeoComposer {
   readonly server: Server
