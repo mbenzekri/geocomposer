@@ -4,8 +4,9 @@ import type { Socket } from 'node:net'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadConfig, type LoadedConfig } from './config/config.js'
-import { createWmsApp } from './ogc/wms-server.js'
-import { createXyzApp } from './xyz/xyz-server.js'
+import { Wms } from './ogc/wms.js'
+import type { Service } from './service/service.js'
+import { Xyz } from './xyz/xyz.js'
 
 export class GeoComposer {
   readonly server: Server
@@ -14,8 +15,9 @@ export class GeoComposer {
     readonly xyz?: string
   }
 
-  private readonly wmsApp: ReturnType<typeof createWmsApp>
-  private readonly xyzApp?: ReturnType<typeof createXyzApp>
+  private readonly services: readonly Service[]
+  private readonly wms: Wms
+  private readonly xyz?: Xyz
   private readonly sockets = new Set<Socket>()
   private shuttingDown = false
 
@@ -23,25 +25,17 @@ export class GeoComposer {
     private readonly loaded: LoadedConfig,
     private readonly port = loaded.server.port
   ) {
-    const wmsPath = normalizePath(loaded.app.path ?? loaded.server.path)
-    const xyzPath = loaded.xyz ? normalizePath(loaded.xyz.path ?? '/tiles') : undefined
+    this.wms = new Wms(loaded.wms)
+    this.xyz = loaded.xyz ? new Xyz(loaded.xyz) : undefined
+    this.services = [
+      this.wms,
+      ...(this.xyz ? [this.xyz] : [])
+    ]
 
     this.paths = {
-      wms: wmsPath,
-      ...(xyzPath ? { xyz: xyzPath } : {})
+      wms: this.wms.path,
+      ...(this.xyz ? { xyz: this.xyz.path } : {})
     }
-
-    this.wmsApp = createWmsApp({
-      ...loaded.app,
-      path: wmsPath
-    })
-
-    this.xyzApp = loaded.xyz && xyzPath
-      ? createXyzApp({
-        ...loaded.xyz,
-        path: xyzPath
-      })
-      : undefined
 
     this.server = createServer((req, res) => {
       void this.handle(req, res).catch((error) => {
@@ -60,22 +54,28 @@ export class GeoComposer {
   }
 
   async start(): Promise<void> {
-    await new Promise<void>((resolve, reject) => {
-      const onError = (error: Error) => {
-        this.server.off('listening', onListening)
-        reject(error)
-      }
+    try {
+      await this.openServices()
+      await new Promise<void>((resolve, reject) => {
+        const onError = (error: Error) => {
+          this.server.off('listening', onListening)
+          reject(error)
+        }
 
-      const onListening = () => {
-        this.server.off('error', onError)
-        this.logListening()
-        resolve()
-      }
+        const onListening = () => {
+          this.server.off('error', onError)
+          this.logListening()
+          resolve()
+        }
 
-      this.server.once('error', onError)
-      this.server.once('listening', onListening)
-      this.server.listen(this.port)
-    })
+        this.server.once('error', onError)
+        this.server.once('listening', onListening)
+        this.server.listen(this.port)
+      })
+    } catch (error) {
+      await this.closeServices()
+      throw error
+    }
   }
 
   async stop(signal = 'manual'): Promise<void> {
@@ -108,7 +108,7 @@ export class GeoComposer {
       clearTimeout(forceClose)
     })
 
-    await this.closeApps()
+    await this.closeServices()
     this.shuttingDown = false
   }
 
@@ -124,14 +124,10 @@ export class GeoComposer {
 
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost')
+    const service = this.services.find((entry) => entry.matches(url.pathname))
 
-    if (url.pathname === this.paths.wms) {
-      await this.wmsApp.handle(req, res)
-      return
-    }
-
-    if (this.xyzApp && this.paths.xyz && isPathMatch(url.pathname, this.paths.xyz)) {
-      await this.xyzApp.handle(req, res)
+    if (service) {
+      await service.handle(req, res)
       return
     }
 
@@ -189,8 +185,16 @@ export class GeoComposer {
     )
   }
 
-  private async closeApps(): Promise<void> {
-    await this.wmsApp.close()
+  private async openServices(): Promise<void> {
+    for (const service of this.services) {
+      await service.open()
+    }
+  }
+
+  private async closeServices(): Promise<void> {
+    for (const service of [...this.services].reverse()) {
+      await service.close()
+    }
   }
 
   private destroySockets(): void {
@@ -198,17 +202,6 @@ export class GeoComposer {
       socket.destroy()
     }
   }
-}
-
-function normalizePath(path: string): string {
-  const normalized = path.startsWith('/') ? path : `/${path}`
-  return normalized.length > 1 && normalized.endsWith('/')
-    ? normalized.slice(0, -1)
-    : normalized
-}
-
-function isPathMatch(pathname: string, basePath: string): boolean {
-  return pathname === basePath || pathname.startsWith(`${basePath}/`)
 }
 
 function parsePort(value: string | undefined, fallback: number): number {

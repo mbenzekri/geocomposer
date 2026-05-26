@@ -2,16 +2,16 @@ import { createServer } from 'node:http'
 import type { Socket } from 'node:net'
 import { resolve } from 'node:path'
 import { loadConfig } from '../config/config.js'
-import { createWmsApp } from '../ogc/wms-server.js'
+import { Wms } from '../ogc/wms.js'
 
 const loaded = await loadConfig(resolve(process.cwd(), process.env.CONFIG ?? 'config.json'))
 const port = Number.parseInt(process.env.PORT ?? String(loaded.server.port), 10)
-const app = createWmsApp(loaded.app)
+const service = new Wms(loaded.wms)
 
-await app.open()
+await service.open()
 
 const server = createServer((req, res) => {
-  void app.handle(req, res)
+  void service.handle(req, res)
 })
 const sockets = new Set<Socket>()
 let shuttingDown = false
@@ -24,7 +24,7 @@ server.on('connection', (socket) => {
 })
 
 server.listen(port, () => {
-  const baseUrl = `http://localhost:${port}${loaded.server.path}`
+  const baseUrl = `http://localhost:${port}${service.path}`
   const capabilitiesUrl = `${baseUrl}?SERVICE=WMS&REQUEST=GetCapabilities`
   const sample = `${baseUrl}?SERVICE=WMS&REQUEST=GetMap&LAYERS=world&STYLES=world&CRS=EPSG:4326&BBOX=-90,-180,90,180&WIDTH=1024&HEIGHT=512&FORMAT=image/png`
   console.log(`Config: ${loaded.path}`)
@@ -53,7 +53,7 @@ const shutdown = (signal: string) => {
 
   server.close(() => {
     clearTimeout(forceClose)
-    void app.close().finally(() => {
+    void service.close().finally(() => {
       process.exit(0)
     })
   })

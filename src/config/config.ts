@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import type { BBox, CrsCode } from '../core/types.js'
-import type { WmsAppOptions, WmsLayer, WmsLayerStyle, WmsService } from '../ogc/wms-server.js'
+import type { WmsInfo, WmsLayer, WmsLayerStyle, WmsOptions } from '../ogc/wms.js'
 import { GeoJsonSource } from '../source/geojson-source.js'
 import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
 import { GpkgSource } from '../source/gpkg-source.js'
@@ -11,7 +11,7 @@ import type { Source } from '../source/source.js'
 import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-style.js'
 import { defaultStyleFn } from '../style/default-style.js'
 import type { StyleFn } from '../style/style-fn.js'
-import type { XyzAppOptions, XyzLayer } from '../xyz/xyz-server.js'
+import type { XyzLayer, XyzOptions } from '../xyz/xyz.js'
 
 export type CrsJson = {
   name: CrsCode
@@ -148,9 +148,9 @@ export type XyzJson = {
   layers?: XyzLayerJson[]
 }
 
-export type AppJsonConfig = {
+export type GeoComposerJson = {
   server?: ServerJson
-  service: WmsService
+  service: WmsInfo
   xyz?: XyzJson
   crs?: CrsJson[]
   sources: SourceJson[]
@@ -162,8 +162,8 @@ export type LoadedConfig = {
   path: string
   dir: string
   server: Required<ServerJson>
-  app: WmsAppOptions
-  xyz?: XyzAppOptions
+  wms: WmsOptions
+  xyz?: XyzOptions
 }
 
 const BUILTIN_STYLES: Record<BuiltinStyleJson['name'], StyleFn> = {
@@ -173,13 +173,13 @@ const BUILTIN_STYLES: Record<BuiltinStyleJson['name'], StyleFn> = {
 export async function loadConfig(configPath: string): Promise<LoadedConfig> {
   const path = resolve(configPath)
   const dir = dirname(path)
-  const config = await readJsonFile<AppJsonConfig>(path)
+  const config = await readJsonFile<GeoComposerJson>(path)
   const crs = new CrsRegistry(config.crs)
   const sources = createSources(config.sources, dir, crs)
   const styles = await createStyles(config.styles ?? [], dir)
   const layers = createLayers(config.layers, sources, styles, crs)
   const xyz = config.xyz ? createXyzOptions(config.xyz, layers, dir) : undefined
-  const appCrs = crs.codes()
+  const wmsCrs = crs.codes()
 
   return {
     path,
@@ -190,12 +190,12 @@ export async function loadConfig(configPath: string): Promise<LoadedConfig> {
       maxWidth: config.server?.maxWidth ?? 4096,
       maxHeight: config.server?.maxHeight ?? 4096
     },
-    app: {
+    wms: {
       path: config.server?.path ?? '/wms',
       maxWidth: config.server?.maxWidth ?? 4096,
       maxHeight: config.server?.maxHeight ?? 4096,
-      service: config.service,
-      ...(appCrs.length > 0 ? { crs: appCrs } : {}),
+      info: config.service,
+      ...(wmsCrs.length > 0 ? { crs: wmsCrs } : {}),
       layers
     },
     ...(xyz ? { xyz } : {})
@@ -404,7 +404,7 @@ function createXyzOptions(
   xyz: XyzJson,
   mapLayers: WmsLayer[],
   baseDir: string
-): XyzAppOptions {
+): XyzOptions {
   const layersByName = new Map(mapLayers.map((layer) => [layer.name, layer]))
   const xyzLayers = (xyz.layers && xyz.layers.length > 0
     ? xyz.layers

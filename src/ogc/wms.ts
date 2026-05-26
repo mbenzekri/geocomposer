@@ -9,6 +9,7 @@ import {
   type FeatureInfoLayer
 } from './get-feature-info.js'
 import { renderMap, type RenderLayer } from './render-map.js'
+import { Service } from '../service/service.js'
 import type { Source } from '../source/source.js'
 import type { StyleFn } from '../style/style-fn.js'
 
@@ -34,148 +35,149 @@ export type WmsLayer = {
   styles?: WmsLayerStyle[]
 }
 
-export type WmsService = {
+export type WmsInfo = {
   title: string
   abstract?: string
   onlineResource?: string
 }
 
-export type WmsAppOptions = {
+export type WmsOptions = {
   path?: string
-  service: WmsService
+  info: WmsInfo
   crs?: CrsCode[]
   layers: WmsLayer[]
   maxWidth?: number
   maxHeight?: number
 }
 
-export type WmsApp = {
-  open(): Promise<void>
-  close(): Promise<void>
-  handle(req: IncomingMessage, res: ServerResponse): Promise<void>
-}
+export class Wms extends Service {
+  private readonly maxWidth: number
+  private readonly maxHeight: number
+  private readonly layerByName: Map<string, WmsLayer>
+  private readonly sources: Source[]
+  private readonly crs: CrsCode[]
+  private nextTraceId = 1
 
-export function createWmsApp(options: WmsAppOptions): WmsApp {
-  const path = options.path ?? '/wms'
-  const maxWidth = options.maxWidth ?? 4096
-  const maxHeight = options.maxHeight ?? 4096
-  const layerByName = new Map(options.layers.map((layer) => [layer.name, layer]))
-  const sources = [...new Set(options.layers.map((layer) => layer.source))]
-  const crs = unique(options.crs && options.crs.length > 0
-    ? options.crs
-    : options.layers.map((layer) => layer.source.crs)
-  )
-  let nextTraceId = 1
+  constructor(private readonly options: WmsOptions) {
+    super('wms', options.path ?? '/wms')
 
-  return {
-    async open() {
-      for (const source of sources) {
-        await source.open()
+    this.maxWidth = options.maxWidth ?? 4096
+    this.maxHeight = options.maxHeight ?? 4096
+    this.layerByName = new Map(options.layers.map((layer) => [layer.name, layer]))
+    this.sources = [...new Set(options.layers.map((layer) => layer.source))]
+    this.crs = unique(options.crs && options.crs.length > 0
+      ? options.crs
+      : options.layers.map((layer) => layer.source.crs)
+    )
+  }
+
+  async open(): Promise<void> {
+    for (const source of this.sources) {
+      await source.open()
+    }
+  }
+
+  async close(): Promise<void> {
+    for (const source of this.sources) {
+      await source.close()
+    }
+  }
+
+  async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const fullUrl = getRequestUrl(req)
+    let mapTrace: { id: number, startedAt: number } | null = null
+
+    try {
+      setCorsHeaders(res)
+
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 204
+        res.end()
+        return
       }
-    },
 
-    async close() {
-      for (const source of sources) {
-        await source.close()
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
+        sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
+        return
       }
-    },
 
-    async handle(req, res) {
-      const fullUrl = getRequestUrl(req)
-      let mapTrace: { id: number, startedAt: number } | null = null
-
-      try {
-        setCorsHeaders(res)
-
-        if (req.method === 'OPTIONS') {
-          res.statusCode = 204
-          res.end()
-          return
-        }
-
-        if (req.method !== 'GET' && req.method !== 'HEAD') {
-          sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
-          return
-        }
-
-        const url = new URL(req.url ?? '/', 'http://localhost')
-        if (url.pathname !== path) {
-          sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
-          return
-        }
-
-        const params = getParams(url)
-        const request = (params.get('REQUEST') ?? 'GetCapabilities').toUpperCase()
-        const service = params.get('SERVICE')
-
-        if (service && service.toUpperCase() !== 'WMS') {
-          sendWmsError(res, 'InvalidParameterValue', 'SERVICE must be WMS')
-          return
-        }
-
-        if (request === 'GETCAPABILITIES') {
-          const xml = await buildCapabilitiesXml(options.service, options.layers, path, crs)
-          sendText(res, 200, xml, 'text/xml; charset=utf-8')
-          return
-        }
-
-        if (request === 'GETMAP') {
-          const traceId = nextTraceId
-          nextTraceId += 1
-          const startedAt = Date.now()
-          mapTrace = { id: traceId, startedAt }
-          logGetMapStart(traceId, req.method ?? 'GET', fullUrl)
-
-          const mapRequest = parseGetMap(params, layerByName, crs, maxWidth, maxHeight)
-          logGetMapParams(traceId, mapRequest)
-          const image = await renderMap({
-            layers: mapRequest.layers,
-            bbox: mapRequest.bbox,
-            width: mapRequest.width,
-            height: mapRequest.height,
-            crs: mapRequest.crs,
-            pixelRatio: mapRequest.pixelRatio
-          })
-
-          res.statusCode = 200
-          res.setHeader('Content-Type', mapRequest.format)
-          res.setHeader('Content-Length', image.byteLength)
-          if (req.method !== 'HEAD') {
-            res.end(image)
-            logGetMapDone(traceId, res.statusCode, startedAt, image.byteLength)
-            return
-          }
-
-          res.end()
-          logGetMapDone(traceId, res.statusCode, startedAt, 0)
-          return
-        }
-
-        if (request === 'GETFEATUREINFO') {
-          const featureInfoRequest = parseGetFeatureInfo(params, layerByName, crs, maxWidth, maxHeight)
-          const result = await getFeatureInfo({
-            layers: featureInfoRequest.layers,
-            bbox: featureInfoRequest.bbox,
-            width: featureInfoRequest.width,
-            height: featureInfoRequest.height,
-            crs: featureInfoRequest.crs,
-            i: featureInfoRequest.i,
-            j: featureInfoRequest.j,
-            featureCount: featureInfoRequest.featureCount,
-            tolerancePixels: featureInfoRequest.tolerancePixels
-          })
-          const body = formatFeatureInfo(result, featureInfoRequest.infoFormat)
-          sendText(res, 200, body, contentTypeForInfoFormat(featureInfoRequest.infoFormat), req.method === 'HEAD')
-          return
-        }
-
-        sendWmsError(res, 'OperationNotSupported', `Unsupported REQUEST: ${params.get('REQUEST') ?? ''}`)
-      } catch (error) {
-        if (mapTrace || isGetMapRequest(req.url)) {
-          logGetMapError(mapTrace?.id, fullUrl, mapTrace?.startedAt, error)
-        }
-        sendWmsError(res, 'InvalidParameterValue', error instanceof Error ? error.message : String(error))
+      const url = new URL(req.url ?? '/', 'http://localhost')
+      if (!this.matches(url.pathname)) {
+        sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
+        return
       }
+
+      const params = getParams(url)
+      const request = (params.get('REQUEST') ?? 'GetCapabilities').toUpperCase()
+      const service = params.get('SERVICE')
+
+      if (service && service.toUpperCase() !== 'WMS') {
+        sendWmsError(res, 'InvalidParameterValue', 'SERVICE must be WMS')
+        return
+      }
+
+      if (request === 'GETCAPABILITIES') {
+        const xml = await buildCapabilitiesXml(this.options.info, this.options.layers, this.path, this.crs)
+        sendText(res, 200, xml, 'text/xml; charset=utf-8')
+        return
+      }
+
+      if (request === 'GETMAP') {
+        const traceId = this.nextTraceId
+        this.nextTraceId += 1
+        const startedAt = Date.now()
+        mapTrace = { id: traceId, startedAt }
+        logGetMapStart(traceId, req.method ?? 'GET', fullUrl)
+
+        const mapRequest = parseGetMap(params, this.layerByName, this.crs, this.maxWidth, this.maxHeight)
+        logGetMapParams(traceId, mapRequest)
+        const image = await renderMap({
+          layers: mapRequest.layers,
+          bbox: mapRequest.bbox,
+          width: mapRequest.width,
+          height: mapRequest.height,
+          crs: mapRequest.crs,
+          pixelRatio: mapRequest.pixelRatio
+        })
+
+        res.statusCode = 200
+        res.setHeader('Content-Type', mapRequest.format)
+        res.setHeader('Content-Length', image.byteLength)
+        if (req.method !== 'HEAD') {
+          res.end(image)
+          logGetMapDone(traceId, res.statusCode, startedAt, image.byteLength)
+          return
+        }
+
+        res.end()
+        logGetMapDone(traceId, res.statusCode, startedAt, 0)
+        return
+      }
+
+      if (request === 'GETFEATUREINFO') {
+        const featureInfoRequest = parseGetFeatureInfo(params, this.layerByName, this.crs, this.maxWidth, this.maxHeight)
+        const result = await getFeatureInfo({
+          layers: featureInfoRequest.layers,
+          bbox: featureInfoRequest.bbox,
+          width: featureInfoRequest.width,
+          height: featureInfoRequest.height,
+          crs: featureInfoRequest.crs,
+          i: featureInfoRequest.i,
+          j: featureInfoRequest.j,
+          featureCount: featureInfoRequest.featureCount,
+          tolerancePixels: featureInfoRequest.tolerancePixels
+        })
+        const body = formatFeatureInfo(result, featureInfoRequest.infoFormat)
+        sendText(res, 200, body, contentTypeForInfoFormat(featureInfoRequest.infoFormat), req.method === 'HEAD')
+        return
+      }
+
+      sendWmsError(res, 'OperationNotSupported', `Unsupported REQUEST: ${params.get('REQUEST') ?? ''}`)
+    } catch (error) {
+      if (mapTrace || isGetMapRequest(req.url)) {
+        logGetMapError(mapTrace?.id, fullUrl, mapTrace?.startedAt, error)
+      }
+      sendWmsError(res, 'InvalidParameterValue', error instanceof Error ? error.message : String(error))
     }
   }
 }
@@ -335,7 +337,7 @@ function parseGetFeatureInfo(
 }
 
 async function buildCapabilitiesXml(
-  service: WmsService,
+  service: WmsInfo,
   layers: WmsLayer[],
   path: string,
   crs: CrsCode[]
