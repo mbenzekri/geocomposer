@@ -1,0 +1,59 @@
+import type { BBox, CrsCode } from '../core/types.js'
+import type { Source } from '../source/source.js'
+import type { StyleFn } from '../style/style-fn.js'
+
+export type LayerStyle = {
+  name: string
+  title?: string
+  summary?: string
+  style: StyleFn
+}
+
+export type LayerOptions = {
+  title?: string
+  summary?: string
+  source: Source
+  sourceCrs?: CrsCode
+  extent?: BBox
+  styles: LayerStyle[]
+}
+
+export class Layer {
+  readonly title?: string
+  readonly summary?: string
+  readonly source: Source
+  readonly sourceCrs: CrsCode
+  readonly extent?: BBox
+  readonly styles: readonly LayerStyle[]
+
+  constructor(
+    readonly name: string,
+    options: LayerOptions
+  ) {
+    if (options.styles.length === 0) {
+      throw new Error(`Layer "${name}" must define at least one style`)
+    }
+
+    this.title = options.title
+    this.summary = options.summary
+    this.source = options.source
+    this.sourceCrs = options.sourceCrs ?? options.source.crs
+    this.extent = options.extent
+    this.styles = options.styles
+  }
+
+  get style(): StyleFn {
+    return this.styles[0].style
+  }
+
+  resolveStyle(name: string | undefined): StyleFn {
+    if (!name) return this.style
+
+    const style = this.styles.find((entry) => entry.name === name)
+    if (!style) {
+      throw new Error(`Unknown style "${name}" for layer "${this.name}"`)
+    }
+
+    return style.style
+  }
+}

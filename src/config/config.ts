@@ -1,7 +1,9 @@
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import type { BBox, CrsCode } from '../core/types.js'
-import type { WmsInfo, WmsLayer, WmsLayerStyle, WmsOptions } from '../service/wms.js'
+import { Layer, type LayerStyle } from '../layer/layer.js'
+import { XyzLayer } from '../layer/xyz-layer.js'
+import type { WmsInfo, WmsOptions } from '../service/wms.js'
 import { GeoJsonSource } from '../source/geojson-source.js'
 import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
 import { GpkgSource } from '../source/gpkg-source.js'
@@ -11,7 +13,7 @@ import type { Source } from '../source/source.js'
 import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-style.js'
 import { defaultStyleFn } from '../style/default-style.js'
 import type { StyleFn } from '../style/style-fn.js'
-import type { XyzLayer, XyzOptions } from '../service/xyz.js'
+import type { XyzOptions } from '../service/xyz.js'
 
 export type CrsJson = {
   name: CrsCode
@@ -317,8 +319,8 @@ function createSource(
 async function createStyles(
   styleEntries: StyleJson[],
   baseDir: string
-): Promise<Map<string, WmsLayerStyle>> {
-  const styles = new Map<string, WmsLayerStyle>([
+): Promise<Map<string, LayerStyle>> {
+  const styles = new Map<string, LayerStyle>([
     [
       'default',
       {
@@ -336,13 +338,13 @@ async function createStyles(
   return styles
 }
 
-async function createStyle(entry: StyleJson, baseDir: string): Promise<WmsLayerStyle> {
+async function createStyle(entry: StyleJson, baseDir: string): Promise<LayerStyle> {
   switch (entry.type) {
     case 'builtin':
       return {
         name: entry.name,
         title: entry.title ?? titleFromId(entry.name),
-        abstract: entry.abstract,
+        summary: entry.abstract,
         style: BUILTIN_STYLES[entry.name]
       }
 
@@ -355,7 +357,7 @@ async function createStyle(entry: StyleJson, baseDir: string): Promise<WmsLayerS
       return {
         name: entry.name,
         title: entry.title ?? json.title ?? titleFromId(entry.name),
-        abstract: entry.abstract,
+        summary: entry.abstract,
         style
       }
     }
@@ -365,9 +367,9 @@ async function createStyle(entry: StyleJson, baseDir: string): Promise<WmsLayerS
 function createLayers(
   layerEntries: LayerJson[],
   sources: Map<string, Source>,
-  styles: Map<string, WmsLayerStyle>,
+  styles: Map<string, LayerStyle>,
   crs: CrsRegistry
-): WmsLayer[] {
+): Layer[] {
   return layerEntries.map((entry) => {
     const source = sources.get(entry.source)
     if (!source) {
@@ -387,22 +389,20 @@ function createLayers(
     })
     const sourceCrs = normalizeSourceCrs(entry.sourceCrs, source, entry.name, crs)
 
-    return {
-      name: entry.name,
+    return new Layer(entry.name, {
       title: entry.title,
-      abstract: entry.abstract,
+      summary: entry.abstract,
       source,
       sourceCrs,
       extent: normalizeExtent(entry.extent, entry.name),
-      style: layerStyles[0].style,
       styles: layerStyles
-    }
+    })
   })
 }
 
 function createXyzOptions(
   xyz: XyzJson,
-  mapLayers: WmsLayer[],
+  mapLayers: Layer[],
   baseDir: string
 ): XyzOptions {
   const layersByName = new Map(mapLayers.map((layer) => [layer.name, layer]))
@@ -411,7 +411,7 @@ function createXyzOptions(
     : mapLayers.map((layer) => ({
       name: layer.name,
       title: layer.title,
-      abstract: layer.abstract,
+      abstract: layer.summary,
       layer: layer.name
     }))
   ).map((entry) => createXyzLayer(entry, layersByName))
@@ -430,17 +430,16 @@ function createXyzOptions(
 
 function createXyzLayer(
   entry: XyzLayerJson,
-  layersByName: Map<string, WmsLayer>
+  layersByName: Map<string, Layer>
 ): XyzLayer {
   const layerRefs = normalizeXyzLayerRefs(entry)
   if (layerRefs.length === 0) {
     throw new Error(`XYZ layer "${entry.name}" must reference at least one configured layer`)
   }
 
-  return {
-    name: entry.name,
+  return new XyzLayer(entry.name, {
     title: entry.title,
-    abstract: entry.abstract,
+    summary: entry.abstract,
     layers: layerRefs.map((ref) => {
       const layer = layersByName.get(ref.layer)
       if (!layer) {
@@ -452,7 +451,7 @@ function createXyzLayer(
         style: resolveConfiguredLayerStyle(layer, ref.style, entry.name)
       }
     })
-  }
+  })
 }
 
 function normalizeXyzLayerRefs(entry: XyzLayerJson): XyzLayerRefJson[] {
@@ -474,18 +473,16 @@ function normalizeXyzLayerRefs(entry: XyzLayerJson): XyzLayerRefJson[] {
 }
 
 function resolveConfiguredLayerStyle(
-  layer: WmsLayer,
+  layer: Layer,
   styleName: string | undefined,
   xyzLayerName: string
 ): StyleFn {
-  if (!styleName) return layer.style
-
-  const style = (layer.styles ?? []).find((entry) => entry.name === styleName)
-  if (!style) {
+  try {
+    return layer.resolveStyle(styleName)
+  } catch (error) {
+    if (!styleName) throw error
     throw new Error(`Unknown style "${styleName}" for layer "${layer.name}" in XYZ layer "${xyzLayerName}"`)
   }
-
-  return style.style
 }
 
 function normalizeSourceCrs(

@@ -3,7 +3,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { dirname, join } from 'node:path'
 import { TLSSocket } from 'node:tls'
 import type { BBox } from '../core/types.js'
-import { renderMap, type RenderLayer } from '../ogc/render-map.js'
+import type { XyzLayer } from '../layer/xyz-layer.js'
+import { renderMap } from '../ogc/render-map.js'
 import { Service } from './service.js'
 import type { Source } from '../source/source.js'
 
@@ -12,13 +13,6 @@ const DEFAULT_TILE_SIZE = 256
 const DEFAULT_MIN_ZOOM = 0
 const DEFAULT_MAX_ZOOM = 22
 const DEFAULT_MAX_SCALE_FACTOR = 4
-
-export type XyzLayer = {
-  name: string
-  title?: string
-  abstract?: string
-  layers: RenderLayer[]
-}
 
 export type XyzOptions = {
   path?: string

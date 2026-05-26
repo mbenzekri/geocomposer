@@ -9,6 +9,7 @@ import {
   type FeatureInfoLayer
 } from '../ogc/get-feature-info.js'
 import { renderMap, type RenderLayer } from '../ogc/render-map.js'
+import type { Layer } from '../layer/layer.js'
 import { Service } from './service.js'
 import type { Source } from '../source/source.js'
 import type { StyleFn } from '../style/style-fn.js'
@@ -16,24 +17,6 @@ import type { StyleFn } from '../style/style-fn.js'
 const WMS_VERSION = '1.3.0'
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
 const FEATURE_INFO_FORMATS = ['application/geo+json', 'application/json', 'text/xml', 'application/xml'] as const
-
-export type WmsLayerStyle = {
-  name: string
-  title?: string
-  abstract?: string
-  style: StyleFn
-}
-
-export type WmsLayer = {
-  name: string
-  title?: string
-  abstract?: string
-  source: Source
-  sourceCrs?: CrsCode
-  extent?: BBox
-  style: StyleFn
-  styles?: WmsLayerStyle[]
-}
 
 export type WmsInfo = {
   title: string
@@ -45,7 +28,7 @@ export type WmsOptions = {
   path?: string
   info: WmsInfo
   crs?: CrsCode[]
-  layers: WmsLayer[]
+  layers: Layer[]
   maxWidth?: number
   maxHeight?: number
 }
@@ -53,7 +36,7 @@ export type WmsOptions = {
 export class Wms extends Service {
   private readonly maxWidth: number
   private readonly maxHeight: number
-  private readonly layerByName: Map<string, WmsLayer>
+  private readonly layerByName: Map<string, Layer>
   private readonly sources: Source[]
   private readonly crs: CrsCode[]
   private nextTraceId = 1
@@ -216,7 +199,7 @@ type FeatureInfoFormat = typeof FEATURE_INFO_FORMATS[number]
 
 function parseGetMap(
   params: Map<string, string>,
-  layerByName: Map<string, WmsLayer>,
+  layerByName: Map<string, Layer>,
   supportedCrs: CrsCode[],
   maxWidth: number,
   maxHeight: number
@@ -278,7 +261,7 @@ function parseGetMap(
 
 function parseGetFeatureInfo(
   params: Map<string, string>,
-  layerByName: Map<string, WmsLayer>,
+  layerByName: Map<string, Layer>,
   supportedCrs: CrsCode[],
   maxWidth: number,
   maxHeight: number
@@ -338,7 +321,7 @@ function parseGetFeatureInfo(
 
 async function buildCapabilitiesXml(
   service: WmsInfo,
-  layers: WmsLayer[],
+  layers: Layer[],
   path: string,
   crs: CrsCode[]
 ): Promise<string> {
@@ -347,12 +330,12 @@ async function buildCapabilitiesXml(
 
   for (const layer of layers) {
     const extent = layer.extent ?? await layer.source.getExtent()
-    const sourceCrs = layer.sourceCrs ?? layer.source.crs
+    const sourceCrs = layer.sourceCrs
     layerXml.push([
       '<Layer queryable="1">',
       `<Name>${escapeXml(layer.name)}</Name>`,
       `<Title>${escapeXml(layer.title ?? layer.name)}</Title>`,
-      layer.abstract ? `<Abstract>${escapeXml(layer.abstract)}</Abstract>` : '',
+      layer.summary ? `<Abstract>${escapeXml(layer.summary)}</Abstract>` : '',
       crsXml(crs),
       stylesXml(layer),
       extent ? bboxXml(extent, sourceCrs, crs) : '',
@@ -390,12 +373,12 @@ function crsXml(crs: CrsCode[]): string {
   return unique(crs).map((code) => `<CRS>${escapeXml(code)}</CRS>`).join('')
 }
 
-function stylesXml(layer: WmsLayer): string {
-  return getLayerStyles(layer).map((style) => [
+function stylesXml(layer: Layer): string {
+  return layer.styles.map((style) => [
     '<Style>',
     `<Name>${escapeXml(style.name)}</Name>`,
     `<Title>${escapeXml(style.title ?? style.name)}</Title>`,
-    style.abstract ? `<Abstract>${escapeXml(style.abstract)}</Abstract>` : '',
+    style.summary ? `<Abstract>${escapeXml(style.summary)}</Abstract>` : '',
     '</Style>'
   ].join('')).join('')
 }
@@ -479,25 +462,8 @@ function parseStyles(value: string | undefined, layerCount: number): Array<strin
   return styleNames.map((style) => style || undefined)
 }
 
-function resolveLayerStyle(layer: WmsLayer, styleName: string | undefined): StyleFn {
-  if (!styleName) return layer.style
-
-  const style = getLayerStyles(layer).find((entry) => entry.name === styleName)
-  if (!style) {
-    throw new Error(`Unknown style "${styleName}" for layer "${layer.name}"`)
-  }
-
-  return style.style
-}
-
-function getLayerStyles(layer: WmsLayer): WmsLayerStyle[] {
-  if (layer.styles && layer.styles.length > 0) return layer.styles
-
-  return [{
-    name: 'default',
-    title: 'Default',
-    style: layer.style
-  }]
+function resolveLayerStyle(layer: Layer, styleName: string | undefined): StyleFn {
+  return layer.resolveStyle(styleName)
 }
 
 function validateCrs(supportedCrs: CrsCode[], crs: CrsCode): void {
