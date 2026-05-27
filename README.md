@@ -36,6 +36,8 @@ npx tsx src/geo-composer.ts
 ```
 
 Le viewer OpenLayers de test est `src/example/world-services-openlayers.html`.
+Si vous l'ouvrez avec VS Code Live Server, le projet ignore `cache/**` pour
+eviter qu'une tuile XYZ/WMTS rendue recharge automatiquement la page.
 
 Le WMS est exposé sur le chemin `services.wms.path` de `config.json`, par
 défaut `/wms`. Les tuiles XYZ sont exposées sur `services.xyz.path` et suivent
