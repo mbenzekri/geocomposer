@@ -17,3 +17,15 @@ export function escape(value: string): string {
         .replaceAll("'", '&#39;')
 }
 
+export function nonNegativeInteger(value: string, name: string): number {
+    if (!/^\d+$/.test(value)) {
+        throw new Error(`${name} must be a non-negative integer`)
+    }
+
+    const number = Number(value)
+    if (!Number.isSafeInteger(number)) {
+        throw new Error(`${name} is outside the safe integer range`)
+    }
+
+    return number
+}

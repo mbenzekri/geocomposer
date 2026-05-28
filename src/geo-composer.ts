@@ -4,8 +4,7 @@ import type { Socket } from 'node:net'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadConfig, type LoadedConfig } from './config/config.js'
-import type { Service } from './service/service.js'
-import { ServiceHttp } from './service/service-utils.js'
+import { Service } from './service/service.js'
 import { Wms } from './service/wms.js'
 import { Wmts } from './service/wmts.js'
 import { Xyz } from './service/xyz.js'
@@ -47,7 +46,7 @@ export class GeoComposer {
     this.server = createServer((req, res) => {
       void this.handle(req, res).catch((error) => {
         const message = error instanceof Error ? error.message : String(error)
-        ServiceHttp.sendText(res, 500, message, 'text/plain; charset=utf-8', req.method === 'HEAD')
+        Service.sendText(res, 500, message, 'text/plain; charset=utf-8', req.method === 'HEAD')
       })
     })
 
@@ -138,7 +137,7 @@ export class GeoComposer {
       return
     }
 
-    ServiceHttp.setCorsHeaders(res)
+    Service.setCorsHeaders(res)
 
     if (req.method === 'OPTIONS') {
       res.statusCode = 204
@@ -146,7 +145,7 @@ export class GeoComposer {
       return
     }
 
-    ServiceHttp.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8', req.method === 'HEAD')
+    Service.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8', req.method === 'HEAD')
   }
 
   private trackConnections(): void {

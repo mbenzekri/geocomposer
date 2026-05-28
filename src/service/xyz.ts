@@ -6,7 +6,7 @@ import { getTileMatrixSet } from '../tileset/tile-matrix-set.js'
 import { TilesetLayers } from '../tileset/tileset-utils.js'
 import { Tileset } from '../tileset/tileset.js'
 import { Service } from './service.js'
-import { ServiceHttp, ServiceNumberParser } from './service-utils.js'
+import { nonNegativeInteger } from '../core/tools.js'
 
 const DEFAULT_MAX_SCALE_FACTOR = 4
 
@@ -63,11 +63,11 @@ export class Xyz extends Service {
   }
 
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const fullUrl = ServiceHttp.requestUrl(req)
+    const fullUrl = Service.requestUrl(req)
     let tileTrace: { id: number, startedAt: number } | null = null
 
     try {
-      ServiceHttp.setCorsHeaders(res)
+      Service.setCorsHeaders(res)
 
       if (req.method === 'OPTIONS') {
         res.statusCode = 204
@@ -76,13 +76,13 @@ export class Xyz extends Service {
       }
 
       if (req.method !== 'GET' && req.method !== 'HEAD') {
-        ServiceHttp.sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
+        Service.sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
         return
       }
 
       const url = new URL(req.url ?? '/', 'http://localhost')
       if (!this.matches(url.pathname)) {
-        ServiceHttp.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
+        Service.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
         return
       }
 
@@ -132,7 +132,7 @@ export class Xyz extends Service {
       logTileDone(traceId, res.statusCode, startedAt, 0)
     } catch (error) {
       logTileError(tileTrace?.id, fullUrl, tileTrace?.startedAt, error)
-      ServiceHttp.sendText(
+      Service.sendText(
         res,
         400,
         error instanceof Error ? error.message : String(error),
@@ -165,8 +165,8 @@ function parseTileRequest(
     throw new Error(`Unknown XYZ tileset: ${tilesetName}`)
   }
 
-  const z = ServiceNumberParser.nonNegativeInteger(segments[1], 'z')
-  const x = ServiceNumberParser.nonNegativeInteger(segments[2], 'x')
+  const z = nonNegativeInteger(segments[1], 'z')
+  const x = nonNegativeInteger(segments[2], 'x')
   const parsedY = parseYSegment(segments[3])
   const y = parsedY.y
   const scale = parseScale(url.searchParams.get('scale'), parsedY.scale, options.maxScaleFactor)
@@ -193,8 +193,8 @@ function parseYSegment(segment: string): { y: number, scale?: number } {
   }
 
   return {
-    y: ServiceNumberParser.nonNegativeInteger(match[1], 'y'),
-    scale: match[2] ? ServiceNumberParser.nonNegativeInteger(match[2], 'scale') : undefined
+    y: nonNegativeInteger(match[1], 'y'),
+    scale: match[2] ? nonNegativeInteger(match[2], 'scale') : undefined
   }
 }
 

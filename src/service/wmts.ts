@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { escape } from '../core/tools.js'
+import { escape, nonNegativeInteger } from '../core/tools.js'
 import { MarkupTemplate } from '../core/template.js'
 import { renderMap } from '../ogc/render-map.js'
 import { TileCache } from '../tileset/tile-cache.js'
@@ -7,7 +7,6 @@ import type { TileMatrixSet } from '../tileset/tile-matrix-set.js'
 import { TilesetLayers } from '../tileset/tileset-utils.js'
 import type { Tileset } from '../tileset/tileset.js'
 import { Service } from './service.js'
-import { ServiceHttp, ServiceNumberParser, ServiceParams } from './service-utils.js'
 
 const WMTS_VERSION = '1.0.0'
 
@@ -137,11 +136,11 @@ export class Wmts extends Service {
   }
 
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const fullUrl = ServiceHttp.requestUrl(req)
+    const fullUrl = Service.requestUrl(req)
     let tileTrace: { id: number, startedAt: number } | null = null
 
     try {
-      ServiceHttp.setCorsHeaders(res)
+      Service.setCorsHeaders(res)
 
       if (req.method === 'OPTIONS') {
         res.statusCode = 204
@@ -150,17 +149,17 @@ export class Wmts extends Service {
       }
 
       if (req.method !== 'GET' && req.method !== 'HEAD') {
-        ServiceHttp.sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
+        Service.sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
         return
       }
 
       const url = new URL(req.url ?? '/', 'http://localhost')
       if (!this.matches(url.pathname)) {
-        ServiceHttp.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
+        Service.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
         return
       }
 
-      const params = ServiceParams.fromUrl(url)
+      const params = this.fromUrl(url)
       const service = params.get('SERVICE')
       if (service && service.toUpperCase() !== 'WMTS') {
         sendWmtsError(res, 'InvalidParameterValue', 'SERVICE must be WMTS')
@@ -169,8 +168,8 @@ export class Wmts extends Service {
 
       const request = (params.get('REQUEST') ?? 'GetCapabilities').toUpperCase()
       if (request === 'GETCAPABILITIES') {
-        const xml = WmtsCapabilitiesBuilder.build(this.options.info, this.options.tilesets, ServiceHttp.serviceUrl(req, this.path))
-        ServiceHttp.sendText(res, 200, xml, 'text/xml; charset=utf-8', req.method === 'HEAD')
+        const xml = WmtsCapabilitiesBuilder.build(this.options.info, this.options.tilesets, Service.serviceUrl(req, this.path))
+        Service.sendText(res, 200, xml, 'text/xml; charset=utf-8', req.method === 'HEAD')
         return
       }
 
@@ -181,7 +180,7 @@ export class Wmts extends Service {
         tileTrace = { id: traceId, startedAt }
         logTileStart(traceId, req.method ?? 'GET', fullUrl)
 
-        const tileRequest = parseGetTile(params, this.tilesetByName)
+        const tileRequest = this.parseGetTile(params, this.tilesetByName)
         logTileParams(traceId, tileRequest)
 
         const cacheKey = {
@@ -228,10 +227,8 @@ export class Wmts extends Service {
       sendWmtsError(res, 'InvalidParameterValue', error instanceof Error ? error.message : String(error))
     }
   }
-}
-
-function parseGetTile(params: Map<string, string>, tilesetByName: Map<string, Tileset>): WmtsTileRequest {
-  const layerName = ServiceParams.require(params, 'LAYER', 'Missing required parameter LAYER')
+  private  parseGetTile(params: Map<string, string>, tilesetByName: Map<string, Tileset>): WmtsTileRequest {
+  const layerName = this.require(params, 'LAYER', 'Missing required parameter LAYER')
   const tileset = tilesetByName.get(layerName)
   if (!tileset) {
     throw new Error(`Unknown WMTS layer: ${layerName}`)
@@ -252,14 +249,14 @@ function parseGetTile(params: Map<string, string>, tilesetByName: Map<string, Ti
     throw new Error(`FORMAT must be ${tileset.format}`)
   }
 
-  const matrixSet = ServiceParams.require(params, 'TILEMATRIXSET', 'Missing required parameter TILEMATRIXSET')
+  const matrixSet = this.require(params, 'TILEMATRIXSET', 'Missing required parameter TILEMATRIXSET')
   if (matrixSet !== tileset.tileMatrixSet.id) {
     throw new Error(`TILEMATRIXSET must be ${tileset.tileMatrixSet.id}`)
   }
 
-  const z = tileset.zoomFromMatrixId(ServiceParams.require(params, 'TILEMATRIX', 'Missing required parameter TILEMATRIX'))
-  const x = ServiceNumberParser.nonNegativeInteger(ServiceParams.require(params, 'TILECOL', 'Missing required parameter TILECOL'), 'TILECOL')
-  const y = ServiceNumberParser.nonNegativeInteger(ServiceParams.require(params, 'TILEROW', 'Missing required parameter TILEROW'), 'TILEROW')
+  const z = tileset.zoomFromMatrixId(this.require(params, 'TILEMATRIX', 'Missing required parameter TILEMATRIX'))
+  const x = nonNegativeInteger(this.require(params, 'TILECOL', 'Missing required parameter TILECOL'), 'TILECOL')
+  const y = nonNegativeInteger(this.require(params, 'TILEROW', 'Missing required parameter TILEROW'), 'TILEROW')
   tileset.validateCoord(z, x, y)
 
   return {
@@ -269,6 +266,9 @@ function parseGetTile(params: Map<string, string>, tilesetByName: Map<string, Ti
     y
   }
 }
+
+}
+
 
 class WmtsCapabilitiesBuilder {
   static build(info: WmtsInfo, tilesets: Tileset[], serviceUrl: string): string {
@@ -421,5 +421,5 @@ function sendWmtsError(res: ServerResponse, code: string, message: string): void
     '</ows:ExceptionReport>'
   ].join('\n')
 
-  ServiceHttp.sendText(res, 400, body, 'text/xml; charset=utf-8')
+  Service.sendText(res, 400, body, 'text/xml; charset=utf-8')
 }
