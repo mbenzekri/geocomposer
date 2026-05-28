@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadConfig, type LoadedConfig } from './config/config.js'
 import type { Service } from './service/service.js'
+import { ServiceHttp } from './service/service-utils.js'
 import { Wms } from './service/wms.js'
 import { Wmts } from './service/wmts.js'
 import { Xyz } from './service/xyz.js'
@@ -46,7 +47,7 @@ export class GeoComposer {
     this.server = createServer((req, res) => {
       void this.handle(req, res).catch((error) => {
         const message = error instanceof Error ? error.message : String(error)
-        sendText(res, 500, message, 'text/plain; charset=utf-8', req.method === 'HEAD')
+        ServiceHttp.sendText(res, 500, message, 'text/plain; charset=utf-8', req.method === 'HEAD')
       })
     })
 
@@ -137,7 +138,7 @@ export class GeoComposer {
       return
     }
 
-    setCorsHeaders(res)
+    ServiceHttp.setCorsHeaders(res)
 
     if (req.method === 'OPTIONS') {
       res.statusCode = 204
@@ -145,7 +146,7 @@ export class GeoComposer {
       return
     }
 
-    sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8', req.method === 'HEAD')
+    ServiceHttp.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8', req.method === 'HEAD')
   }
 
   private trackConnections(): void {
@@ -229,30 +230,6 @@ function parsePort(value: string | undefined, fallback: number): number {
   }
 
   return port
-}
-
-function setCorsHeaders(res: ServerResponse): void {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Accept, Content-Type')
-}
-
-function sendText(
-  res: ServerResponse,
-  statusCode: number,
-  body: string,
-  contentType: string,
-  headOnly = false
-): void {
-  if (res.headersSent) {
-    res.end()
-    return
-  }
-
-  res.statusCode = statusCode
-  res.setHeader('Content-Type', contentType)
-  res.setHeader('Content-Length', Buffer.byteLength(body))
-  res.end(headOnly ? undefined : body)
 }
 
 if (isMain()) {

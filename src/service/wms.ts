@@ -1,15 +1,17 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { TLSSocket } from 'node:tls'
 import proj4 from 'proj4'
 import type { BBox, CrsCode } from '../core/types.js'
+import { MarkupTemplate } from '../core/template.js'
 import {
   featureInfoToGeoJson,
   featureInfoToXml,
   getFeatureInfo
 } from '../ogc/get-feature-info.js'
 import { renderMap, type RenderLayer } from '../ogc/render-map.js'
+import { XmlText } from '../ogc/xml-utils.js'
 import type { Layer } from '../layer/layer.js'
 import { Service } from './service.js'
+import { ServiceHttp, ServiceParams } from './service-utils.js'
 import type { StyleFn } from '../style/style-fn.js'
 
 const WMS_VERSION = '1.3.0'
@@ -63,11 +65,11 @@ export class Wms extends Service {
   }
 
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const fullUrl = getRequestUrl(req)
+    const fullUrl = ServiceHttp.requestUrl(req)
     let mapTrace: { id: number, startedAt: number } | null = null
 
     try {
-      setCorsHeaders(res)
+      ServiceHttp.setCorsHeaders(res)
 
       if (req.method === 'OPTIONS') {
         res.statusCode = 204
@@ -76,17 +78,17 @@ export class Wms extends Service {
       }
 
       if (req.method !== 'GET' && req.method !== 'HEAD') {
-        sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
+        ServiceHttp.sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
         return
       }
 
       const url = new URL(req.url ?? '/', 'http://localhost')
       if (!this.matches(url.pathname)) {
-        sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
+        ServiceHttp.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
         return
       }
 
-      const params = getParams(url)
+      const params = ServiceParams.fromUrl(url)
       const request = (params.get('REQUEST') ?? 'GetCapabilities').toUpperCase()
       const service = params.get('SERVICE')
 
@@ -96,8 +98,8 @@ export class Wms extends Service {
       }
 
       if (request === 'GETCAPABILITIES') {
-        const xml = await buildCapabilitiesXml(this.options.info, this.options.layers, this.path, this.crs)
-        sendText(res, 200, xml, 'text/xml; charset=utf-8')
+        const xml = await WmsCapabilitiesBuilder.build(this.options.info, this.options.layers, this.path, this.crs)
+        ServiceHttp.sendText(res, 200, xml, 'text/xml; charset=utf-8')
         return
       }
 
@@ -147,7 +149,7 @@ export class Wms extends Service {
           tolerancePixels: featureInfoRequest.tolerancePixels
         })
         const body = formatFeatureInfo(result, featureInfoRequest.infoFormat)
-        sendText(res, 200, body, contentTypeForInfoFormat(featureInfoRequest.infoFormat), req.method === 'HEAD')
+        ServiceHttp.sendText(res, 200, body, contentTypeForInfoFormat(featureInfoRequest.infoFormat), req.method === 'HEAD')
         return
       }
 
@@ -193,6 +195,52 @@ type FeatureInfoRequest = {
 
 type FeatureInfoFormat = typeof FEATURE_INFO_FORMATS[number]
 
+const WMS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
+<WMS_Capabilities version="{{version}}" xmlns="http://www.opengis.net/wms">
+  <Service>
+    <Name>WMS</Name>
+    <Title>{{service.title}}</Title>
+    {{#service.abstract}}<Abstract>{{service.abstract}}</Abstract>{{/service.abstract}}
+    {{#service.onlineResource}}<OnlineResource>{{service.onlineResource}}</OnlineResource>{{/service.onlineResource}}
+  </Service>
+  <Capability>
+    <Request>
+      <GetCapabilities><Format>text/xml</Format><DCPType><HTTP><Get><OnlineResource>{{onlineResource}}</OnlineResource></Get></HTTP></DCPType></GetCapabilities>
+      <GetMap><Format>image/png</Format><DCPType><HTTP><Get><OnlineResource>{{onlineResource}}</OnlineResource></Get></HTTP></DCPType></GetMap>
+      <GetFeatureInfo>{{#featureInfoFormats}}<Format>{{.}}</Format>{{/featureInfoFormats}}<DCPType><HTTP><Get><OnlineResource>{{onlineResource}}</OnlineResource></Get></HTTP></DCPType></GetFeatureInfo>
+    </Request>
+    <Exception><Format>text/xml</Format></Exception>
+    <Layer>
+      <Title>{{service.title}}</Title>
+      {{#crs}}<CRS>{{.}}</CRS>{{/crs}}
+      {{#layers}}
+      <Layer queryable="1">
+        <Name>{{name}}</Name>
+        <Title>{{title}}</Title>
+        {{#summary}}<Abstract>{{summary}}</Abstract>{{/summary}}
+        {{#crs}}<CRS>{{.}}</CRS>{{/crs}}
+        {{#styles}}
+        <Style>
+          <Name>{{name}}</Name>
+          <Title>{{title}}</Title>
+          {{#summary}}<Abstract>{{summary}}</Abstract>{{/summary}}
+        </Style>
+        {{/styles}}
+        {{#extent}}
+        <EX_GeographicBoundingBox>
+          <westBoundLongitude>{{west}}</westBoundLongitude>
+          <eastBoundLongitude>{{east}}</eastBoundLongitude>
+          <southBoundLatitude>{{south}}</southBoundLatitude>
+          <northBoundLatitude>{{north}}</northBoundLatitude>
+        </EX_GeographicBoundingBox>
+        {{#boundingBoxes}}<BoundingBox CRS="{{crs}}" minx="{{minx}}" miny="{{miny}}" maxx="{{maxx}}" maxy="{{maxy}}"/>{{/boundingBoxes}}
+        {{/extent}}
+      </Layer>
+      {{/layers}}
+    </Layer>
+  </Capability>
+</WMS_Capabilities>`
+
 function parseGetMap(
   params: Map<string, string>,
   layerByName: Map<string, Layer>,
@@ -200,7 +248,7 @@ function parseGetMap(
   maxWidth: number,
   maxHeight: number
 ): MapRequest {
-  const layerNames = requireParam(params, 'LAYERS')
+  const layerNames = ServiceParams.require(params, 'LAYERS')
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean)
@@ -219,14 +267,14 @@ function parseGetMap(
   })
 
   const version = params.get('VERSION') ?? WMS_VERSION
-  const width = parsePositiveInt(requireParam(params, 'WIDTH'), 'WIDTH', maxWidth)
-  const height = parsePositiveInt(requireParam(params, 'HEIGHT'), 'HEIGHT', maxHeight)
+  const width = parsePositiveInt(ServiceParams.require(params, 'WIDTH'), 'WIDTH', maxWidth)
+  const height = parsePositiveInt(ServiceParams.require(params, 'HEIGHT'), 'HEIGHT', maxHeight)
   const pixelRatio = parseWmsPixelRatio(params)
   const crs = params.get('CRS') ?? params.get('SRS')
   if (!crs) {
     throw new Error('CRS is required')
   }
-  const rawBbox = requireParam(params, 'BBOX')
+  const rawBbox = ServiceParams.require(params, 'BBOX')
   const parsedBbox = parseBBox(rawBbox, crs, version)
   validateCrs(supportedCrs, crs)
   const styleNames = parseStyles(params.get('STYLES'), selectedLayers.length)
@@ -263,7 +311,7 @@ function parseGetFeatureInfo(
   maxHeight: number
 ): FeatureInfoRequest {
   const mapRequest = parseGetMap(params, layerByName, supportedCrs, maxWidth, maxHeight)
-  const queryLayerNames = requireParam(params, 'QUERY_LAYERS')
+  const queryLayerNames = ServiceParams.require(params, 'QUERY_LAYERS')
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean)
@@ -288,10 +336,10 @@ function parseGetFeatureInfo(
   const i = parsePixelIndex(params.get('I') ?? params.get('X'), mapRequest.version === '1.3.0' ? 'I' : 'X', mapRequest.width)
   const j = parsePixelIndex(params.get('J') ?? params.get('Y'), mapRequest.version === '1.3.0' ? 'J' : 'Y', mapRequest.height)
   const featureCount = params.has('FEATURE_COUNT')
-    ? parsePositiveInt(requireParam(params, 'FEATURE_COUNT'), 'FEATURE_COUNT', 100)
+    ? parsePositiveInt(ServiceParams.require(params, 'FEATURE_COUNT'), 'FEATURE_COUNT', 100)
     : 1
   const tolerancePixels = params.has('BUFFER')
-    ? parseNonNegativeInt(requireParam(params, 'BUFFER'), 'BUFFER', 50)
+    ? parseNonNegativeInt(ServiceParams.require(params, 'BUFFER'), 'BUFFER', 50)
     : 4
   const infoFormat = normalizeInfoFormat(params.get('INFO_FORMAT'))
 
@@ -312,95 +360,72 @@ function parseGetFeatureInfo(
   }
 }
 
-async function buildCapabilitiesXml(
-  service: WmsInfo,
-  layers: Layer[],
-  path: string,
-  crs: CrsCode[]
-): Promise<string> {
-  const layerXml: string[] = []
-  const onlineResource = service.onlineResource ?? path
+class WmsCapabilitiesBuilder {
+  static async build(service: WmsInfo, layers: Layer[], path: string, crs: CrsCode[]): Promise<string> {
+    const supportedCrs = unique(crs)
+    const layerViews = []
 
-  for (const layer of layers) {
-    const extent = await layer.getExtent()
-    const sourceCrs = layer.sourceCrs
-    layerXml.push([
-      '<Layer queryable="1">',
-      `<Name>${escapeXml(layer.name)}</Name>`,
-      `<Title>${escapeXml(layer.title ?? layer.name)}</Title>`,
-      layer.summary ? `<Abstract>${escapeXml(layer.summary)}</Abstract>` : '',
-      crsXml(crs),
-      stylesXml(layer),
-      extent ? bboxXml(extent, sourceCrs, crs) : '',
-      '</Layer>'
-    ].join(''))
+    for (const layer of layers) {
+      layerViews.push(await this.layerView(layer, supportedCrs))
+    }
+
+    return MarkupTemplate.render(WMS_CAPABILITIES_TEMPLATE, {
+      version: WMS_VERSION,
+      service,
+      onlineResource: service.onlineResource ?? path,
+      featureInfoFormats: FEATURE_INFO_FORMATS,
+      crs: supportedCrs,
+      layers: layerViews
+    })
   }
 
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    `<WMS_Capabilities version="${WMS_VERSION}" xmlns="http://www.opengis.net/wms">`,
-    '<Service>',
-    '<Name>WMS</Name>',
-    `<Title>${escapeXml(service.title)}</Title>`,
-    service.abstract ? `<Abstract>${escapeXml(service.abstract)}</Abstract>` : '',
-    service.onlineResource ? `<OnlineResource>${escapeXml(service.onlineResource)}</OnlineResource>` : '',
-    '</Service>',
-    '<Capability>',
-    '<Request>',
-    `<GetCapabilities><Format>text/xml</Format><DCPType><HTTP><Get><OnlineResource>${escapeXml(onlineResource)}</OnlineResource></Get></HTTP></DCPType></GetCapabilities>`,
-    `<GetMap><Format>image/png</Format><DCPType><HTTP><Get><OnlineResource>${escapeXml(onlineResource)}</OnlineResource></Get></HTTP></DCPType></GetMap>`,
-    `<GetFeatureInfo>${FEATURE_INFO_FORMATS.map((format) => `<Format>${escapeXml(format)}</Format>`).join('')}<DCPType><HTTP><Get><OnlineResource>${escapeXml(onlineResource)}</OnlineResource></Get></HTTP></DCPType></GetFeatureInfo>`,
-    '</Request>',
-    '<Exception><Format>text/xml</Format></Exception>',
-    '<Layer>',
-    `<Title>${escapeXml(service.title)}</Title>`,
-    crsXml(crs),
-    ...layerXml,
-    '</Layer>',
-    '</Capability>',
-    '</WMS_Capabilities>'
-  ].join('')
-}
+  private static async layerView(layer: Layer, supportedCrs: CrsCode[]): Promise<Record<string, unknown>> {
+    const extent = await layer.getExtent()
 
-function crsXml(crs: CrsCode[]): string {
-  return unique(crs).map((code) => `<CRS>${escapeXml(code)}</CRS>`).join('')
-}
+    return {
+      name: layer.name,
+      title: layer.title ?? layer.name,
+      summary: layer.summary,
+      crs: supportedCrs,
+      styles: layer.styles.map((style) => ({
+        name: style.name,
+        title: style.title ?? style.name,
+        summary: style.summary
+      })),
+      extent: extent ? this.extentView(extent, layer.sourceCrs, supportedCrs) : undefined
+    }
+  }
 
-function stylesXml(layer: Layer): string {
-  return layer.styles.map((style) => [
-    '<Style>',
-    `<Name>${escapeXml(style.name)}</Name>`,
-    `<Title>${escapeXml(style.title ?? style.name)}</Title>`,
-    style.summary ? `<Abstract>${escapeXml(style.summary)}</Abstract>` : '',
-    '</Style>'
-  ].join('')).join('')
-}
+  private static extentView(bbox: BBox, sourceCrs: CrsCode, crs: CrsCode[]): Record<string, unknown> {
+    const geographicBbox = sourceCrs === 'EPSG:4326'
+      ? bbox
+      : transformBBox(bbox, sourceCrs, 'EPSG:4326') ?? bbox
+    const boundingBoxes = crs
+      .map((code) => {
+        const targetBbox = code === sourceCrs
+          ? bbox
+          : transformBBox(bbox, sourceCrs, code)
+        if (!targetBbox) return null
 
-function bboxXml(bbox: BBox, sourceCrs: CrsCode, crs: CrsCode[]): string {
-  const geographicBbox = sourceCrs === 'EPSG:4326'
-    ? bbox
-    : transformBBox(bbox, sourceCrs, 'EPSG:4326') ?? bbox
-  const boundingBoxes = unique(crs)
-    .map((code) => {
-      const targetBbox = code === sourceCrs
-        ? bbox
-        : transformBBox(bbox, sourceCrs, code)
-      if (!targetBbox) return ''
+        const axisBbox = toWmsBoundingBox(targetBbox, code, WMS_VERSION)
+        return {
+          crs: code,
+          minx: axisBbox[0],
+          miny: axisBbox[1],
+          maxx: axisBbox[2],
+          maxy: axisBbox[3]
+        }
+      })
+      .filter((entry): entry is Record<string, unknown> => entry !== null)
 
-      const axisBbox = toWmsBoundingBox(targetBbox, code, WMS_VERSION)
-      return `<BoundingBox CRS="${escapeXml(code)}" minx="${axisBbox[0]}" miny="${axisBbox[1]}" maxx="${axisBbox[2]}" maxy="${axisBbox[3]}"/>`
-    })
-    .join('')
-
-  return [
-    '<EX_GeographicBoundingBox>',
-    `<westBoundLongitude>${geographicBbox[0]}</westBoundLongitude>`,
-    `<eastBoundLongitude>${geographicBbox[2]}</eastBoundLongitude>`,
-    `<southBoundLatitude>${geographicBbox[1]}</southBoundLatitude>`,
-    `<northBoundLatitude>${geographicBbox[3]}</northBoundLatitude>`,
-    '</EX_GeographicBoundingBox>',
-    boundingBoxes
-  ].join('')
+    return {
+      west: geographicBbox[0],
+      east: geographicBbox[2],
+      south: geographicBbox[1],
+      north: geographicBbox[3],
+      boundingBoxes
+    }
+  }
 }
 
 function transformBBox(bbox: BBox, sourceCrs: CrsCode, targetCrs: CrsCode): BBox | null {
@@ -576,35 +601,6 @@ function parsePixelIndex(value: string | undefined, name: string, size: number):
   return number
 }
 
-function requireParam(params: Map<string, string>, name: string): string {
-  const value = params.get(name)
-  if (!value) {
-    throw new Error(`${name} is required`)
-  }
-
-  return value
-}
-
-function getParams(url: URL): Map<string, string> {
-  const params = new Map<string, string>()
-
-  for (const [key, value] of url.searchParams.entries()) {
-    params.set(key.toUpperCase(), value)
-  }
-
-  return params
-}
-
-function getRequestUrl(req: IncomingMessage): string {
-  const socketProtocol = req.socket instanceof TLSSocket && req.socket.encrypted
-    ? 'https'
-    : 'http'
-  const protocol = req.headers['x-forwarded-proto']
-    ?? socketProtocol
-  const host = req.headers.host ?? 'localhost'
-  return new URL(req.url ?? '/', `${protocol}://${host}`).toString()
-}
-
 function isGetMapRequest(urlText: string | undefined): boolean {
   if (!urlText) return false
 
@@ -670,31 +666,9 @@ function sendWmsError(res: ServerResponse, code: string, message: string): void 
   const body = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<ServiceExceptionReport version="1.3.0" xmlns="http://www.opengis.net/ogc">',
-    `<ServiceException code="${escapeXml(code)}">${escapeXml(message)}</ServiceException>`,
+    `<ServiceException code="${XmlText.escape(code)}">${XmlText.escape(message)}</ServiceException>`,
     '</ServiceExceptionReport>'
   ].join('')
 
-  sendText(res, 400, body, 'text/xml; charset=utf-8')
-}
-
-function setCorsHeaders(res: ServerResponse): void {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Accept, Content-Type')
-}
-
-function sendText(res: ServerResponse, statusCode: number, body: string, contentType: string, headOnly = false): void {
-  res.statusCode = statusCode
-  res.setHeader('Content-Type', contentType)
-  res.setHeader('Content-Length', Buffer.byteLength(body))
-  res.end(headOnly ? undefined : body)
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;')
+  ServiceHttp.sendText(res, 400, body, 'text/xml; charset=utf-8')
 }

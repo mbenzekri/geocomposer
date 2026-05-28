@@ -1,10 +1,13 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { TLSSocket } from 'node:tls'
+import { MarkupTemplate } from '../core/template.js'
 import { renderMap } from '../ogc/render-map.js'
+import { XmlText } from '../ogc/xml-utils.js'
 import { TileCache } from '../tileset/tile-cache.js'
 import type { TileMatrixSet } from '../tileset/tile-matrix-set.js'
+import { TilesetLayers } from '../tileset/tileset-utils.js'
 import type { Tileset } from '../tileset/tileset.js'
 import { Service } from './service.js'
+import { ServiceHttp, ServiceNumberParser, ServiceParams } from './service-utils.js'
 
 const WMTS_VERSION = '1.0.0'
 
@@ -49,23 +52,23 @@ export class Wmts extends Service {
   }
 
   async open(): Promise<void> {
-    for (const layer of uniqueLayers(this.options.tilesets)) {
+    for (const layer of TilesetLayers.unique(this.options.tilesets)) {
       await layer.open()
     }
   }
 
   async close(): Promise<void> {
-    for (const layer of uniqueLayers(this.options.tilesets)) {
+    for (const layer of TilesetLayers.unique(this.options.tilesets)) {
       await layer.close()
     }
   }
 
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const fullUrl = getRequestUrl(req)
+    const fullUrl = ServiceHttp.requestUrl(req)
     let tileTrace: { id: number, startedAt: number } | null = null
 
     try {
-      setCorsHeaders(res)
+      ServiceHttp.setCorsHeaders(res)
 
       if (req.method === 'OPTIONS') {
         res.statusCode = 204
@@ -74,17 +77,17 @@ export class Wmts extends Service {
       }
 
       if (req.method !== 'GET' && req.method !== 'HEAD') {
-        sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
+        ServiceHttp.sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
         return
       }
 
       const url = new URL(req.url ?? '/', 'http://localhost')
       if (!this.matches(url.pathname)) {
-        sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
+        ServiceHttp.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
         return
       }
 
-      const params = getParams(url)
+      const params = ServiceParams.fromUrl(url)
       const service = params.get('SERVICE')
       if (service && service.toUpperCase() !== 'WMTS') {
         sendWmtsError(res, 'InvalidParameterValue', 'SERVICE must be WMTS')
@@ -93,8 +96,8 @@ export class Wmts extends Service {
 
       const request = (params.get('REQUEST') ?? 'GetCapabilities').toUpperCase()
       if (request === 'GETCAPABILITIES') {
-        const xml = buildCapabilitiesXml(this.options.info, this.options.tilesets, serviceUrl(req, this.path))
-        sendText(res, 200, xml, 'text/xml; charset=utf-8', req.method === 'HEAD')
+        const xml = WmtsCapabilitiesBuilder.build(this.options.info, this.options.tilesets, ServiceHttp.serviceUrl(req, this.path))
+        ServiceHttp.sendText(res, 200, xml, 'text/xml; charset=utf-8', req.method === 'HEAD')
         return
       }
 
@@ -155,7 +158,7 @@ export class Wmts extends Service {
 }
 
 function parseGetTile(params: Map<string, string>, tilesetByName: Map<string, Tileset>): WmtsTileRequest {
-  const layerName = requireParam(params, 'LAYER')
+  const layerName = ServiceParams.require(params, 'LAYER', 'Missing required parameter LAYER')
   const tileset = tilesetByName.get(layerName)
   if (!tileset) {
     throw new Error(`Unknown WMTS layer: ${layerName}`)
@@ -176,14 +179,14 @@ function parseGetTile(params: Map<string, string>, tilesetByName: Map<string, Ti
     throw new Error(`FORMAT must be ${tileset.format}`)
   }
 
-  const matrixSet = requireParam(params, 'TILEMATRIXSET')
+  const matrixSet = ServiceParams.require(params, 'TILEMATRIXSET', 'Missing required parameter TILEMATRIXSET')
   if (matrixSet !== tileset.tileMatrixSet.id) {
     throw new Error(`TILEMATRIXSET must be ${tileset.tileMatrixSet.id}`)
   }
 
-  const z = tileset.zoomFromMatrixId(requireParam(params, 'TILEMATRIX'))
-  const x = parseInteger(requireParam(params, 'TILECOL'), 'TILECOL')
-  const y = parseInteger(requireParam(params, 'TILEROW'), 'TILEROW')
+  const z = tileset.zoomFromMatrixId(ServiceParams.require(params, 'TILEMATRIX', 'Missing required parameter TILEMATRIX'))
+  const x = ServiceNumberParser.nonNegativeInteger(ServiceParams.require(params, 'TILECOL', 'Missing required parameter TILECOL'), 'TILECOL')
+  const y = ServiceNumberParser.nonNegativeInteger(ServiceParams.require(params, 'TILEROW', 'Missing required parameter TILEROW'), 'TILEROW')
   tileset.validateCoord(z, x, y)
 
   return {
@@ -207,8 +210,8 @@ function buildCapabilitiesXml(info: WmtsInfo, tilesets: Tileset[], serviceUrl: s
     '  xsi:schemaLocation="http://www.opengis.net/wmts/1.0 http://schemas.opengis.net/wmts/1.0/wmtsGetCapabilities_response.xsd"',
     `  version="${WMTS_VERSION}">`,
     '  <ows:ServiceIdentification>',
-    `    <ows:Title>${escapeXml(info.title)}</ows:Title>`,
-    info.abstract ? `    <ows:Abstract>${escapeXml(info.abstract)}</ows:Abstract>` : '',
+    `    <ows:Title>${XmlText.escape(info.title)}</ows:Title>`,
+    info.abstract ? `    <ows:Abstract>${XmlText.escape(info.abstract)}</ows:Abstract>` : '',
     '    <ows:ServiceType>OGC WMTS</ows:ServiceType>',
     `    <ows:ServiceTypeVersion>${WMTS_VERSION}</ows:ServiceTypeVersion>`,
     '  </ows:ServiceIdentification>',
@@ -220,7 +223,7 @@ function buildCapabilitiesXml(info: WmtsInfo, tilesets: Tileset[], serviceUrl: s
     ...tilesets.map((tileset) => layerXml(tileset, serviceUrl)),
     ...matrixSetUses.map(matrixSetXml),
     '  </Contents>',
-    '  <ServiceMetadataURL xlink:href="' + escapeXml(onlineResource) + '"/>',
+    '  <ServiceMetadataURL xlink:href="' + XmlText.escape(onlineResource) + '"/>',
     '</Capabilities>'
   ].filter(Boolean).join('\n')
 }
@@ -230,7 +233,7 @@ function operationXml(name: string, serviceUrl: string): string {
     `    <ows:Operation name="${name}">`,
     '      <ows:DCP>',
     '        <ows:HTTP>',
-    `          <ows:Get xlink:href="${escapeXml(serviceUrl)}"/>`,
+    `          <ows:Get xlink:href="${XmlText.escape(serviceUrl)}"/>`,
     '        </ows:HTTP>',
     '      </ows:DCP>',
     '    </ows:Operation>'
@@ -240,18 +243,18 @@ function operationXml(name: string, serviceUrl: string): string {
 function layerXml(tileset: Tileset, serviceUrl: string): string {
   return [
     '    <Layer>',
-    `      <ows:Title>${escapeXml(tileset.title ?? tileset.name)}</ows:Title>`,
-    tileset.summary ? `      <ows:Abstract>${escapeXml(tileset.summary)}</ows:Abstract>` : '',
-    `      <ows:Identifier>${escapeXml(tileset.name)}</ows:Identifier>`,
+    `      <ows:Title>${XmlText.escape(tileset.title ?? tileset.name)}</ows:Title>`,
+    tileset.summary ? `      <ows:Abstract>${XmlText.escape(tileset.summary)}</ows:Abstract>` : '',
+    `      <ows:Identifier>${XmlText.escape(tileset.name)}</ows:Identifier>`,
     '      <Style isDefault="true">',
     '        <ows:Identifier>default</ows:Identifier>',
     '      </Style>',
-    `      <Format>${escapeXml(tileset.format)}</Format>`,
+    `      <Format>${XmlText.escape(tileset.format)}</Format>`,
     '      <TileMatrixSetLink>',
-    `        <TileMatrixSet>${escapeXml(tileset.tileMatrixSet.id)}</TileMatrixSet>`,
+    `        <TileMatrixSet>${XmlText.escape(tileset.tileMatrixSet.id)}</TileMatrixSet>`,
     tileMatrixSetLimitsXml(tileset),
     '      </TileMatrixSetLink>',
-    `      <ResourceURL format="${escapeXml(tileset.format)}" resourceType="tile" template="${escapeXml(tileTemplate(serviceUrl, tileset))}"/>`,
+    `      <ResourceURL format="${XmlText.escape(tileset.format)}" resourceType="tile" template="${XmlText.escape(tileTemplate(serviceUrl, tileset))}"/>`,
     '    </Layer>'
   ].filter(Boolean).join('\n')
 }
@@ -301,9 +304,9 @@ function matrixSetXml(use: MatrixSetUse): string {
 
   return [
     '    <TileMatrixSet>',
-    `      <ows:Title>${escapeXml(use.tileMatrixSet.title)}</ows:Title>`,
-    `      <ows:Identifier>${escapeXml(use.tileMatrixSet.id)}</ows:Identifier>`,
-    `      <ows:SupportedCRS>${escapeXml(use.tileMatrixSet.supportedCrs)}</ows:SupportedCRS>`,
+    `      <ows:Title>${XmlText.escape(use.tileMatrixSet.title)}</ows:Title>`,
+    `      <ows:Identifier>${XmlText.escape(use.tileMatrixSet.id)}</ows:Identifier>`,
+    `      <ows:SupportedCRS>${XmlText.escape(use.tileMatrixSet.supportedCrs)}</ows:SupportedCRS>`,
     ...matrices,
     '    </TileMatrixSet>'
   ].join('\n')
@@ -360,61 +363,6 @@ function validateWmtsTilesets(tilesets: Tileset[]): void {
   }
 }
 
-function getParams(url: URL): Map<string, string> {
-  const params = new Map<string, string>()
-  for (const [key, value] of url.searchParams.entries()) {
-    params.set(key.toUpperCase(), value)
-  }
-
-  return params
-}
-
-function requireParam(params: Map<string, string>, name: string): string {
-  const value = params.get(name)
-  if (value === undefined || value === '') {
-    throw new Error(`Missing required parameter ${name}`)
-  }
-
-  return value
-}
-
-function parseInteger(value: string, name: string): number {
-  if (!/^\d+$/.test(value)) {
-    throw new Error(`${name} must be a non-negative integer`)
-  }
-
-  const number = Number(value)
-  if (!Number.isSafeInteger(number)) {
-    throw new Error(`${name} is outside the safe integer range`)
-  }
-
-  return number
-}
-
-function uniqueLayers(tilesets: Tileset[]) {
-  return [...new Set(tilesets.flatMap((tileset) => tileset.mapLayers))]
-}
-
-function serviceUrl(req: IncomingMessage, path: string): string {
-  const socketProtocol = req.socket instanceof TLSSocket && req.socket.encrypted
-    ? 'https'
-    : 'http'
-  const protocol = req.headers['x-forwarded-proto']
-    ?? socketProtocol
-  const host = req.headers.host ?? 'localhost'
-  return new URL(path, `${protocol}://${host}`).toString()
-}
-
-function getRequestUrl(req: IncomingMessage): string {
-  const socketProtocol = req.socket instanceof TLSSocket && req.socket.encrypted
-    ? 'https'
-    : 'http'
-  const protocol = req.headers['x-forwarded-proto']
-    ?? socketProtocol
-  const host = req.headers.host ?? 'localhost'
-  return new URL(req.url ?? '/', `${protocol}://${host}`).toString()
-}
-
 function logTileStart(traceId: number, method: string, url: string): void {
   console.log(`[WMTS ${traceId}] IN  ${method} ${url}`)
 }
@@ -440,33 +388,11 @@ function sendWmtsError(res: ServerResponse, code: string, message: string): void
   const body = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/1.1" version="1.0.0">',
-    `  <ows:Exception exceptionCode="${escapeXml(code)}">`,
-    `    <ows:ExceptionText>${escapeXml(message)}</ows:ExceptionText>`,
+    `  <ows:Exception exceptionCode="${XmlText.escape(code)}">`,
+    `    <ows:ExceptionText>${XmlText.escape(message)}</ows:ExceptionText>`,
     '  </ows:Exception>',
     '</ows:ExceptionReport>'
   ].join('\n')
 
-  sendText(res, 400, body, 'text/xml; charset=utf-8')
-}
-
-function setCorsHeaders(res: ServerResponse): void {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Accept, Content-Type')
-}
-
-function sendText(res: ServerResponse, statusCode: number, body: string, contentType: string, headOnly = false): void {
-  res.statusCode = statusCode
-  res.setHeader('Content-Type', contentType)
-  res.setHeader('Content-Length', Buffer.byteLength(body))
-  res.end(headOnly ? undefined : body)
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;')
+  ServiceHttp.sendText(res, 400, body, 'text/xml; charset=utf-8')
 }

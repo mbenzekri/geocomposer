@@ -7,7 +7,7 @@ export abstract class Service {
     readonly name: string,
     path: string
   ) {
-    this.path = normalizeServicePath(path)
+    this.path = ServicePath.normalize(path)
   }
 
   matches(pathname: string): boolean {
@@ -19,9 +19,11 @@ export abstract class Service {
   abstract handle(req: IncomingMessage, res: ServerResponse): Promise<void>
 }
 
-export function normalizeServicePath(path: string): string {
-  const normalized = path.startsWith('/') ? path : `/${path}`
-  return normalized.length > 1 && normalized.endsWith('/')
-    ? normalized.slice(0, -1)
-    : normalized
+export class ServicePath {
+  static normalize(path: string): string {
+    const normalized = path.startsWith('/') ? path : `/${path}`
+    return normalized.length > 1 && normalized.endsWith('/')
+      ? normalized.slice(0, -1)
+      : normalized
+  }
 }

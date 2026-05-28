@@ -1,11 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { TLSSocket } from 'node:tls'
 import type { BBox } from '../core/types.js'
 import { renderMap } from '../ogc/render-map.js'
 import { TileCache } from '../tileset/tile-cache.js'
 import { getTileMatrixSet } from '../tileset/tile-matrix-set.js'
+import { TilesetLayers } from '../tileset/tileset-utils.js'
 import { Tileset } from '../tileset/tileset.js'
 import { Service } from './service.js'
+import { ServiceHttp, ServiceNumberParser } from './service-utils.js'
 
 const DEFAULT_MAX_SCALE_FACTOR = 4
 
@@ -50,23 +51,23 @@ export class Xyz extends Service {
   }
 
   async open(): Promise<void> {
-    for (const layer of uniqueLayers(this.tilesets)) {
+    for (const layer of TilesetLayers.unique(this.tilesets)) {
       await layer.open()
     }
   }
 
   async close(): Promise<void> {
-    for (const layer of uniqueLayers(this.tilesets)) {
+    for (const layer of TilesetLayers.unique(this.tilesets)) {
       await layer.close()
     }
   }
 
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const fullUrl = getRequestUrl(req)
+    const fullUrl = ServiceHttp.requestUrl(req)
     let tileTrace: { id: number, startedAt: number } | null = null
 
     try {
-      setCorsHeaders(res)
+      ServiceHttp.setCorsHeaders(res)
 
       if (req.method === 'OPTIONS') {
         res.statusCode = 204
@@ -75,13 +76,13 @@ export class Xyz extends Service {
       }
 
       if (req.method !== 'GET' && req.method !== 'HEAD') {
-        sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
+        ServiceHttp.sendText(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
         return
       }
 
       const url = new URL(req.url ?? '/', 'http://localhost')
       if (!this.matches(url.pathname)) {
-        sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
+        ServiceHttp.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8')
         return
       }
 
@@ -131,7 +132,7 @@ export class Xyz extends Service {
       logTileDone(traceId, res.statusCode, startedAt, 0)
     } catch (error) {
       logTileError(tileTrace?.id, fullUrl, tileTrace?.startedAt, error)
-      sendText(
+      ServiceHttp.sendText(
         res,
         400,
         error instanceof Error ? error.message : String(error),
@@ -164,8 +165,8 @@ function parseTileRequest(
     throw new Error(`Unknown XYZ tileset: ${tilesetName}`)
   }
 
-  const z = parseInteger(segments[1], 'z')
-  const x = parseInteger(segments[2], 'x')
+  const z = ServiceNumberParser.nonNegativeInteger(segments[1], 'z')
+  const x = ServiceNumberParser.nonNegativeInteger(segments[2], 'x')
   const parsedY = parseYSegment(segments[3])
   const y = parsedY.y
   const scale = parseScale(url.searchParams.get('scale'), parsedY.scale, options.maxScaleFactor)
@@ -192,8 +193,8 @@ function parseYSegment(segment: string): { y: number, scale?: number } {
   }
 
   return {
-    y: parseInteger(match[1], 'y'),
-    scale: match[2] ? parseInteger(match[2], 'scale') : undefined
+    y: ServiceNumberParser.nonNegativeInteger(match[1], 'y'),
+    scale: match[2] ? ServiceNumberParser.nonNegativeInteger(match[2], 'scale') : undefined
   }
 }
 
@@ -213,19 +214,6 @@ function parseScale(queryValue: string | null, pathValue: number | undefined, ma
   return scale
 }
 
-function parseInteger(value: string, name: string): number {
-  if (!/^\d+$/.test(value)) {
-    throw new Error(`${name} must be a non-negative integer`)
-  }
-
-  const number = Number(value)
-  if (!Number.isSafeInteger(number)) {
-    throw new Error(`${name} is outside the safe integer range`)
-  }
-
-  return number
-}
-
 function validateXyzOptions(maxScaleFactor: number): void {
   if (!Number.isFinite(maxScaleFactor) || maxScaleFactor <= 0) {
     throw new Error('XYZ maxScaleFactor must be a positive number')
@@ -243,10 +231,6 @@ function pathSegmentsAfter(pathname: string, basePath: string): string[] {
     .filter(Boolean)
 }
 
-function uniqueLayers(tilesets: Tileset[]) {
-  return [...new Set(tilesets.flatMap((tileset) => tileset.mapLayers))]
-}
-
 function tileCacheKey(request: TileRequest) {
   return {
     tileset: request.tileset.name,
@@ -255,16 +239,6 @@ function tileCacheKey(request: TileRequest) {
     y: request.y,
     scale: request.scale
   }
-}
-
-function getRequestUrl(req: IncomingMessage): string {
-  const socketProtocol = req.socket instanceof TLSSocket && req.socket.encrypted
-    ? 'https'
-    : 'http'
-  const protocol = req.headers['x-forwarded-proto']
-    ?? socketProtocol
-  const host = req.headers.host ?? 'localhost'
-  return new URL(req.url ?? '/', `${protocol}://${host}`).toString()
 }
 
 function logTileStart(traceId: number, method: string, url: string): void {
@@ -287,17 +261,4 @@ function logTileError(traceId: number | undefined, url: string, startedAt: numbe
   const prefix = traceId === undefined ? '[XYZ]' : `[XYZ ${traceId}]`
   console.error(`${prefix} ERR${duration} ${url}`)
   console.error(`${prefix} ERR ${message}`)
-}
-
-function setCorsHeaders(res: ServerResponse): void {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Accept, Content-Type')
-}
-
-function sendText(res: ServerResponse, statusCode: number, body: string, contentType: string, headOnly = false): void {
-  res.statusCode = statusCode
-  res.setHeader('Content-Type', contentType)
-  res.setHeader('Content-Length', Buffer.byteLength(body))
-  res.end(headOnly ? undefined : body)
 }
