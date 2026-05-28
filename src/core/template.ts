@@ -1,9 +1,9 @@
 import { isTruthy, stringify, escape } from "./tools.js"
+import { Props } from "./types.js"
 
-type TemplateContext = Record<string, unknown>
 
 export class MarkupTemplate {
-  static render(template: string, context: TemplateContext): string {
+  static render(template: string, context: Props): string {
     return this.renderBlock(template, [context])
   }
 
@@ -145,7 +145,7 @@ export class MarkupTemplate {
     return value
   }
 
-  private static isContext(value: unknown): value is TemplateContext {
+  private static isContext(value: unknown): value is Props {
     return typeof value === 'object' && value !== null
   }
 

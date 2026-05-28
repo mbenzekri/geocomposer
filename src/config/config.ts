@@ -15,6 +15,7 @@ import type { StyleFn } from '../style/style-fn.js'
 import type { XyzOptions } from '../service/xyz.js'
 import type { WmtsInfo, WmtsOptions } from '../service/wmts.js'
 import { Tileset } from '../tileset/tileset.js'
+import { Geom } from '../geometry/geom.js'
 
 export type NamedConfig<T> = Record<string, T>
 
@@ -407,7 +408,7 @@ function createLayers(
       summary: entry.abstract,
       source,
       sourceCrs,
-      extent: normalizeExtent(entry.extent, name),
+      extent: Geom.normalize(entry.extent, name),
       styles: layerStyles
     })
   })
@@ -549,21 +550,6 @@ function normalizeSourceCrs(
   }
 
   return resolved
-}
-
-function normalizeExtent(extent: BBox | undefined, layerName: string): BBox | undefined {
-  if (extent === undefined) return undefined
-
-  if (!Array.isArray(extent) || extent.length !== 4 || extent.some((value) => !Number.isFinite(value))) {
-    throw new Error(`Layer "${layerName}" extent must be a bbox [minx,miny,maxx,maxy]`)
-  }
-
-  const bbox: BBox = [extent[0], extent[1], extent[2], extent[3]]
-  if (!(bbox[0] < bbox[2]) || !(bbox[1] < bbox[3])) {
-    throw new Error(`Layer "${layerName}" extent bbox minimum bounds must be lower than maximum bounds`)
-  }
-
-  return bbox
 }
 
 function titleFromId(id: string): string {

@@ -209,7 +209,7 @@ function lineHitsPoint(line: Position[], context: HitContext): boolean {
   if (line.length === 1) return positionHitsPoint(line[0], context)
 
   for (let index = 1; index < line.length; index += 1) {
-    if (distanceToSegment(context.point, line[index - 1], line[index]) <= context.tolerance) {
+    if (Geom.distanceToSegment(context.point, line[index - 1], line[index]) <= context.tolerance) {
       return true
     }
   }
@@ -221,59 +221,14 @@ function polygonHitsPoint(polygon: Position[][], context: HitContext): boolean {
   if (polygon.length === 0) return false
 
   if (lineHitsPoint(polygon[0], context)) return true
-  if (!pointInRing(context.point, polygon[0])) return false
+  if (!Geom.pointInRing(context.point, polygon[0])) return false
 
   for (const hole of polygon.slice(1)) {
     if (lineHitsPoint(hole, context)) return true
-    if (pointInRing(context.point, hole)) return false
+    if (Geom.pointInRing(context.point, hole)) return false
   }
 
   return true
-}
-
-function pointInRing(point: Position, ring: Position[]): boolean {
-  let inside = false
-
-  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index, index += 1) {
-    const currentPosition = ring[index]
-    const previousPosition = ring[previous]
-    const intersects = (currentPosition[1] > point[1]) !== (previousPosition[1] > point[1])
-      && point[0] < ((previousPosition[0] - currentPosition[0]) * (point[1] - currentPosition[1]))
-        / (previousPosition[1] - currentPosition[1]) + currentPosition[0]
-
-    if (intersects) inside = !inside
-  }
-
-  return inside
-}
-
-function distanceToSegment(point: Position, start: Position, end: Position): number {
-  const dx = end[0] - start[0]
-  const dy = end[1] - start[1]
-
-  if (dx === 0 && dy === 0) {
-    return distance(point, start)
-  }
-
-  const t = clamp(
-    ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / (dx * dx + dy * dy),
-    0,
-    1
-  )
-  const projected: Position = [
-    start[0] + t * dx,
-    start[1] + t * dy
-  ]
-
-  return distance(point, projected)
-}
-
-function distance(a: Position, b: Position): number {
-  return Math.hypot(a[0] - b[0], a[1] - b[1])
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
 }
 
 function toGeoJsonFeature(hit: FeatureInfoHit): Record<string, unknown> {
