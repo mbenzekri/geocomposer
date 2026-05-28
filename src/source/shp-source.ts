@@ -4,6 +4,7 @@ import type { CrsCode, Props } from '../core/types.js'
 import type { Feature, ByteRange, FileRef, SourceRef } from '../geometry/feature.js'
 import type { Geometry, Position } from '../geometry/geometry.js'
 import { FileSource, type FeatureTransform } from './source.js'
+import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 
 export type ShpSourceOptions = {
   crs?: CrsCode
@@ -78,7 +79,7 @@ export class ShpSource extends FileSource {
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
-    return getAbortReason(signal)
+    return AbortSignalGuard.reason(signal, 'Shapefile stream aborted')
   }
 }
 
@@ -117,7 +118,7 @@ class ShpReader {
 
     try {
       for await (const chunk of file) {
-        throwIfAborted(signal)
+        AbortSignalGuard.throwIfAborted(signal, 'Shapefile stream aborted')
         parser.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
 
         for (;;) {
@@ -125,7 +126,7 @@ class ShpReader {
           if (!record) break
 
           yield this.toFeature(record, await dbf.readRecord(record.recordNumber - 1))
-          throwIfAborted(signal)
+          AbortSignalGuard.throwIfAborted(signal, 'Shapefile stream aborted')
         }
       }
 
@@ -144,7 +145,7 @@ class ShpReader {
 
     try {
       const buffer = Buffer.alloc(ref.byteLength)
-      const bytesRead = await readFully(handle, buffer, ref.offset)
+      const bytesRead = await FileByteReader.readFully(handle, buffer, ref.offset)
       if (bytesRead < ref.byteLength) {
         throw new Error('Invalid shapefile sourceRef: byte range exceeds file length')
       }
@@ -170,7 +171,7 @@ class ShpReader {
   private async getDbfReader(): Promise<DbfReader> {
     if (this.dbfReader) return this.dbfReader
 
-    const encoding = this.options.dbfEncoding ?? await readDbfEncoding(this.dbfPath)
+    const encoding = this.options.dbfEncoding ?? await DbfEncodingResolver.read(this.dbfPath)
     this.dbfReader = await DbfReader.open(`${this.sourceId}:dbf`, this.dbfPath, encoding)
     return this.dbfReader
   }
@@ -191,7 +192,7 @@ class ShpReader {
       type: 'Feature',
       id: record.recordNumber,
       properties: dbfRecord.properties,
-      geometry: parseShapeGeometry(record.content),
+      geometry: ShpGeometryParser.parse(record.content),
       sourceRef
     }
   }
@@ -258,7 +259,7 @@ class DbfReader {
 
     try {
       const header = Buffer.alloc(32)
-      const bytesRead = await readFully(handle, header, 0)
+      const bytesRead = await FileByteReader.readFully(handle, header, 0)
       if (bytesRead < header.length) {
         throw new Error('Invalid DBF: header is too short')
       }
@@ -267,7 +268,7 @@ class DbfReader {
       const headerLength = header.readUInt16LE(8)
       const recordLength = header.readUInt16LE(10)
       const descriptors = Buffer.alloc(headerLength - 32)
-      const descriptorBytesRead = await readFully(handle, descriptors, 32)
+      const descriptorBytesRead = await FileByteReader.readFully(handle, descriptors, 32)
       if (descriptorBytesRead < descriptors.length) {
         throw new Error('Invalid DBF: field descriptors are incomplete')
       }
@@ -316,7 +317,7 @@ class DbfReader {
 
     const offset = this.headerLength + index * this.recordLength
     const record = Buffer.alloc(this.recordLength)
-    const bytesRead = await readFully(this.handle, record, offset)
+    const bytesRead = await FileByteReader.readFully(this.handle, record, offset)
     if (bytesRead < this.recordLength) {
       throw new Error(`Invalid DBF: record ${index} is incomplete`)
     }
@@ -326,7 +327,7 @@ class DbfReader {
 
     if (!deleted) {
       for (const field of this.fields) {
-        const value = parseDbfValue(record.subarray(field.offset, field.offset + field.length), field, this.encoding)
+        const value = DbfValueParser.parse(record.subarray(field.offset, field.offset + field.length), field, this.encoding)
         properties[field.name] = value
       }
     }
@@ -344,250 +345,237 @@ class DbfReader {
   }
 }
 
-async function readFully(handle: FileHandle, buffer: Buffer, position: number): Promise<number> {
-  let total = 0
+class ShpGeometryParser {
+  static parse(content: Buffer): Geometry | null {
+    if (content.length < 4) return null
 
-  while (total < buffer.length) {
-    const { bytesRead } = await handle.read(buffer, total, buffer.length - total, position + total)
-    if (bytesRead === 0) break
-    total += bytesRead
+    const shapeType = content.readInt32LE(0)
+
+    switch (shapeType) {
+      case 0:
+        return null
+
+      case 1:
+      case 11:
+      case 21:
+        return this.parsePoint(content)
+
+      case 3:
+      case 13:
+      case 23:
+        return this.parsePolyLine(content)
+
+      case 5:
+      case 15:
+      case 25:
+        return this.parsePolygon(content)
+
+      case 8:
+      case 18:
+      case 28:
+        return this.parseMultiPoint(content)
+
+      default:
+        throw new Error(`Unsupported shapefile shape type: ${shapeType}`)
+    }
   }
 
-  return total
-}
-function parseShapeGeometry(content: Buffer): Geometry | null {
-  if (content.length < 4) return null
+  private static parsePoint(content: Buffer): Geometry | null {
+    if (content.length < 20) return null
 
-  const shapeType = content.readInt32LE(0)
-
-  switch (shapeType) {
-    case 0:
-      return null
-
-    case 1:
-    case 11:
-    case 21:
-      return parsePoint(content)
-
-    case 3:
-    case 13:
-    case 23:
-      return parsePolyLine(content)
-
-    case 5:
-    case 15:
-    case 25:
-      return parsePolygon(content)
-
-    case 8:
-    case 18:
-    case 28:
-      return parseMultiPoint(content)
-
-    default:
-      throw new Error(`Unsupported shapefile shape type: ${shapeType}`)
-  }
-}
-
-function parsePoint(content: Buffer): Geometry | null {
-  if (content.length < 20) return null
-
-  return {
-    type: 'Point',
-    coordinates: [content.readDoubleLE(4), content.readDoubleLE(12)]
-  }
-}
-
-function parseMultiPoint(content: Buffer): Geometry | null {
-  if (content.length < 40) return null
-
-  const pointCount = content.readInt32LE(36)
-  const coordinates = readPoints(content, 40, pointCount)
-
-  return {
-    type: 'MultiPoint',
-    coordinates
-  }
-}
-
-function parsePolyLine(content: Buffer): Geometry | null {
-  const parts = readPartedPoints(content)
-  if (!parts || parts.length === 0) return null
-
-  if (parts.length === 1) {
     return {
-      type: 'LineString',
-      coordinates: parts[0]
+      type: 'Point',
+      coordinates: [content.readDoubleLE(4), content.readDoubleLE(12)]
     }
   }
 
-  return {
-    type: 'MultiLineString',
-    coordinates: parts
-  }
-}
+  private static parseMultiPoint(content: Buffer): Geometry | null {
+    if (content.length < 40) return null
 
-function parsePolygon(content: Buffer): Geometry | null {
-  const rings = readPartedPoints(content)
-  if (!rings || rings.length === 0) return null
+    const pointCount = content.readInt32LE(36)
+    const coordinates = this.readPoints(content, 40, pointCount)
 
-  const polygons = groupPolygonRings(rings)
-
-  if (polygons.length === 1) {
     return {
-      type: 'Polygon',
-      coordinates: polygons[0]
+      type: 'MultiPoint',
+      coordinates
     }
   }
 
-  return {
-    type: 'MultiPolygon',
-    coordinates: polygons
-  }
-}
+  private static parsePolyLine(content: Buffer): Geometry | null {
+    const parts = this.readPartedPoints(content)
+    if (!parts || parts.length === 0) return null
 
-function readPartedPoints(content: Buffer): Position[][] | null {
-  if (content.length < 44) return null
+    if (parts.length === 1) {
+      return {
+        type: 'LineString',
+        coordinates: parts[0]
+      }
+    }
 
-  const partCount = content.readInt32LE(36)
-  const pointCount = content.readInt32LE(40)
-  const partOffset = 44
-  const pointOffset = partOffset + partCount * 4
-
-  if (content.length < pointOffset + pointCount * 16) return null
-
-  const partStarts: number[] = []
-  for (let index = 0; index < partCount; index += 1) {
-    partStarts.push(content.readInt32LE(partOffset + index * 4))
-  }
-
-  const points = readPoints(content, pointOffset, pointCount)
-
-  return partStarts.map((start, index) => {
-    const end = partStarts[index + 1] ?? points.length
-    return points.slice(start, end)
-  })
-}
-
-function readPoints(content: Buffer, offset: number, count: number): Position[] {
-  const points: Position[] = []
-
-  for (let index = 0; index < count; index += 1) {
-    const pointOffset = offset + index * 16
-    points.push([
-      content.readDoubleLE(pointOffset),
-      content.readDoubleLE(pointOffset + 8)
-    ])
-  }
-
-  return points
-}
-
-function groupPolygonRings(rings: Position[][]): Position[][][] {
-  const outerRings: Position[][] = []
-  const holes: Position[][] = []
-
-  for (const ring of rings) {
-    if (signedRingArea(ring) < 0) {
-      outerRings.push(ring)
-    } else {
-      holes.push(ring)
+    return {
+      type: 'MultiLineString',
+      coordinates: parts
     }
   }
 
-  if (outerRings.length === 0) return [rings]
+  private static parsePolygon(content: Buffer): Geometry | null {
+    const rings = this.readPartedPoints(content)
+    if (!rings || rings.length === 0) return null
 
-  const polygons = outerRings.map((ring) => [ring])
+    const polygons = this.groupPolygonRings(rings)
 
-  for (const hole of holes) {
-    const point = hole[0]
-    const polygonIndex = point
-      ? outerRings.findIndex((outer) => pointInRing(point, outer))
-      : -1
-
-    polygons[Math.max(0, polygonIndex)].push(hole)
-  }
-
-  return polygons
-}
-
-function signedRingArea(ring: Position[]): number {
-  let area = 0
-
-  for (let index = 0; index < ring.length; index += 1) {
-    const current = ring[index]
-    const next = ring[(index + 1) % ring.length]
-    area += current[0] * next[1] - next[0] * current[1]
-  }
-
-  return area / 2
-}
-
-function pointInRing(point: Position, ring: Position[]): boolean {
-  let inside = false
-
-  for (let currentIndex = 0, previousIndex = ring.length - 1; currentIndex < ring.length; previousIndex = currentIndex, currentIndex += 1) {
-    const current = ring[currentIndex]
-    const previous = ring[previousIndex]
-    const intersects = (current[1] > point[1]) !== (previous[1] > point[1])
-      && point[0] < ((previous[0] - current[0]) * (point[1] - current[1])) / (previous[1] - current[1]) + current[0]
-
-    if (intersects) inside = !inside
-  }
-
-  return inside
-}
-
-function parseDbfValue(raw: Buffer, field: DbfField, encoding: BufferEncoding): unknown {
-  const text = raw.toString(encoding).trim()
-
-  if (text.length === 0) return null
-
-  switch (field.type.toUpperCase()) {
-    case 'N':
-    case 'F': {
-      const value = Number(text)
-      return Number.isNaN(value) ? null : value
+    if (polygons.length === 1) {
+      return {
+        type: 'Polygon',
+        coordinates: polygons[0]
+      }
     }
 
-    case 'L': {
-      const value = text.toUpperCase()
-      if (value === 'T' || value === 'Y') return true
-      if (value === 'F' || value === 'N') return false
-      return null
+    return {
+      type: 'MultiPolygon',
+      coordinates: polygons
+    }
+  }
+
+  private static readPartedPoints(content: Buffer): Position[][] | null {
+    if (content.length < 44) return null
+
+    const partCount = content.readInt32LE(36)
+    const pointCount = content.readInt32LE(40)
+    const partOffset = 44
+    const pointOffset = partOffset + partCount * 4
+
+    if (content.length < pointOffset + pointCount * 16) return null
+
+    const partStarts: number[] = []
+    for (let index = 0; index < partCount; index += 1) {
+      partStarts.push(content.readInt32LE(partOffset + index * 4))
     }
 
-    case 'D':
-      return text.length === 8
-        ? `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`
-        : text
+    const points = this.readPoints(content, pointOffset, pointCount)
 
-    default:
-      return text
+    return partStarts.map((start, index) => {
+      const end = partStarts[index + 1] ?? points.length
+      return points.slice(start, end)
+    })
+  }
+
+  private static readPoints(content: Buffer, offset: number, count: number): Position[] {
+    const points: Position[] = []
+
+    for (let index = 0; index < count; index += 1) {
+      const pointOffset = offset + index * 16
+      points.push([
+        content.readDoubleLE(pointOffset),
+        content.readDoubleLE(pointOffset + 8)
+      ])
+    }
+
+    return points
+  }
+
+  private static groupPolygonRings(rings: Position[][]): Position[][][] {
+    const outerRings: Position[][] = []
+    const holes: Position[][] = []
+
+    for (const ring of rings) {
+      if (this.signedRingArea(ring) < 0) {
+        outerRings.push(ring)
+      } else {
+        holes.push(ring)
+      }
+    }
+
+    if (outerRings.length === 0) return [rings]
+
+    const polygons = outerRings.map((ring) => [ring])
+
+    for (const hole of holes) {
+      const point = hole[0]
+      const polygonIndex = point
+        ? outerRings.findIndex((outer) => this.pointInRing(point, outer))
+        : -1
+
+      polygons[Math.max(0, polygonIndex)].push(hole)
+    }
+
+    return polygons
+  }
+
+  private static signedRingArea(ring: Position[]): number {
+    let area = 0
+
+    for (let index = 0; index < ring.length; index += 1) {
+      const current = ring[index]
+      const next = ring[(index + 1) % ring.length]
+      area += current[0] * next[1] - next[0] * current[1]
+    }
+
+    return area / 2
+  }
+
+  private static pointInRing(point: Position, ring: Position[]): boolean {
+    let inside = false
+
+    for (let currentIndex = 0, previousIndex = ring.length - 1; currentIndex < ring.length; previousIndex = currentIndex, currentIndex += 1) {
+      const current = ring[currentIndex]
+      const previous = ring[previousIndex]
+      const intersects = (current[1] > point[1]) !== (previous[1] > point[1])
+        && point[0] < ((previous[0] - current[0]) * (point[1] - current[1])) / (previous[1] - current[1]) + current[0]
+
+      if (intersects) inside = !inside
+    }
+
+    return inside
   }
 }
 
-async function readDbfEncoding(dbfPath: PathLike): Promise<BufferEncoding> {
-  if (typeof dbfPath !== 'string') return 'utf8'
+class DbfValueParser {
+  static parse(raw: Buffer, field: DbfField, encoding: BufferEncoding): unknown {
+    const text = raw.toString(encoding).trim()
 
-  try {
-    const cpgPath = dbfPath.replace(/\.dbf$/i, '.cpg')
-    const codePage = (await readFile(cpgPath, 'utf8')).trim().toLowerCase()
+    if (text.length === 0) return null
 
-    if (codePage === 'utf-8' || codePage === 'utf8' || codePage === '65001') return 'utf8'
-    if (codePage === 'ascii' || codePage === 'us-ascii') return 'ascii'
-    if (codePage === 'latin1' || codePage === 'iso-8859-1' || codePage === 'windows-1252' || codePage === 'cp1252') return 'latin1'
-  } catch {
+    switch (field.type.toUpperCase()) {
+      case 'N':
+      case 'F': {
+        const value = Number(text)
+        return Number.isNaN(value) ? null : value
+      }
+
+      case 'L': {
+        const value = text.toUpperCase()
+        if (value === 'T' || value === 'Y') return true
+        if (value === 'F' || value === 'N') return false
+        return null
+      }
+
+      case 'D':
+        return text.length === 8
+          ? `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`
+          : text
+
+      default:
+        return text
+    }
+  }
+}
+
+class DbfEncodingResolver {
+  static async read(dbfPath: PathLike): Promise<BufferEncoding> {
+    if (typeof dbfPath !== 'string') return 'utf8'
+
+    try {
+      const cpgPath = dbfPath.replace(/\.dbf$/i, '.cpg')
+      const codePage = (await readFile(cpgPath, 'utf8')).trim().toLowerCase()
+
+      if (codePage === 'utf-8' || codePage === 'utf8' || codePage === '65001') return 'utf8'
+      if (codePage === 'ascii' || codePage === 'us-ascii') return 'ascii'
+      if (codePage === 'latin1' || codePage === 'iso-8859-1' || codePage === 'windows-1252' || codePage === 'cp1252') return 'latin1'
+    } catch {
+      return 'utf8'
+    }
+
     return 'utf8'
   }
-
-  return 'utf8'
-}
-
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw getAbortReason(signal)
-}
-
-function getAbortReason(signal: AbortSignal): unknown {
-  return signal.reason ?? new Error('Shapefile stream aborted')
 }

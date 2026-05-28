@@ -4,6 +4,7 @@ import type { BBox, CrsCode, Props } from '../core/types.js'
 import type { DbRef, Feature, SourceRef } from '../geometry/feature.js'
 import type { Geometry, Position } from '../geometry/geometry.js'
 import { DbSource, type FeatureTransform } from './source.js'
+import { AbortSignalGuard } from './source-utils.js'
 
 export type GpkgSourceOptions = {
   crs?: CrsCode
@@ -95,7 +96,7 @@ export class GpkgSource extends DbSource {
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
-    return getAbortReason(signal)
+    return AbortSignalGuard.reason(signal, 'GeoPackage stream aborted')
   }
 }
 
@@ -147,7 +148,7 @@ class GpkgReader {
     const rows = state.db.prepare(this.selectAllSql(state.meta)).all()
 
     for (let index = 0; index < rows.length; index += 1) {
-      throwIfAborted(signal)
+      AbortSignalGuard.throwIfAborted(signal, 'GeoPackage stream aborted')
       yield this.toFeature(state.meta, rows[index], index)
     }
   }
@@ -776,14 +777,6 @@ function normalizePropertyValue(value: unknown): unknown {
   }
 
   return value
-}
-
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw getAbortReason(signal)
-}
-
-function getAbortReason(signal: AbortSignal): unknown {
-  return signal.reason ?? new Error('GeoPackage stream aborted')
 }
 
 export function crsFromSrsId(srsId: number | null): CrsCode | null {

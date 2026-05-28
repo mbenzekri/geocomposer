@@ -1,8 +1,9 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
-import { access, open, type FileHandle } from 'node:fs/promises'
+import { access, open } from 'node:fs/promises'
 import type { CrsCode } from '../core/types.js'
 import type { Feature, FileRef, SourceRef } from '../geometry/feature.js'
 import { FileSource, type FeatureTransform } from './source.js'
+import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 
 export type GeoJsonSourceOptions = {
   crs?: CrsCode
@@ -52,7 +53,7 @@ export class GeoJsonSource extends FileSource {
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
-    return getAbortReason(signal)
+    return AbortSignalGuard.reason(signal, 'GeoJSON stream aborted')
   }
 }
 
@@ -81,7 +82,7 @@ class GeoJsonReader {
 
     try {
       for await (const chunk of file) {
-        throwIfAborted(signal)
+        AbortSignalGuard.throwIfAborted(signal, 'GeoJSON stream aborted')
         parser.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), this.options.encoding))
 
         for (;;) {
@@ -95,7 +96,7 @@ class GeoJsonReader {
             byteLength: parsed.byteLength
           })
 
-          throwIfAborted(signal)
+          AbortSignalGuard.throwIfAborted(signal, 'GeoJSON stream aborted')
         }
 
         if (parser.done) return
@@ -113,7 +114,7 @@ class GeoJsonReader {
 
     try {
       const buffer = Buffer.alloc(ref.byteLength)
-      const bytesRead = await readFully(handle, buffer, ref.offset)
+      const bytesRead = await FileByteReader.readFully(handle, buffer, ref.offset)
       if (bytesRead < ref.byteLength) {
         throw new Error('Invalid GeoJSON sourceRef: byte range exceeds file length')
       }
@@ -430,24 +431,4 @@ function toFeature(value: unknown): Feature {
     ...feature,
     properties: feature.properties ?? null
   }
-}
-
-async function readFully(handle: FileHandle, buffer: Buffer, position: number): Promise<number> {
-  let total = 0
-
-  while (total < buffer.length) {
-    const { bytesRead } = await handle.read(buffer, total, buffer.length - total, position + total)
-    if (bytesRead === 0) break
-    total += bytesRead
-  }
-
-  return total
-}
-
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw getAbortReason(signal)
-}
-
-function getAbortReason(signal: AbortSignal): unknown {
-  return signal.reason ?? new Error('GeoJSON stream aborted')
 }

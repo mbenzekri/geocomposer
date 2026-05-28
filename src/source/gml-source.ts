@@ -1,9 +1,10 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
-import { access, open, type FileHandle } from 'node:fs/promises'
+import { access, open } from 'node:fs/promises'
 import type { CrsCode, Props } from '../core/types.js'
 import type { Feature, FileRef, SourceRef } from '../geometry/feature.js'
 import type { Geometry, Position } from '../geometry/geometry.js'
 import { FileSource, type FeatureTransform } from './source.js'
+import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 
 export type GmlAxisOrder = 'xy' | 'yx' | 'auto'
 
@@ -104,7 +105,7 @@ export class GmlSource extends FileSource {
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
-    return getAbortReason(signal)
+    return AbortSignalGuard.reason(signal, 'GML stream aborted')
   }
 }
 
@@ -137,7 +138,7 @@ class GmlReader {
 
     try {
       for await (const chunk of file) {
-        throwIfAborted(signal)
+        AbortSignalGuard.throwIfAborted(signal, 'GML stream aborted')
         parser.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), this.options.encoding))
 
         for (;;) {
@@ -159,7 +160,7 @@ class GmlReader {
           )
 
           index += 1
-          throwIfAborted(signal)
+          AbortSignalGuard.throwIfAborted(signal, 'GML stream aborted')
         }
       }
 
@@ -175,7 +176,7 @@ class GmlReader {
 
     try {
       const buffer = Buffer.alloc(ref.byteLength)
-      const bytesRead = await readFully(handle, buffer, ref.offset)
+      const bytesRead = await FileByteReader.readFully(handle, buffer, ref.offset)
       if (bytesRead < ref.byteLength) {
         throw new Error('Invalid GML sourceRef: byte range exceeds file length')
       }
@@ -858,24 +859,4 @@ function localName(name: string): string {
 
 function isWhitespace(char: string): boolean {
   return char === ' ' || char === '\n' || char === '\r' || char === '\t'
-}
-
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw getAbortReason(signal)
-}
-
-function getAbortReason(signal: AbortSignal): unknown {
-  return signal.reason ?? new Error('GML stream aborted')
-}
-
-async function readFully(handle: FileHandle, buffer: Buffer, position: number): Promise<number> {
-  let total = 0
-
-  while (total < buffer.length) {
-    const { bytesRead } = await handle.read(buffer, total, buffer.length - total, position + total)
-    if (bytesRead === 0) break
-    total += bytesRead
-  }
-
-  return total
 }
