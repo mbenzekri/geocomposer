@@ -1,6 +1,6 @@
 import type { BBox } from '../core/types.js'
-import { Geom } from '../geometry/geom.js'
-import type { Feature } from '../geometry/feature.js'
+import { Geom } from '../core/geo-tools.js'
+import type { Feature } from '../core/feature.js'
 
 export class BboxFilter extends TransformStream<Feature, Feature> {
   constructor(bbox: BBox) {

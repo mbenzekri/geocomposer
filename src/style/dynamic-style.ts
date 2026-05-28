@@ -5,7 +5,7 @@ import RegularShape from 'ol/style/RegularShape.js'
 import Stroke from 'ol/style/Stroke.js'
 import Style from 'ol/style/Style.js'
 import Text from 'ol/style/Text.js'
-import type { Feature } from '../geometry/feature.js'
+import type { Feature } from '../core/feature.js'
 import type { StyleContext, StyleFn } from './style-fn.js'
 import {
   setTextDeclutterMode,

@@ -1,7 +1,7 @@
 import proj4 from 'proj4'
-import { Geom } from '../geometry/geom.js'
-import type { Feature } from '../geometry/feature.js'
-import type { Geometry, Position } from '../geometry/geometry.js'
+import { Geom } from '../core/geo-tools.js'
+import type { Feature } from '../core/feature.js'
+import type { Geometry, Position } from '../core/geometry.js'
 
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
 

@@ -1,6 +1,6 @@
 import type { BBox, CrsCode } from '../core/types.js'
-import { Geom } from '../geometry/geom.js'
-import type { Feature, MemRef, SourceRef } from '../geometry/feature.js'
+import { Geom } from '../core/geo-tools.js'
+import type { Feature, MemRef, SourceRef } from '../core/feature.js'
 import { Source, type StreamOptions } from './source.js'
 
 export class MemSource extends Source {

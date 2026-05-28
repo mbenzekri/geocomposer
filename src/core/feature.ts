@@ -1,4 +1,4 @@
-import type { BBox, CrsCode, Props } from '../core/types.js'
+import type { BBox, CrsCode, Props } from './types.js'
 import type { Geometry } from './geometry.js'
 
 export type FileRef = {

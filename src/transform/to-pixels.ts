@@ -1,5 +1,5 @@
 import type { BBox } from '../core/types.js'
-import type { Geometry, Position } from '../geometry/geometry.js'
+import type { Geometry, Position } from '../core/geometry.js'
 
 export function toPixels(
   geometry: Geometry | null,

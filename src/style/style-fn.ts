@@ -1,6 +1,6 @@
 import type Style from 'ol/style/Style.js'
 import type { CrsCode } from '../core/types.js'
-import type { Feature } from '../geometry/feature.js'
+import type { Feature } from '../core/feature.js'
 
 export type StyleContext = {
   crs?: CrsCode

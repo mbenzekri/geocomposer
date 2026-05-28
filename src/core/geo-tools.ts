@@ -1,4 +1,4 @@
-import type { BBox } from '../core/types.js'
+import type { BBox } from './types.js'
 import type { Geometry, Position } from './geometry.js'
 
 export class Geom {

@@ -5,7 +5,7 @@ import MultiPoint from 'ol/geom/MultiPoint.js'
 import MultiLineString from 'ol/geom/MultiLineString.js'
 import MultiPolygon from 'ol/geom/MultiPolygon.js'
 import type OlGeometry from 'ol/geom/Geometry.js'
-import type { Geometry } from '../geometry/geometry.js'
+import type { Geometry } from '../core/geometry.js'
 
 export class OlGeometryAdapter {
   private readonly point = new Point([0, 0])

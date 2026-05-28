@@ -1,7 +1,7 @@
 import type { BBox, CrsCode, Props } from '../core/types.js'
-import { Geom } from '../geometry/geom.js'
-import type { Feature } from '../geometry/feature.js'
-import type { Geometry, Position } from '../geometry/geometry.js'
+import { Geom } from '../core/geo-tools.js'
+import type { Feature } from '../core/feature.js'
+import type { Geometry, Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { escape } from '../core/tools.js'
 

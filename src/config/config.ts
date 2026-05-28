@@ -15,7 +15,7 @@ import type { StyleFn } from '../style/style-fn.js'
 import type { XyzOptions } from '../service/xyz.js'
 import type { WmtsInfo, WmtsOptions } from '../service/wmts.js'
 import { Tileset } from '../tileset/tileset.js'
-import { Geom } from '../geometry/geom.js'
+import { Geom } from '../core/geo-tools.js'
 
 export type NamedConfig<T> = Record<string, T>
 
