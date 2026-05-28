@@ -8,7 +8,7 @@ import {
   getFeatureInfo
 } from '../ogc/get-feature-info.js'
 import { renderMap, type RenderLayer } from '../ogc/render-map.js'
-import { XmlText } from '../ogc/xml-utils.js'
+import { escape } from '../core/tools.js'
 import type { Layer } from '../layer/layer.js'
 import { Service } from './service.js'
 import { ServiceHttp, ServiceParams } from './service-utils.js'
@@ -194,6 +194,14 @@ type FeatureInfoRequest = {
 }
 
 type FeatureInfoFormat = typeof FEATURE_INFO_FORMATS[number]
+
+type WmsBoundingBoxView = {
+  crs: CrsCode
+  minx: number
+  miny: number
+  maxx: number
+  maxy: number
+}
 
 const WMS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
 <WMS_Capabilities version="{{version}}" xmlns="http://www.opengis.net/wms">
@@ -416,7 +424,7 @@ class WmsCapabilitiesBuilder {
           maxy: axisBbox[3]
         }
       })
-      .filter((entry): entry is Record<string, unknown> => entry !== null)
+      .filter((entry): entry is WmsBoundingBoxView => entry !== null)
 
     return {
       west: geographicBbox[0],
@@ -666,7 +674,7 @@ function sendWmsError(res: ServerResponse, code: string, message: string): void 
   const body = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<ServiceExceptionReport version="1.3.0" xmlns="http://www.opengis.net/ogc">',
-    `<ServiceException code="${XmlText.escape(code)}">${XmlText.escape(message)}</ServiceException>`,
+    `<ServiceException code="${escape(code)}">${escape(message)}</ServiceException>`,
     '</ServiceExceptionReport>'
   ].join('')
 

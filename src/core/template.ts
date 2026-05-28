@@ -1,17 +1,10 @@
+import { isTruthy, stringify, escape } from "./tools.js"
+
 type TemplateContext = Record<string, unknown>
 
 export class MarkupTemplate {
   static render(template: string, context: TemplateContext): string {
     return this.renderBlock(template, [context])
-  }
-
-  static escape(value: string): string {
-    return value
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;')
   }
 
   private static renderBlock(template: string, stack: unknown[]): string {
@@ -30,7 +23,7 @@ export class MarkupTemplate {
       if (template.startsWith('{{{', start)) {
         const end = template.indexOf('}}}', start + 3)
         if (end === -1) throw new Error('Unclosed template tag')
-        output += this.stringify(this.resolve(template.slice(start + 3, end).trim(), stack))
+        output += stringify(this.resolve(template.slice(start + 3, end).trim(), stack))
         index = end + 3
         continue
       }
@@ -54,7 +47,7 @@ export class MarkupTemplate {
       if (marker === '^') {
         const section = this.findSection(template, end + 2, name)
         const value = this.resolve(name, stack)
-        output += this.isTruthy(value) ? '' : this.renderBlock(section.body, stack)
+        output += isTruthy(value) ? '' : this.renderBlock(section.body, stack)
         index = section.end
         continue
       }
@@ -70,8 +63,8 @@ export class MarkupTemplate {
 
       const value = this.resolve(name, stack)
       output += marker === '&'
-        ? this.stringify(value)
-        : this.escape(this.stringify(value))
+        ? stringify(value)
+        : escape(stringify(value))
       index = end + 2
     }
 
@@ -83,7 +76,7 @@ export class MarkupTemplate {
       return value.map((item) => this.renderBlock(body, [item, ...stack])).join('')
     }
 
-    if (!this.isTruthy(value)) return ''
+    if (!isTruthy(value)) return ''
 
     if (this.isContext(value)) {
       return this.renderBlock(body, [value, ...stack])
@@ -152,18 +145,8 @@ export class MarkupTemplate {
     return value
   }
 
-  private static isTruthy(value: unknown): boolean {
-    if (Array.isArray(value)) return value.length > 0
-    return Boolean(value)
-  }
-
   private static isContext(value: unknown): value is TemplateContext {
     return typeof value === 'object' && value !== null
-  }
-
-  private static stringify(value: unknown): string {
-    if (value === null || value === undefined) return ''
-    return String(value)
   }
 
 }

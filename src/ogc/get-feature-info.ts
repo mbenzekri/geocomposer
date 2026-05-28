@@ -3,7 +3,7 @@ import { Geom } from '../geometry/geom.js'
 import type { Feature } from '../geometry/feature.js'
 import type { Geometry, Position } from '../geometry/geometry.js'
 import type { Layer } from '../layer/layer.js'
-import { XmlText } from './xml-utils.js'
+import { escape } from '../core/tools.js'
 
 export type FeatureInfoHit = {
   layerName: string
@@ -105,14 +105,14 @@ export function featureInfoToGeoJson(result: FeatureInfoResult): string {
 export function featureInfoToXml(result: FeatureInfoResult): string {
   const layers = groupHitsByLayer(result.hits)
   const layerXml = [...layers.entries()].map(([layerName, hits]) => [
-    `<Layer name="${XmlText.escape(layerName)}">`,
+    `<Layer name="${escape(layerName)}">`,
     ...hits.map((hit) => featureToXml(hit.feature)),
     '</Layer>'
   ].join('')).join('')
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    `<FeatureInfoResponse version="1.3.0" crs="${XmlText.escape(result.crs)}" numberReturned="${result.hits.length}">`,
+    `<FeatureInfoResponse version="1.3.0" crs="${escape(result.crs)}" numberReturned="${result.hits.length}">`,
     `<QueryPoint i="${result.pixel.i}" j="${result.pixel.j}" x="${result.coordinate[0]}" y="${result.coordinate[1]}"/>`,
     layerXml,
     '</FeatureInfoResponse>'
@@ -307,11 +307,11 @@ function groupHitsByLayer(hits: FeatureInfoHit[]): Map<string, FeatureInfoHit[]>
 }
 
 function featureToXml(feature: Feature): string {
-  const id = feature.id === undefined ? '' : ` id="${XmlText.escape(String(feature.id))}"`
+  const id = feature.id === undefined ? '' : ` id="${escape(String(feature.id))}"`
   return [
     `<Feature${id}>`,
     propertiesToXml(feature.properties),
-    feature.geometry ? `<Geometry type="${XmlText.escape(feature.geometry.type)}" encoding="GeoJSON">${XmlText.escape(JSON.stringify(feature.geometry))}</Geometry>` : '',
+    feature.geometry ? `<Geometry type="${escape(feature.geometry.type)}" encoding="GeoJSON">${escape(JSON.stringify(feature.geometry))}</Geometry>` : '',
     '</Feature>'
   ].join('')
 }
@@ -321,10 +321,10 @@ function propertiesToXml(properties: Props | null): string {
 
   const propertyXml = Object.entries(properties).map(([name, value]) => {
     if (value === null || value === undefined) {
-      return `<Property name="${XmlText.escape(name)}" nil="true"/>`
+      return `<Property name="${escape(name)}" nil="true"/>`
     }
 
-    return `<Property name="${XmlText.escape(name)}" type="${XmlText.escape(propertyType(value))}">${XmlText.escape(propertyValue(value))}</Property>`
+    return `<Property name="${escape(name)}" type="${escape(propertyType(value))}">${escape(propertyValue(value))}</Property>`
   }).join('')
 
   return `<Properties>${propertyXml}</Properties>`

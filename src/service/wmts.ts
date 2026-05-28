@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { escape } from '../core/tools.js'
 import { MarkupTemplate } from '../core/template.js'
 import { renderMap } from '../ogc/render-map.js'
-import { XmlText } from '../ogc/xml-utils.js'
 import { TileCache } from '../tileset/tile-cache.js'
 import type { TileMatrixSet } from '../tileset/tile-matrix-set.js'
 import { TilesetLayers } from '../tileset/tileset-utils.js'
@@ -37,6 +37,79 @@ type MatrixSetUse = {
   minZoom: number
   maxZoom: number
 }
+
+const WMTS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
+<Capabilities xmlns="http://www.opengis.net/wmts/1.0"
+  xmlns:ows="http://www.opengis.net/ows/1.1"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.opengis.net/wmts/1.0 http://schemas.opengis.net/wmts/1.0/wmtsGetCapabilities_response.xsd"
+  version="{{version}}">
+  <ows:ServiceIdentification>
+    <ows:Title>{{info.title}}</ows:Title>
+    {{#info.abstract}}<ows:Abstract>{{info.abstract}}</ows:Abstract>{{/info.abstract}}
+    <ows:ServiceType>OGC WMTS</ows:ServiceType>
+    <ows:ServiceTypeVersion>{{version}}</ows:ServiceTypeVersion>
+  </ows:ServiceIdentification>
+  <ows:OperationsMetadata>
+    {{#operations}}
+    <ows:Operation name="{{name}}">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:href="{{serviceUrl}}"/>
+        </ows:HTTP>
+      </ows:DCP>
+    </ows:Operation>
+    {{/operations}}
+  </ows:OperationsMetadata>
+  <Contents>
+    {{#layers}}
+    <Layer>
+      <ows:Title>{{title}}</ows:Title>
+      {{#summary}}<ows:Abstract>{{summary}}</ows:Abstract>{{/summary}}
+      <ows:Identifier>{{name}}</ows:Identifier>
+      <Style isDefault="true">
+        <ows:Identifier>default</ows:Identifier>
+      </Style>
+      <Format>{{format}}</Format>
+      <TileMatrixSetLink>
+        <TileMatrixSet>{{tileMatrixSet}}</TileMatrixSet>
+        <TileMatrixSetLimits>
+          {{#limits}}
+          <TileMatrixLimits>
+            <TileMatrix>{{tileMatrix}}</TileMatrix>
+            <MinTileRow>{{minTileRow}}</MinTileRow>
+            <MaxTileRow>{{maxTileRow}}</MaxTileRow>
+            <MinTileCol>{{minTileCol}}</MinTileCol>
+            <MaxTileCol>{{maxTileCol}}</MaxTileCol>
+          </TileMatrixLimits>
+          {{/limits}}
+        </TileMatrixSetLimits>
+      </TileMatrixSetLink>
+      <ResourceURL format="{{format}}" resourceType="tile" template="{{resourceTemplate}}"/>
+    </Layer>
+    {{/layers}}
+    {{#matrixSets}}
+    <TileMatrixSet>
+      <ows:Title>{{title}}</ows:Title>
+      <ows:Identifier>{{id}}</ows:Identifier>
+      <ows:SupportedCRS>{{supportedCrs}}</ows:SupportedCRS>
+      {{#matrices}}
+      <TileMatrix>
+        <ows:Identifier>{{id}}</ows:Identifier>
+        <ScaleDenominator>{{scaleDenominator}}</ScaleDenominator>
+        <TopLeftCorner>{{topLeftCorner}}</TopLeftCorner>
+        <TileWidth>{{tileWidth}}</TileWidth>
+        <TileHeight>{{tileHeight}}</TileHeight>
+        <MatrixWidth>{{matrixWidth}}</MatrixWidth>
+        <MatrixHeight>{{matrixHeight}}</MatrixHeight>
+      </TileMatrix>
+      {{/matrices}}
+    </TileMatrixSet>
+    {{/matrixSets}}
+  </Contents>
+  <ServiceMetadataURL xlink:href="{{onlineResource}}"/>
+</Capabilities>`
 
 export class Wmts extends Service {
   private readonly tilesetByName: Map<string, Tileset>
@@ -197,88 +270,73 @@ function parseGetTile(params: Map<string, string>, tilesetByName: Map<string, Ti
   }
 }
 
-function buildCapabilitiesXml(info: WmtsInfo, tilesets: Tileset[], serviceUrl: string): string {
-  const onlineResource = info.onlineResource ?? serviceUrl
-  const matrixSetUses = collectMatrixSetUses(tilesets)
-
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<Capabilities xmlns="http://www.opengis.net/wmts/1.0"',
-    '  xmlns:ows="http://www.opengis.net/ows/1.1"',
-    '  xmlns:xlink="http://www.w3.org/1999/xlink"',
-    '  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
-    '  xsi:schemaLocation="http://www.opengis.net/wmts/1.0 http://schemas.opengis.net/wmts/1.0/wmtsGetCapabilities_response.xsd"',
-    `  version="${WMTS_VERSION}">`,
-    '  <ows:ServiceIdentification>',
-    `    <ows:Title>${XmlText.escape(info.title)}</ows:Title>`,
-    info.abstract ? `    <ows:Abstract>${XmlText.escape(info.abstract)}</ows:Abstract>` : '',
-    '    <ows:ServiceType>OGC WMTS</ows:ServiceType>',
-    `    <ows:ServiceTypeVersion>${WMTS_VERSION}</ows:ServiceTypeVersion>`,
-    '  </ows:ServiceIdentification>',
-    '  <ows:OperationsMetadata>',
-    operationXml('GetCapabilities', serviceUrl),
-    operationXml('GetTile', serviceUrl),
-    '  </ows:OperationsMetadata>',
-    '  <Contents>',
-    ...tilesets.map((tileset) => layerXml(tileset, serviceUrl)),
-    ...matrixSetUses.map(matrixSetXml),
-    '  </Contents>',
-    '  <ServiceMetadataURL xlink:href="' + XmlText.escape(onlineResource) + '"/>',
-    '</Capabilities>'
-  ].filter(Boolean).join('\n')
-}
-
-function operationXml(name: string, serviceUrl: string): string {
-  return [
-    `    <ows:Operation name="${name}">`,
-    '      <ows:DCP>',
-    '        <ows:HTTP>',
-    `          <ows:Get xlink:href="${XmlText.escape(serviceUrl)}"/>`,
-    '        </ows:HTTP>',
-    '      </ows:DCP>',
-    '    </ows:Operation>'
-  ].join('\n')
-}
-
-function layerXml(tileset: Tileset, serviceUrl: string): string {
-  return [
-    '    <Layer>',
-    `      <ows:Title>${XmlText.escape(tileset.title ?? tileset.name)}</ows:Title>`,
-    tileset.summary ? `      <ows:Abstract>${XmlText.escape(tileset.summary)}</ows:Abstract>` : '',
-    `      <ows:Identifier>${XmlText.escape(tileset.name)}</ows:Identifier>`,
-    '      <Style isDefault="true">',
-    '        <ows:Identifier>default</ows:Identifier>',
-    '      </Style>',
-    `      <Format>${XmlText.escape(tileset.format)}</Format>`,
-    '      <TileMatrixSetLink>',
-    `        <TileMatrixSet>${XmlText.escape(tileset.tileMatrixSet.id)}</TileMatrixSet>`,
-    tileMatrixSetLimitsXml(tileset),
-    '      </TileMatrixSetLink>',
-    `      <ResourceURL format="${XmlText.escape(tileset.format)}" resourceType="tile" template="${XmlText.escape(tileTemplate(serviceUrl, tileset))}"/>`,
-    '    </Layer>'
-  ].filter(Boolean).join('\n')
-}
-
-function tileMatrixSetLimitsXml(tileset: Tileset): string {
-  const limits = []
-  for (let z = tileset.minZoom; z <= tileset.maxZoom; z += 1) {
-    const max = 2 ** z - 1
-    limits.push([
-      '        <TileMatrixLimits>',
-      `          <TileMatrix>${tileset.tileMatrixSet.matrixId(z)}</TileMatrix>`,
-      '          <MinTileRow>0</MinTileRow>',
-      `          <MaxTileRow>${max}</MaxTileRow>`,
-      '          <MinTileCol>0</MinTileCol>',
-      `          <MaxTileCol>${max}</MaxTileCol>`,
-      '        </TileMatrixLimits>'
-    ].join('\n'))
+class WmtsCapabilitiesBuilder {
+  static build(info: WmtsInfo, tilesets: Tileset[], serviceUrl: string): string {
+    return MarkupTemplate.render(WMTS_CAPABILITIES_TEMPLATE, {
+      version: WMTS_VERSION,
+      info,
+      onlineResource: info.onlineResource ?? serviceUrl,
+      operations: [
+        { name: 'GetCapabilities', serviceUrl },
+        { name: 'GetTile', serviceUrl }
+      ],
+      layers: tilesets.map((tileset) => this.layerView(tileset, serviceUrl)),
+      matrixSets: collectMatrixSetUses(tilesets).map((use) => this.matrixSetView(use))
+    })
   }
 
-  return [
-    '        <TileMatrixSetLimits>',
-    ...limits,
-    '        </TileMatrixSetLimits>'
-  ].join('\n')
+  private static layerView(tileset: Tileset, serviceUrl: string): Record<string, unknown> {
+    return {
+      title: tileset.title ?? tileset.name,
+      summary: tileset.summary,
+      name: tileset.name,
+      format: tileset.format,
+      tileMatrixSet: tileset.tileMatrixSet.id,
+      limits: this.tileMatrixSetLimits(tileset),
+      resourceTemplate: tileTemplate(serviceUrl, tileset)
+    }
+  }
+
+  private static tileMatrixSetLimits(tileset: Tileset): Array<Record<string, unknown>> {
+    const limits: Array<Record<string, unknown>> = []
+
+    for (let z = tileset.minZoom; z <= tileset.maxZoom; z += 1) {
+      const max = 2 ** z - 1
+      limits.push({
+        tileMatrix: tileset.tileMatrixSet.matrixId(z),
+        minTileRow: 0,
+        maxTileRow: max,
+        minTileCol: 0,
+        maxTileCol: max
+      })
+    }
+
+    return limits
+  }
+
+  private static matrixSetView(use: MatrixSetUse): Record<string, unknown> {
+    const matrices = []
+
+    for (let z = use.minZoom; z <= use.maxZoom; z += 1) {
+      const matrix = use.tileMatrixSet.matrix(z, use.tileSize)
+      matrices.push({
+        id: matrix.id,
+        scaleDenominator: matrix.scaleDenominator,
+        topLeftCorner: matrix.topLeftCorner.join(' '),
+        tileWidth: matrix.tileWidth,
+        tileHeight: matrix.tileHeight,
+        matrixWidth: matrix.matrixWidth,
+        matrixHeight: matrix.matrixHeight
+      })
+    }
+
+    return {
+      title: use.tileMatrixSet.title,
+      id: use.tileMatrixSet.id,
+      supportedCrs: use.tileMatrixSet.supportedCrs,
+      matrices
+    }
+  }
 }
 
 function tileTemplate(serviceUrl: string, tileset: Tileset): string {
@@ -294,37 +352,6 @@ function tileTemplate(serviceUrl: string, tileset: Tileset): string {
     'TILECOL={TileCol}',
     `FORMAT=${encodeURIComponent(tileset.format)}`
   ].join('&')
-}
-
-function matrixSetXml(use: MatrixSetUse): string {
-  const matrices = []
-  for (let z = use.minZoom; z <= use.maxZoom; z += 1) {
-    matrices.push(tileMatrixXml(use.tileMatrixSet, z, use.tileSize))
-  }
-
-  return [
-    '    <TileMatrixSet>',
-    `      <ows:Title>${XmlText.escape(use.tileMatrixSet.title)}</ows:Title>`,
-    `      <ows:Identifier>${XmlText.escape(use.tileMatrixSet.id)}</ows:Identifier>`,
-    `      <ows:SupportedCRS>${XmlText.escape(use.tileMatrixSet.supportedCrs)}</ows:SupportedCRS>`,
-    ...matrices,
-    '    </TileMatrixSet>'
-  ].join('\n')
-}
-
-function tileMatrixXml(tileMatrixSet: TileMatrixSet, z: number, tileSize: number): string {
-  const matrix = tileMatrixSet.matrix(z, tileSize)
-  return [
-    '      <TileMatrix>',
-    `        <ows:Identifier>${matrix.id}</ows:Identifier>`,
-    `        <ScaleDenominator>${matrix.scaleDenominator}</ScaleDenominator>`,
-    `        <TopLeftCorner>${matrix.topLeftCorner.join(' ')}</TopLeftCorner>`,
-    `        <TileWidth>${matrix.tileWidth}</TileWidth>`,
-    `        <TileHeight>${matrix.tileHeight}</TileHeight>`,
-    `        <MatrixWidth>${matrix.matrixWidth}</MatrixWidth>`,
-    `        <MatrixHeight>${matrix.matrixHeight}</MatrixHeight>`,
-    '      </TileMatrix>'
-  ].join('\n')
 }
 
 function collectMatrixSetUses(tilesets: Tileset[]): MatrixSetUse[] {
@@ -388,8 +415,8 @@ function sendWmtsError(res: ServerResponse, code: string, message: string): void
   const body = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<ows:ExceptionReport xmlns:ows="http://www.opengis.net/ows/1.1" version="1.0.0">',
-    `  <ows:Exception exceptionCode="${XmlText.escape(code)}">`,
-    `    <ows:ExceptionText>${XmlText.escape(message)}</ows:ExceptionText>`,
+    `  <ows:Exception exceptionCode="${escape(code)}">`,
+    `    <ows:ExceptionText>${escape(message)}</ows:ExceptionText>`,
     '  </ows:Exception>',
     '</ows:ExceptionReport>'
   ].join('\n')
