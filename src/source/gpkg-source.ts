@@ -1,17 +1,16 @@
 import { constants, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
 import type { BBox, CrsCode, Props } from '../core/types.js'
-import { Geom } from '../geometry/geom.js'
 import type { DbRef, Feature, SourceRef } from '../geometry/feature.js'
 import type { Geometry, Position } from '../geometry/geometry.js'
-import { DbSource, type StreamOptions, toStream } from './source.js'
+import { DbSource, type FeatureTransform } from './source.js'
 
 export type GpkgSourceOptions = {
   crs?: CrsCode
   tableName?: string
   geometryColumn?: string
   primaryKey?: string
-  transformFeature?: (feature: Feature, index: number) => Feature | Promise<Feature>
+  transformFeature?: FeatureTransform
 }
 
 type SqliteDatabase = {
@@ -39,7 +38,6 @@ export class GpkgSource extends DbSource {
     return this.reader.crs
   }
 
-  private readonly transformFeature?: GpkgSourceOptions['transformFeature']
   private readonly reader: GpkgReader
   private opened = false
   private opening: Promise<void> | null = null
@@ -49,9 +47,8 @@ export class GpkgSource extends DbSource {
     private readonly filePath: PathLike,
     options: GpkgSourceOptions = {}
   ) {
-    super()
+    super(options.transformFeature)
 
-    this.transformFeature = options.transformFeature
     this.reader = new GpkgReader(this.id, this.filePath, {
       crs: options.crs,
       tableName: options.tableName,
@@ -87,49 +84,18 @@ export class GpkgSource extends DbSource {
     this.opened = false
   }
 
-  async getExtent(): Promise<BBox | null> {
-    let extent: BBox | null = null
-
-    for await (const feature of this.readAll()) {
-      const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
-      if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
-    }
-
-    return extent
-  }
-
-  stream(options: StreamOptions = {}): ReadableStream<Feature> {
-    return toStream(this.readAll(options.signal), options, getAbortReason)
-  }
-
-  async read(sourceRef: SourceRef): Promise<Feature | null> {
+  protected override async readFeature(sourceRef: SourceRef): Promise<Feature | null> {
     await this.open()
-
-    const feature = await this.reader.read(sourceRef)
-    if (!feature) return null
-    return this.mapFeature(feature, sourceRef.recordIndex ?? 0)
+    return this.reader.read(sourceRef)
   }
 
-  private async *readAll(signal?: AbortSignal): AsyncGenerator<Feature> {
+  protected override async *streamFeatures(signal?: AbortSignal): AsyncGenerator<Feature> {
     await this.open()
-
-    let index = 0
-
-    for await (const feature of this.reader.stream(signal)) {
-      yield await this.mapFeature(feature, index)
-      index += 1
-    }
+    yield* this.reader.stream(signal)
   }
 
-  private async mapFeature(feature: Feature, index: number): Promise<Feature> {
-    const output = this.transformFeature
-      ? await this.transformFeature(feature, index)
-      : feature
-
-    return {
-      ...output,
-      sourceRef: feature.sourceRef
-    }
+  protected override abortReason(signal: AbortSignal): unknown {
+    return getAbortReason(signal)
   }
 }
 

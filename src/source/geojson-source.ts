@@ -1,22 +1,20 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open, type FileHandle } from 'node:fs/promises'
-import type { BBox, CrsCode } from '../core/types.js'
-import { Geom } from '../geometry/geom.js'
+import type { CrsCode } from '../core/types.js'
 import type { Feature, FileRef, SourceRef } from '../geometry/feature.js'
-import { FileSource, type StreamOptions, toStream } from './source.js'
+import { FileSource, type FeatureTransform } from './source.js'
 
 export type GeoJsonSourceOptions = {
   crs?: CrsCode
   encoding?: BufferEncoding
   highWaterMark?: number
-  transformFeature?: (feature: Feature, index: number) => Feature | Promise<Feature>
+  transformFeature?: FeatureTransform
 }
 
 export class GeoJsonSource extends FileSource {
   readonly type = 'geojson'
   readonly crs: CrsCode
 
-  private readonly transformFeature?: GeoJsonSourceOptions['transformFeature']
   private readonly reader: GeoJsonReader
 
   constructor(
@@ -24,10 +22,9 @@ export class GeoJsonSource extends FileSource {
     private readonly filePath: PathLike,
     options: GeoJsonSourceOptions = {}
   ) {
-    super()
+    super(options.transformFeature)
 
     this.crs = options.crs ?? 'EPSG:4326'
-    this.transformFeature = options.transformFeature
     this.reader = new GeoJsonReader(this.id, this.filePath, {
       encoding: options.encoding ?? 'utf8',
       highWaterMark: options.highWaterMark
@@ -46,45 +43,16 @@ export class GeoJsonSource extends FileSource {
     await this.reader.close()
   }
 
-  async getExtent(): Promise<BBox | null> {
-    let extent: BBox | null = null
-
-    for await (const feature of this.readAll()) {
-      const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
-      if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
-    }
-
-    return extent
+  protected override streamFeatures(signal?: AbortSignal): AsyncIterable<Feature> {
+    return this.reader.stream(signal)
   }
 
-  stream(options: StreamOptions = {}): ReadableStream<Feature> {
-    return toStream(this.readAll(options.signal), options, getAbortReason)
+  protected override readFeature(sourceRef: SourceRef): Promise<Feature | null> {
+    return this.reader.read(sourceRef)
   }
 
-  async read(sourceRef: SourceRef): Promise<Feature | null> {
-    const feature = await this.reader.read(sourceRef)
-    if (!feature) return null
-    return this.mapFeature(feature, sourceRef.recordIndex ?? 0)
-  }
-
-  private async *readAll(signal?: AbortSignal): AsyncGenerator<Feature> {
-    let index = 0
-
-    for await (const feature of this.reader.stream(signal)) {
-      yield await this.mapFeature(feature, index)
-      index += 1
-    }
-  }
-
-  private async mapFeature(feature: Feature, index: number): Promise<Feature> {
-    const output = this.transformFeature
-      ? await this.transformFeature(feature, index)
-      : feature
-
-    return {
-      ...output,
-      sourceRef: feature.sourceRef
-    }
+  protected override abortReason(signal: AbortSignal): unknown {
+    return getAbortReason(signal)
   }
 }
 

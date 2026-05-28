@@ -1,10 +1,9 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open, type FileHandle } from 'node:fs/promises'
-import type { BBox, CrsCode, Props } from '../core/types.js'
-import { Geom } from '../geometry/geom.js'
+import type { CrsCode, Props } from '../core/types.js'
 import type { Feature, FileRef, SourceRef } from '../geometry/feature.js'
 import type { Geometry, Position } from '../geometry/geometry.js'
-import { FileSource, type StreamOptions, toStream } from './source.js'
+import { FileSource, type FeatureTransform } from './source.js'
 
 export type GmlAxisOrder = 'xy' | 'yx' | 'auto'
 
@@ -15,7 +14,7 @@ export type GmlSourceOptions = {
   featureElementNames?: string[]
   geometryPropertyNames?: string[]
   axisOrder?: GmlAxisOrder
-  transformFeature?: (feature: Feature, index: number) => Feature | Promise<Feature>
+  transformFeature?: FeatureTransform
 }
 
 type ParsedXmlFeature = {
@@ -65,7 +64,6 @@ export class GmlSource extends FileSource {
   readonly type = 'gml'
   readonly crs: CrsCode
 
-  private readonly transformFeature?: GmlSourceOptions['transformFeature']
   private readonly reader: GmlReader
 
   constructor(
@@ -73,10 +71,9 @@ export class GmlSource extends FileSource {
     private readonly filePath: PathLike,
     options: GmlSourceOptions = {}
   ) {
-    super()
+    super(options.transformFeature)
 
     this.crs = options.crs ?? 'EPSG:4326'
-    this.transformFeature = options.transformFeature
     this.reader = new GmlReader(this.id, this.filePath, {
       encoding: options.encoding ?? 'utf8',
       highWaterMark: options.highWaterMark,
@@ -98,45 +95,16 @@ export class GmlSource extends FileSource {
     await this.reader.close()
   }
 
-  async getExtent(): Promise<BBox | null> {
-    let extent: BBox | null = null
-
-    for await (const feature of this.readAll()) {
-      const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
-      if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
-    }
-
-    return extent
+  protected override streamFeatures(signal?: AbortSignal): AsyncIterable<Feature> {
+    return this.reader.stream(signal)
   }
 
-  stream(options: StreamOptions = {}): ReadableStream<Feature> {
-    return toStream(this.readAll(options.signal), options, getAbortReason)
+  protected override readFeature(sourceRef: SourceRef): Promise<Feature | null> {
+    return this.reader.read(sourceRef)
   }
 
-  async read(sourceRef: SourceRef): Promise<Feature | null> {
-    const feature = await this.reader.read(sourceRef)
-    if (!feature) return null
-    return this.mapFeature(feature, sourceRef.recordIndex ?? 0)
-  }
-
-  private async *readAll(signal?: AbortSignal): AsyncGenerator<Feature> {
-    let index = 0
-
-    for await (const feature of this.reader.stream(signal)) {
-      yield await this.mapFeature(feature, index)
-      index += 1
-    }
-  }
-
-  private async mapFeature(feature: Feature, index: number): Promise<Feature> {
-    const output = this.transformFeature
-      ? await this.transformFeature(feature, index)
-      : feature
-
-    return {
-      ...output,
-      sourceRef: feature.sourceRef
-    }
+  protected override abortReason(signal: AbortSignal): unknown {
+    return getAbortReason(signal)
   }
 }
 

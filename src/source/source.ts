@@ -1,6 +1,7 @@
 import type { PathLike } from 'node:fs'
 import type { BBox, CrsCode } from '../core/types.js'
 import type { Feature, SourceRef } from '../geometry/feature.js'
+import { Geom } from '../geometry/geom.js'
 import { BboxFilter } from '../transform/bbox-filter.js'
 
 export type SourceStorage = 'mem' | 'file' | 'database'
@@ -21,6 +22,8 @@ export type QueryOptions = StreamOptions & {
   crs?: CrsCode
   properties?: string[]
 }
+
+export type FeatureTransform = (feature: Feature, index: number) => Feature | Promise<Feature>
 
 export abstract class Source {
   abstract readonly id: string
@@ -46,14 +49,76 @@ export abstract class Source {
   }
 }
 
-export abstract class FileSource extends Source {
+export abstract class FeatureSource extends Source {
+  protected constructor(private readonly transformFeature?: FeatureTransform) {
+    super()
+  }
+
+  async getExtent(): Promise<BBox | null> {
+    let extent: BBox | null = null
+
+    for await (const feature of this.readAll()) {
+      const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
+      if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
+    }
+
+    return extent
+  }
+
+  stream(options: StreamOptions = {}): ReadableStream<Feature> {
+    return toStream(this.readAll(options.signal), options, (signal) => this.abortReason(signal))
+  }
+
+  async read(sourceRef: SourceRef): Promise<Feature | null> {
+    const feature = await this.readFeature(sourceRef)
+    if (!feature) return null
+    return this.mapFeature(feature, sourceRef.recordIndex ?? 0)
+  }
+
+  protected abstract streamFeatures(signal?: AbortSignal): AsyncIterable<Feature>
+  protected abstract readFeature(sourceRef: SourceRef): Promise<Feature | null>
+
+  protected abortReason(signal: AbortSignal): unknown {
+    return signal.reason
+  }
+
+  private async *readAll(signal?: AbortSignal): AsyncGenerator<Feature> {
+    let index = 0
+
+    for await (const feature of this.streamFeatures(signal)) {
+      yield await this.mapFeature(feature, index)
+      index += 1
+    }
+  }
+
+  private async mapFeature(feature: Feature, index: number): Promise<Feature> {
+    const output = this.transformFeature
+      ? await this.transformFeature(feature, index)
+      : feature
+
+    return {
+      ...output,
+      sourceRef: feature.sourceRef
+    }
+  }
+}
+
+export abstract class FileSource extends FeatureSource {
   readonly storage = 'file' as const
+
+  protected constructor(transformFeature?: FeatureTransform) {
+    super(transformFeature)
+  }
 
   abstract getFiles(): readonly SourceFile[]
 }
 
-export abstract class DbSource extends Source {
+export abstract class DbSource extends FeatureSource {
   readonly storage = 'database' as const
+
+  protected constructor(transformFeature?: FeatureTransform) {
+    super(transformFeature)
+  }
 }
 
 export function toStream<T>(
