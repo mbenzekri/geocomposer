@@ -59,15 +59,6 @@ export abstract class Service {
     return `${protocol}://${host}`
   }
 
-  protected fromUrl(url: URL): Map<string, string> {
-    const params = new Map<string, string>()
-
-    for (const [key, value] of url.searchParams.entries()) {
-      params.set(key.toUpperCase(), value)
-    }
-
-    return params
-  }
 
   protected require(params: Map<string, string>, name: string, missingMessage = `${name} is required`): string {
     const value = params.get(name)

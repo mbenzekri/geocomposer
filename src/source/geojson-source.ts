@@ -1,6 +1,6 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open } from 'node:fs/promises'
-import type { CrsCode } from '../core/types.js'
+import type { CrsCode } from '../core/geometry.js'
 import type { Feature, FileRef, SourceRef } from '../core/feature.js'
 import { FileSource, type FeatureTransform } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'

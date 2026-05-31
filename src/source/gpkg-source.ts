@@ -1,8 +1,7 @@
 import { constants, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
-import type { BBox, CrsCode, Props } from '../core/types.js'
-import type { DbRef, Feature, SourceRef } from '../core/feature.js'
-import type { Geometry, Position } from '../core/geometry.js'
+import type { DbRef, Feature, SourceRef, Props} from '../core/feature.js'
+import type { Geometry, Position, BBox, CrsCode} from '../core/geometry.js'
 import { DbSource, type FeatureTransform } from './source.js'
 import { AbortSignalGuard } from './source-utils.js'
 

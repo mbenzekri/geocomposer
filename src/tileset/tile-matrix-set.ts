@@ -1,4 +1,4 @@
-import type { BBox, CrsCode } from '../core/types.js'
+import type { BBox, CrsCode } from '../core/geometry.js'
 
 const WEB_MERCATOR_HALF_WORLD = 20037508.342789244
 const WMTS_PIXEL_SIZE_METERS = 0.00028

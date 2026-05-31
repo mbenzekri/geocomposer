@@ -1,4 +1,4 @@
-import type { BBox, CrsCode } from '../core/types.js'
+import type { BBox, CrsCode } from '../core/geometry.js'
 import type { Feature } from '../core/feature.js'
 import type { QueryOptions, Source, StreamOptions } from '../source/source.js'
 import type { StyleFn } from '../style/style-fn.js'
@@ -11,6 +11,11 @@ export type LayerStyle = {
   summary?: string
   style: StyleFn
 }
+export type PointProperties = {
+  x: string
+  y: string
+  crs: CrsCode
+}
 
 export type LayerOptions = {
   title?: string
@@ -19,6 +24,7 @@ export type LayerOptions = {
   sourceCrs?: CrsCode
   extent?: BBox
   styles: LayerStyle[]
+  pointProperties: PointProperties[]
 }
 
 export class Layer {
@@ -28,6 +34,7 @@ export class Layer {
   readonly sourceCrs: CrsCode
   readonly extent?: BBox
   readonly styles: readonly LayerStyle[]
+  readonly pointProperties: PointProperties[]
 
   constructor(
     readonly name: string,
@@ -43,6 +50,7 @@ export class Layer {
     this.sourceCrs = options.sourceCrs ?? options.source.crs
     this.extent = options.extent
     this.styles = options.styles
+    this.pointProperties = options.pointProperties
   }
 
   get style(): StyleFn {
@@ -62,23 +70,25 @@ export class Layer {
   }
 
   stream(options?: StreamOptions): ReadableStream<Feature> {
-    return this.source.stream(options)
+    return this.source.stream({...options, layer: options?.layer})
   }
 
-  query(options: QueryOptions = {}): ReadableStream<Feature> {
+  query(options: QueryOptions = {layer: this}): ReadableStream<Feature> {
     const crs = options.crs ?? this.sourceCrs
 
     if (crs === this.sourceCrs) {
       return this.source.query({
         bbox: options.bbox,
         signal: options.signal,
-        properties: options.properties
+        properties: options.properties,
+        layer: this
       })
     }
 
     const input = this.source.query({
       signal: options.signal,
-      properties: options.properties
+      properties: options.properties,
+      layer: this
     })
 
     const reprojected = input.pipeThrough(new Reproject(this.sourceCrs, crs))

@@ -1,5 +1,5 @@
-import type { BBox, CrsCode } from '../core/types.js'
-import { Geom } from '../core/geo-tools.js'
+import type { BBox, CrsCode } from '../core/geometry.js'
+import { Gt } from '../core/geotools.js'
 import type { Feature, MemRef, SourceRef } from '../core/feature.js'
 import { Source, type StreamOptions } from './source.js'
 
@@ -66,8 +66,8 @@ export class MemSource extends Source {
     let extent: BBox | null = null
 
     for (const feature of this.features) {
-      const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
-      if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
+      const bbox = feature.bbox ?? Gt.bbox(feature.geometry)
+      if (bbox) extent = extent ? Gt.expand(extent, bbox) : bbox
     }
 
     return extent

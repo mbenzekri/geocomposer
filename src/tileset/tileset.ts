@@ -1,17 +1,12 @@
-import type { CrsCode, BBox } from '../core/types.js'
+import type { CrsCode, BBox } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
-import type { RenderLayer } from '../ogc/render-map.js'
+import { StyleFn } from '../style/style-fn.js'
 import { getTileMatrixSet, type TileMatrixSet } from './tile-matrix-set.js'
 
 const DEFAULT_FORMAT = 'image/png'
 const DEFAULT_TILE_SIZE = 256
 const DEFAULT_MIN_ZOOM = 0
 const DEFAULT_MAX_ZOOM = 22
-
-export type TilesetLayerOptions = {
-  layer: Layer
-  style?: string
-}
 
 export type TilesetOptions = {
   name: string
@@ -23,7 +18,8 @@ export type TilesetOptions = {
   minZoom?: number
   maxZoom?: number
   cacheControl?: string
-  layers: TilesetLayerOptions[]
+  layers: Layer[]
+  styles: string[]
 }
 
 export class Tileset {
@@ -36,8 +32,8 @@ export class Tileset {
   readonly minZoom: number
   readonly maxZoom: number
   readonly cacheControl?: string
-  readonly layers: RenderLayer[]
-  readonly mapLayers: Layer[]
+  readonly layers: Layer[]
+  readonly styles: StyleFn[]
 
   constructor(options: TilesetOptions) {
     this.name = options.name
@@ -49,12 +45,8 @@ export class Tileset {
     this.minZoom = options.minZoom ?? DEFAULT_MIN_ZOOM
     this.maxZoom = options.maxZoom ?? DEFAULT_MAX_ZOOM
     this.cacheControl = options.cacheControl
-    this.mapLayers = options.layers.map((entry) => entry.layer)
-    this.layers = options.layers.map((entry) => ({
-      layer: entry.layer,
-      style: entry.layer.resolveStyle(entry.style)
-    }))
-
+    this.layers = options.layers
+    this.styles = options.styles.map((stylename,index) => this.layers[index].resolveStyle(stylename))
     this.validate()
   }
 

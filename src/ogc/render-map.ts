@@ -1,31 +1,18 @@
 import { get as getProjection, getPointResolution } from 'ol/proj.js'
-import type { BBox, CrsCode } from '../core/types.js'
+import type { BBox, CrsCode } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import type { StyleContext, StyleFn } from '../style/style-fn.js'
 import { createDeferredTextRenderQueue, OlRenderer } from '../render/ol-renderer.js'
 import { RenderWritable } from '../render/render-writable.js'
 
-export type RenderLayer = {
-  layer: Layer
-  style: StyleFn
-}
 
 export type RenderMapOptions = {
-  layers: RenderLayer[]
+  layers: Layer[]
+  styles: StyleFn[]
   bbox: BBox
   width: number
   height: number
   crs: CrsCode
-  pixelRatio?: number
-}
-
-export type RenderSingleMapOptions = {
-  layer: Layer
-  bbox: BBox
-  width: number
-  height: number
-  crs: CrsCode
-  style?: StyleFn
   pixelRatio?: number
 }
 
@@ -33,12 +20,11 @@ const DEFAULT_DPI = 25.4 / 0.28
 const INCHES_PER_METER = 1000 / 25.4
 const METERS_PER_DEGREE = 111319.49079327358
 
-export async function renderMap(options: RenderMapOptions | RenderSingleMapOptions): Promise<Buffer> {
+export async function renderMap(options: RenderMapOptions): Promise<Buffer> {
   const resolution = (options.bbox[2] - options.bbox[0]) / options.width
   const styleContext = createStyleContext(options.crs, options.bbox, resolution, options.pixelRatio ?? 1)
-  const layers = 'layers' in options
-    ? options.layers
-    : [{ layer: options.layer, style: options.style ?? options.layer.style }]
+  const layers = options.layers
+  const styles = options.styles
 
   if (layers.length === 0) {
     return new OlRenderer(
@@ -65,18 +51,18 @@ export async function renderMap(options: RenderMapOptions | RenderSingleMapOptio
   )
   await renderLayer(firstLayer, renderer, options)
 
-  for (const layer of remainingLayers) {
-    const layerRenderer = new OlRenderer(
-      options.width,
-      options.height,
-      options.bbox,
-      layer.style,
-      resolution,
-      deferredText,
-      styleContext
-    )
-    await renderLayer(layer, layerRenderer, options)
-    renderer.drawRenderer(layerRenderer)
+  for (const layer of layers) {
+    // const layerRenderer = new OlRenderer(
+    //   options.width,
+    //   options.height,
+    //   options.bbox,
+    //   layer.style,
+    //   resolution,
+    //   deferredText,
+    //   styleContext
+    // )
+    await renderLayer(layer, renderer, options)
+    //renderer.drawRenderer(layerRenderer)
   }
 
   await renderer.drawDeferredText('map')
@@ -120,13 +106,14 @@ function getGroundResolutionMeters(crs: CrsCode, bbox: BBox, resolution: number)
 }
 
 async function renderLayer(
-  layer: RenderLayer,
+  layer: Layer,
   renderer: OlRenderer,
-  options: RenderMapOptions | RenderSingleMapOptions
+  options: RenderMapOptions
 ): Promise<void> {
-  const features = layer.layer.query({
+  const features = layer.query({
     bbox: options.bbox,
-    crs: options.crs
+    crs: options.crs,
+    layer:layer
   })
 
   await features.pipeTo(new RenderWritable(renderer))

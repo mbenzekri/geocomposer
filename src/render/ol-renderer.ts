@@ -8,9 +8,8 @@ import './openlayers-node-shim.js'
 import ImageState from 'ol/ImageState.js'
 import { toContext } from 'ol/render.js'
 import Style from 'ol/style/Style.js'
-import type { BBox } from '../core/types.js'
 import type { Feature } from '../core/feature.js'
-import type { Geometry } from '../core/geometry.js'
+import type { Geometry, BBox } from '../core/geometry.js'
 import type { StyleContext, StyleFn } from '../style/style-fn.js'
 import {
     copyTextRenderMetadata,

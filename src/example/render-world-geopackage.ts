@@ -19,13 +19,15 @@ const layer = new Layer('world-gpkg', {
   styles: [{
     name: 'default',
     style: worldStyleFn
-  }]
+  }],
+  pointProperties: []
 })
 
 await layer.open()
 try {
   const image = await renderMap({
-    layer,
+    layers: [layer],
+    styles: [],
     bbox: WORLD_BBOX_3857,
     width: 500,
     height: 500,

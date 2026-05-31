@@ -531,6 +531,18 @@
             "type": "string"
           },
           "uniqueItems": true
+        },
+        "pointProperties" : {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["x","y"],
+            "properties" : {
+                "x" : "string",
+                "y" : "string",
+                "crs" : "string"
+            }
+          }
         }
       }
     },

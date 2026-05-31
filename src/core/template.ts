@@ -1,7 +1,5 @@
 import { isTruthy, stringify, escape } from "./tools.js"
-import { Props } from "./types.js"
-
-
+import { Props } from "./feature.js"
 export class MarkupTemplate {
   static render(template: string, context: Props): string {
     return this.renderBlock(template, [context])

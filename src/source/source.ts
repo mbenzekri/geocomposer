@@ -1,8 +1,9 @@
 import type { PathLike } from 'node:fs'
-import type { BBox, CrsCode } from '../core/types.js'
+import type { BBox, CrsCode } from '../core/geometry.js'
 import type { Feature, SourceRef } from '../core/feature.js'
-import { Geom } from '../core/geo-tools.js'
+import { Gt } from '../core/geotools.js'
 import { BboxFilter } from '../transform/bbox-filter.js'
+import {Layer} from '../layer/layer.js'
 
 export type SourceStorage = 'mem' | 'file' | 'database'
 
@@ -14,7 +15,8 @@ export type SourceFile = {
 }
 
 export type StreamOptions = {
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  layer?: Layer
 }
 
 export type QueryOptions = StreamOptions & {
@@ -36,7 +38,7 @@ export abstract class Source {
   abstract getExtent(): Promise<BBox | null>
 
   abstract stream(options?: StreamOptions): ReadableStream<Feature>
-  abstract read(sourceRef: SourceRef): Promise<Feature | null>
+  abstract read(sourceRef: SourceRef,options?: StreamOptions): Promise<Feature | null>
 
   query(options: QueryOptions): ReadableStream<Feature> {
     const input = this.stream(options)
@@ -58,8 +60,8 @@ export abstract class FeatureSource extends Source {
     let extent: BBox | null = null
 
     for await (const feature of this.readAll()) {
-      const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
-      if (bbox) extent = extent ? Geom.expand(extent, bbox) : bbox
+      const bbox = feature.bbox ?? Gt.bbox(feature.geometry)
+      if (bbox) extent = extent ? Gt.expand(extent, bbox) : bbox
     }
 
     return extent

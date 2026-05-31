@@ -49,15 +49,17 @@ const layer = new Layer('demo', {
   source,
   styles: [{
     name: 'default',
-    style: defaultStyleFn
-  }]
+    style: defaultStyleFn,
+  }],
+  pointProperties: []
 })
 
 await rm('style-smoke/map.png', { force: true })
 await mkdir('style-smoke', { recursive: true })
 
 const image = await renderMap({
-  layer,
+  layers:[layer],
+  styles:[],
   bbox: [-6, 42, 6, 50],
   width: 800,
   height: 600,

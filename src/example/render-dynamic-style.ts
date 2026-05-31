@@ -96,14 +96,16 @@ const layer = new Layer('dynamic-style-demo', {
   styles: [{
     name: 'default',
     style
-  }]
+  }],
+  pointProperties: []
 })
 
 await rm('style-smoke/dynamic-style.png', { force: true })
 await mkdir('style-smoke', { recursive: true })
 
 const image = await renderMap({
-  layer,
+  layers: [layer],
+  styles: [],
   bbox: [-6, 42, 6, 50],
   width: 800,
   height: 600,

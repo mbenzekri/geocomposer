@@ -1,3 +1,7 @@
+export type BBox = [number, number, number, number]
+
+export type CrsCode = string
+
 export type Geometry =
   | Point
   | LineString
@@ -36,4 +40,12 @@ export type MultiLineString = {
 export type MultiPolygon = {
   type: 'MultiPolygon'
   coordinates: Position[][][]
+}
+
+export type HitContext = {
+  point: Position
+  bbox: BBox
+  tolerance: number
+  toleranceX: number
+  toleranceY: number
 }

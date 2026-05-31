@@ -1,4 +1,4 @@
-import type { BBox } from '../core/types.js'
+import type { BBox } from '../core/geometry.js'
 import Fill from 'ol/style/Fill.js'
 import Stroke from 'ol/style/Stroke.js'
 import Style from 'ol/style/Style.js'

@@ -217,11 +217,13 @@ for (const smokeCase of smokeCases) {
       styles: [{
         name: 'default',
         style
-      }]
+      }],
+      pointProperties: []
     })
 
     const image = await renderMap({
-      layer,
+    layers: [layer],
+    styles: [],
       bbox: [-1, -1, 1, 1],
       width: 180,
       height: 140,

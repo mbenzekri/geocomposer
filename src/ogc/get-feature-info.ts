@@ -1,7 +1,6 @@
-import type { BBox, CrsCode, Props } from '../core/types.js'
-import { Geom } from '../core/geo-tools.js'
-import type { Feature } from '../core/feature.js'
-import type { Geometry, Position } from '../core/geometry.js'
+import type { Feature, Props } from '../core/feature.js'
+import type { BBox, CrsCode, HitContext, Position } from '../core/geometry.js'
+import { Gt } from '../core/geotools.js'
 import type { Layer } from '../layer/layer.js'
 import { escape } from '../core/tools.js'
 
@@ -33,14 +32,6 @@ export type GetFeatureInfoOptions = {
   j: number
   featureCount: number
   tolerancePixels?: number
-}
-
-type HitContext = {
-  point: Position
-  bbox: BBox
-  tolerance: number
-  toleranceX: number
-  toleranceY: number
 }
 
 export async function getFeatureInfo(options: GetFeatureInfoOptions): Promise<FeatureInfoResult> {
@@ -138,7 +129,8 @@ async function collectLayerHits(
 ): Promise<void> {
   const features = layer.query({
     bbox: context.bbox,
-    crs: targetCrs
+    crs: targetCrs,
+    layer
   })
   const reader = features.getReader()
   let done = false
@@ -151,7 +143,7 @@ async function collectLayerHits(
         break
       }
 
-      if (featureHitsPoint(next.value, context)) {
+      if (Gt.featureHitsPoint(next.value, context)) {
         hits.push({
           layerName: layer.name,
           feature: next.value
@@ -166,69 +158,6 @@ async function collectLayerHits(
     }
     reader.releaseLock()
   }
-}
-
-function featureHitsPoint(feature: Feature, context: HitContext): boolean {
-  if (!feature.geometry) return false
-
-  const bbox = feature.bbox ?? Geom.bbox(feature.geometry)
-  if (bbox && !Geom.intersects(bbox, context.bbox)) return false
-
-  return geometryHitsPoint(feature.geometry, context)
-}
-
-function geometryHitsPoint(geometry: Geometry, context: HitContext): boolean {
-  switch (geometry.type) {
-    case 'Point':
-      return positionHitsPoint(geometry.coordinates, context)
-
-    case 'MultiPoint':
-      return geometry.coordinates.some((position) => positionHitsPoint(position, context))
-
-    case 'LineString':
-      return lineHitsPoint(geometry.coordinates, context)
-
-    case 'MultiLineString':
-      return geometry.coordinates.some((line) => lineHitsPoint(line, context))
-
-    case 'Polygon':
-      return polygonHitsPoint(geometry.coordinates, context)
-
-    case 'MultiPolygon':
-      return geometry.coordinates.some((polygon) => polygonHitsPoint(polygon, context))
-  }
-}
-
-function positionHitsPoint(position: Position, context: HitContext): boolean {
-  return Math.abs(position[0] - context.point[0]) <= context.toleranceX
-    && Math.abs(position[1] - context.point[1]) <= context.toleranceY
-}
-
-function lineHitsPoint(line: Position[], context: HitContext): boolean {
-  if (line.length === 0) return false
-  if (line.length === 1) return positionHitsPoint(line[0], context)
-
-  for (let index = 1; index < line.length; index += 1) {
-    if (Geom.distanceToSegment(context.point, line[index - 1], line[index]) <= context.tolerance) {
-      return true
-    }
-  }
-
-  return false
-}
-
-function polygonHitsPoint(polygon: Position[][], context: HitContext): boolean {
-  if (polygon.length === 0) return false
-
-  if (lineHitsPoint(polygon[0], context)) return true
-  if (!Geom.pointInRing(context.point, polygon[0])) return false
-
-  for (const hole of polygon.slice(1)) {
-    if (lineHitsPoint(hole, context)) return true
-    if (Geom.pointInRing(context.point, hole)) return false
-  }
-
-  return true
 }
 
 function toGeoJsonFeature(hit: FeatureInfoHit): Record<string, unknown> {

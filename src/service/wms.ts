@@ -1,17 +1,18 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import proj4 from 'proj4'
-import type { BBox, CrsCode } from '../core/types.js'
+import type { BBox, CrsCode } from '../core/geometry.js'
 import { MarkupTemplate } from '../core/template.js'
 import {
     featureInfoToGeoJson,
     featureInfoToXml,
     getFeatureInfo
 } from '../ogc/get-feature-info.js'
-import { renderMap, type RenderLayer } from '../ogc/render-map.js'
-import { escape } from '../core/tools.js'
+import { renderMap } from '../ogc/render-map.js'
+import { escape, paramsFromUrl } from '../core/tools.js'
 import type { Layer } from '../layer/layer.js'
 import { Service } from './service.js'
 import type { StyleFn } from '../style/style-fn.js'
+import { Gt } from '../core/geotools.js'
 
 const WMS_VERSION = '1.3.0'
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
@@ -87,7 +88,7 @@ export class Wms extends Service {
                 return
             }
 
-            const params = this.fromUrl(url)
+            const params = paramsFromUrl(url)
             const request = (params.get('REQUEST') ?? 'GetCapabilities').toUpperCase()
             const service = params.get('SERVICE')
 
@@ -113,6 +114,7 @@ export class Wms extends Service {
                 logGetMapParams(traceId, mapRequest)
                 const image = await renderMap({
                     layers: mapRequest.layers,
+                    styles: [],
                     bbox: mapRequest.bbox,
                     width: mapRequest.width,
                     height: mapRequest.height,
@@ -198,11 +200,8 @@ export class Wms extends Service {
         const parsedBbox = parseBBox(rawBbox, crs, version)
         validateCrs(supportedCrs, crs)
         const styleNames = parseStyles(params.get('STYLES'), selectedLayers.length)
-        const layers = selectedLayers.map((layer, index) => ({
-            layer,
-            style: resolveLayerStyle(layer, styleNames[index])
-        }))
-
+        const layers = selectedLayers.map((layer, index) => layer);
+        const styles = selectedLayers.map((layer, index) => resolveLayerStyle(layer, styleNames[index]))
         const format = params.get('FORMAT') ?? 'image/png'
         if (format !== 'image/png') {
             throw new Error(`Unsupported FORMAT: ${format}`)
@@ -210,6 +209,7 @@ export class Wms extends Service {
 
         return {
             layers,
+            styles,
             layerNames,
             rawBbox,
             bbox: parsedBbox.bbox,
@@ -283,7 +283,8 @@ export class Wms extends Service {
 }
 
 type MapRequest = {
-    layers: RenderLayer[]
+    layers: Layer[]
+    styles: StyleFn[]
     layerNames: string[]
     rawBbox: string
     bbox: BBox
@@ -462,7 +463,7 @@ function transformPosition(position: [number, number], sourceCrs: CrsCode, targe
     const x = position[0]
     const y = position[1]
     const [fromX, fromY] = sourceCrs === 'EPSG:4326' && targetCrs === 'EPSG:3857'
-        ? [x, clamp(y, -WEB_MERCATOR_LATITUDE_LIMIT, WEB_MERCATOR_LATITUDE_LIMIT)]
+        ? [x, Gt.clamp(y, -WEB_MERCATOR_LATITUDE_LIMIT, WEB_MERCATOR_LATITUDE_LIMIT)]
         : [x, y]
 
     try {
@@ -540,10 +541,6 @@ function toWmsBoundingBox(bbox: BBox, crs: CrsCode, version: string): BBox {
 
 function usesLatLonAxisOrder(crs: CrsCode, version: string): boolean {
     return version === '1.3.0' && crs.toUpperCase() === 'EPSG:4326'
-}
-
-function clamp(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value))
 }
 
 function unique<T>(values: T[]): T[] {

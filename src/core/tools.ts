@@ -1,4 +1,3 @@
-import { BBox } from "./types.js"
 
 export function isTruthy(value: unknown): boolean {
     return Boolean(Array.isArray(value) ? value.length : value)
@@ -28,4 +27,14 @@ export function nonNegativeInteger(value: string, name: string): number {
     }
 
     return number
+}
+
+export function paramsFromUrl(url: URL): Map<string, string> {
+    const params = new Map<string, string>()
+
+    for (const [key, value] of url.searchParams.entries()) {
+        params.set(key.toUpperCase(), value)
+    }
+
+    return params
 }
