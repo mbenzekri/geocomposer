@@ -4,11 +4,6 @@ import type { Layer } from '../layer/layer.js'
 import { escape } from '../core/tools.js'
 import { HitFilter } from '../stream/hit-filter.js'
 
-export type Hit = {
-    layerName: string
-    feature: Feature
-}
-
 export type InfoResult = {
     crs: CrsCode
     bbox: BBox
@@ -19,7 +14,7 @@ export type InfoResult = {
         j: number
     }
     coordinate: Position
-    hits: Hit[]
+    hits: Feature[]
 }
 
 export type GetInfoOptions = {
@@ -38,13 +33,13 @@ export async function getInfo(options: GetInfoOptions): Promise<InfoResult> {
     const point = pixelToCoordinate(options.bbox, options.width, options.height, options.i, options.j)
     const tolerancePixels = options.tolerancePixels ?? 4
     const context = createHitContext(tolerancePixels,options.bbox, options.width,options.height, point)
-    const hits: Hit[] = []
+    const hits: Feature[] = []
 
     for (const layer of options.layers) {
         const layerHits = layer.query({
             bbox: context.bbox,
             crs: options.crs
-        }).pipeThrough(new HitFilter(layer.name, context))
+        }).pipeThrough(new HitFilter(context))
 
         await collectHits(layerHits, options.featureCount - hits.length, hits)
 
@@ -86,19 +81,19 @@ export class GeoJsonFormatter extends InfoFormatter {
                 pixel: result.pixel
             },
             numberReturned: result.hits.length,
-            features: result.hits.map((hit) => this.toGeoJsonFeature(hit))
+            features: result.hits.map((feature) => this.toGeoJsonFeature(feature))
         })
     }
-    private toGeoJsonFeature(hit: Hit): Record<string, unknown> {
+    private toGeoJsonFeature(source: Feature): Record<string, unknown> {
         const feature: Record<string, unknown> = {
             type: 'Feature',
-            layer: hit.layerName,
-            properties: this.normalizeJsonValue(hit.feature.properties ?? {}),
-            geometry: hit.feature.geometry
+            layer: source.layer.name,
+            properties: this.normalizeJsonValue(source.properties ?? {}),
+            geometry: source.geometry
         }
 
-        if (hit.feature.id !== undefined) feature.id = hit.feature.id
-        if (hit.feature.bbox) feature.bbox = hit.feature.bbox
+        if (source.id !== undefined) feature.id = source.id
+        if (source.bbox) feature.bbox = source.bbox
 
         return feature
     }
@@ -124,7 +119,7 @@ export class XmlFormatter extends InfoFormatter {
         const layers = groupHitsByLayer(result.hits)
         const layerXml = [...layers.entries()].map(([layerName, hits]) => [
             `<Layer name="${escape(layerName)}">`,
-            ...hits.map((hit) => this.featureToXml(hit.feature)),
+            ...hits.map((feature) => this.featureToXml(feature)),
             '</Layer>'
         ].join('')).join('')
 
@@ -174,9 +169,9 @@ export class XmlFormatter extends InfoFormatter {
 
 
 async function collectHits(
-    stream: ReadableStream<Hit>,
+    stream: ReadableStream<Feature>,
     limit: number,
-    hits: Hit[]
+    hits: Feature[]
 ): Promise<void> {
     if (limit <= 0) return
 
@@ -203,21 +198,20 @@ async function collectHits(
     }
 }
 
-function groupHitsByLayer(hits: Hit[]): Map<string, Hit[]> {
-    const groups = new Map<string, Hit[]>()
+function groupHitsByLayer(hits: Feature[]): Map<string, Feature[]> {
+    const groups = new Map<string, Feature[]>()
 
     for (const hit of hits) {
-        const group = groups.get(hit.layerName)
+        const layerName = hit.layer.name
+        const group = groups.get(layerName)
         if (group) {
             group.push(hit)
             continue
         }
 
-        groups.set(hit.layerName, [hit])
+        groups.set(layerName, [hit])
     }
 
     return groups
 }
-
-
 
