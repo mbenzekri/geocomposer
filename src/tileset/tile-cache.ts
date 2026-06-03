@@ -1,5 +1,5 @@
-import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { mkdir, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises'
+import { dirname, join, parse, resolve } from 'node:path'
 
 export type TileCacheKey = {
   tileset: string
@@ -11,6 +11,15 @@ export type TileCacheKey = {
 
 export class TileCache {
   constructor(private readonly dir: string) {}
+
+  async clear(): Promise<void> {
+    const dir = resolve(this.dir)
+    if (dir === parse(dir).root) {
+      throw new Error(`Refusing to clear tile cache root directory: ${dir}`)
+    }
+
+    await rm(dir, { recursive: true, force: true })
+  }
 
   async read(key: TileCacheKey): Promise<Buffer | null> {
     try {

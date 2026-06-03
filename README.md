@@ -35,6 +35,19 @@ Vous pouvez aussi lancer directement le point d'entrée :
 npx tsx src/geo-composer.ts
 ```
 
+Pour choisir un fichier de configuration au lancement :
+
+```bash
+npm run serve -- --config config.local.json
+```
+
+Pour vider les caches de tuiles configurés dans `services.xyz.cache` et
+`services.wmts.cache` avant de démarrer le serveur :
+
+```bash
+npm run serve -- --config config.local.json --clear-tile-cache
+```
+
 Le viewer OpenLayers de test est `src/example/world-services-openlayers.html`.
 Si vous l'ouvrez avec VS Code Live Server, le projet ignore `cache/**` pour
 eviter qu'une tuile XYZ/WMTS rendue recharge automatiquement la page.

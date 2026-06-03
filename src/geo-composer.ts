@@ -8,6 +8,12 @@ import { Service } from './service/service.js'
 import { Wms } from './service/wms.js'
 import { Wmts } from './service/wmts.js'
 import { Xyz } from './service/xyz.js'
+import { TileCache } from './tileset/tile-cache.js'
+
+type LaunchOptions = {
+  configPath: string
+  clearTileCache: boolean
+}
 
 export class GeoComposer {
   readonly server: Server
@@ -53,9 +59,14 @@ export class GeoComposer {
     this.trackConnections()
   }
 
-  static async fromEnv(): Promise<GeoComposer> {
-    const configPath = resolve(process.cwd(), process.env.CONFIG ?? 'config.json')
+  static async fromEnv(options: Partial<LaunchOptions> = {}): Promise<GeoComposer> {
+    const configPath = resolve(process.cwd(), options.configPath ?? process.env.CONFIG ?? 'config.json')
     const loaded = await loadConfig(configPath)
+
+    if (options.clearTileCache) {
+      await clearTileCaches(loaded)
+    }
+
     return new GeoComposer(loaded, parsePort(process.env.PORT, loaded.server.port))
   }
 
@@ -231,8 +242,70 @@ function parsePort(value: string | undefined, fallback: number): number {
   return port
 }
 
+function parseLaunchOptions(args: readonly string[]): LaunchOptions {
+  const options: LaunchOptions = {
+    configPath: resolve(process.cwd(), process.env.CONFIG ?? 'config.json'),
+    clearTileCache: false
+  }
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+
+    if (arg === '--clear-tile-cache') {
+      options.clearTileCache = true
+      continue
+    }
+
+    if (arg === '--config' || arg === '-c') {
+      const value = args[index + 1]
+      if (!value || value.startsWith('-')) {
+        throw new Error(`${arg} requires a config path`)
+      }
+
+      options.configPath = resolve(process.cwd(), value)
+      index += 1
+      continue
+    }
+
+    if (arg.startsWith('--config=')) {
+      const value = arg.slice('--config='.length)
+      if (!value) {
+        throw new Error('--config requires a config path')
+      }
+
+      options.configPath = resolve(process.cwd(), value)
+      continue
+    }
+
+    throw new Error(`Unknown argument: ${arg}`)
+  }
+
+  return options
+}
+
+async function clearTileCaches(loaded: LoadedConfig): Promise<void> {
+  const dirs = uniqueStrings([
+    loaded.xyz?.cache,
+    loaded.wmts?.cache
+  ])
+
+  if (dirs.length === 0) {
+    console.log('No tile cache configured.')
+    return
+  }
+
+  for (const dir of dirs) {
+    await new TileCache(dir).clear()
+    console.log(`Cleared tile cache: ${dir}`)
+  }
+}
+
+function uniqueStrings(values: ReadonlyArray<string | undefined>): string[] {
+  return [...new Set(values.filter((value): value is string => value !== undefined))]
+}
+
 if (isMain()) {
-  const geo = await GeoComposer.fromEnv()
+  const geo = await GeoComposer.fromEnv(parseLaunchOptions(process.argv.slice(2)))
   geo.trapSignals()
   await geo.start()
 }

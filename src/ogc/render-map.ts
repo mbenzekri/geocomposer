@@ -23,46 +23,30 @@ const METERS_PER_DEGREE = 111319.49079327358
 export async function renderMap(options: RenderMapOptions): Promise<Buffer> {
   const resolution = (options.bbox[2] - options.bbox[0]) / options.width
   const styleContext = createStyleContext(options.crs, options.bbox, resolution, options.pixelRatio ?? 1)
-  const layers = options.layers
-  const styles = options.styles
-
-  if (layers.length === 0) {
-    return new OlRenderer(
-      options.width,
-      options.height,
-      options.bbox,
-      () => null,
-      resolution,
-      undefined,
-      styleContext
-    ).toPngBuffer()
-  }
-
-  const [firstLayer, ...remainingLayers] = layers
   const deferredText = createDeferredTextRenderQueue()
   const renderer = new OlRenderer(
     options.width,
     options.height,
     options.bbox,
-    firstLayer.style,
+    () => null,
     resolution,
     deferredText,
     styleContext
   )
-  await renderLayer(firstLayer, renderer, options)
 
-  for (const layer of layers) {
-    // const layerRenderer = new OlRenderer(
-    //   options.width,
-    //   options.height,
-    //   options.bbox,
-    //   layer.style,
-    //   resolution,
-    //   deferredText,
-    //   styleContext
-    // )
-    await renderLayer(layer, renderer, options)
-    //renderer.drawRenderer(layerRenderer)
+  for (let index = 0; index < options.layers.length; index += 1) {
+    const layer = options.layers[index]
+    const layerRenderer = new OlRenderer(
+      options.width,
+      options.height,
+      options.bbox,
+      options.styles[index] ?? layer.style,
+      resolution,
+      deferredText,
+      styleContext
+    )
+    await renderLayer(layer, layerRenderer, options)
+    renderer.drawRenderer(layerRenderer)
   }
 
   await renderer.drawDeferredText('map')
