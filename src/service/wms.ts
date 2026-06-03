@@ -114,7 +114,7 @@ export class Wms extends Service {
                 logGetMapParams(traceId, mapRequest)
                 const image = await renderMap({
                     layers: mapRequest.layers,
-                    styles: [],
+                    styles: mapRequest.styles,
                     bbox: mapRequest.bbox,
                     width: mapRequest.width,
                     height: mapRequest.height,
