@@ -98,3 +98,38 @@ export function pixelToCoordinate(bbox: BBox, width: number, height: number, i: 
         bbox[3] - (j + 0.5) * resolutionY
     ]
 }
+
+
+export function coordinateToPixel(
+  x: number,
+  y: number,
+  bbox: BBox,
+  width: number,
+  height: number
+): [number, number] {
+  const [minX, minY, maxX, maxY] = bbox
+
+  return [
+    ((x - minX) / (maxX - minX)) * width,
+    height - ((y - minY) / (maxY - minY)) * height
+  ]
+}
+
+export function transformPositionToPixels(
+  position: Position,
+  bbox: BBox,
+  width: number,
+  height: number
+): Position {
+  const [x, y] = coordinateToPixel(position[0], position[1], bbox, width, height)
+  return position.length > 2 ? [x, y, ...position.slice(2)] : [x, y]
+}
+
+export function transformPositionsToPixels(
+  coordinates: Position[],
+  bbox: BBox,
+  width: number,
+  height: number
+): Position[] {
+  return coordinates.map((position) => transformPositionToPixels(position, bbox, width, height))
+}
