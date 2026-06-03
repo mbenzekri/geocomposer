@@ -30,11 +30,11 @@
     "dynamic": [
         {
             "pointer": "#/country-label/geometry",
-            "value": "=> { const x = Number(F.properties?.label_x); const y = Number(F.properties?.label_y); return Number.isFinite(x) && Number.isFinite(y) ? { type: 'Point', coordinates: [x, y] } : undefined }"
+            "value": "=> { const x = Number(F.properties?.label_x ?? F.properties?.LABEL_X); const y = Number(F.properties?.label_y ?? F.properties?.LABEL_Y); return Number.isFinite(x) && Number.isFinite(y) ? { type: 'Point', coordinates: [x, y] } : undefined }"
         },
         {
             "pointer": "#/country-label/text/text",
-            "value": "=> F.properties?.name_fr ?? ''"
+            "value": "=> F.properties?.name_fr ?? F.properties?.NAME_FR ?? ''"
         }
     ]
 }

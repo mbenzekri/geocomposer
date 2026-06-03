@@ -1,7 +1,6 @@
-import { get as getProjection, getPointResolution } from 'ol/proj.js'
 import type { BBox, CrsCode } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
-import type { StyleContext, StyleFn } from '../style/style-fn.js'
+import { createStyleContext, type StyleFn } from '../style/style-fn.js'
 import { createDeferredTextRenderQueue, OlRenderer } from '../render/ol-renderer.js'
 import { RenderWritable } from '../render/render-writable.js'
 
@@ -16,10 +15,6 @@ export type RenderMapOptions = {
   pixelRatio?: number
 }
 
-const DEFAULT_DPI = 25.4 / 0.28
-const INCHES_PER_METER = 1000 / 25.4
-const METERS_PER_DEGREE = 111319.49079327358
-
 export async function renderMap(options: RenderMapOptions): Promise<Buffer> {
   const resolution = (options.bbox[2] - options.bbox[0]) / options.width
   const styleContext = createStyleContext(options.crs, options.bbox, resolution, options.pixelRatio ?? 1)
@@ -28,7 +23,6 @@ export async function renderMap(options: RenderMapOptions): Promise<Buffer> {
     options.width,
     options.height,
     options.bbox,
-    () => null,
     resolution,
     deferredText,
     styleContext
@@ -36,17 +30,7 @@ export async function renderMap(options: RenderMapOptions): Promise<Buffer> {
 
   for (let index = 0; index < options.layers.length; index += 1) {
     const layer = options.layers[index]
-    const layerRenderer = new OlRenderer(
-      options.width,
-      options.height,
-      options.bbox,
-      options.styles[index] ?? layer.style,
-      resolution,
-      deferredText,
-      styleContext
-    )
-    await renderLayer(layer, layerRenderer, options)
-    renderer.drawRenderer(layerRenderer)
+    await renderLayer(layer, renderer, options.styles[index] ?? layer.style, options)
   }
 
   await renderer.drawDeferredText('map')
@@ -55,45 +39,14 @@ export async function renderMap(options: RenderMapOptions): Promise<Buffer> {
   return renderer.toPngBuffer()
 }
 
-function createStyleContext(
-  crs: CrsCode,
-  bbox: BBox,
-  imageResolution: number,
-  pixelRatio: number
-): StyleContext {
-  const viewResolution = imageResolution * pixelRatio
-  const groundResolution = getGroundResolutionMeters(crs, bbox, viewResolution)
-
-  return {
-    crs,
-    resolutionByUnit: {
-      m: groundResolution,
-      dd: groundResolution / METERS_PER_DEGREE
-    },
-    scaleDenominator: groundResolution * INCHES_PER_METER * DEFAULT_DPI
-  }
-}
-
-function getGroundResolutionMeters(crs: CrsCode, bbox: BBox, resolution: number): number {
-  const projection = getProjection(crs)
-  if (projection) {
-    const center: [number, number] = [
-      (bbox[0] + bbox[2]) / 2,
-      (bbox[1] + bbox[3]) / 2
-    ]
-    return getPointResolution(projection, resolution, center, 'm')
-  }
-
-  return crs.toUpperCase() === 'EPSG:4326'
-    ? resolution * METERS_PER_DEGREE
-    : resolution
-}
-
 async function renderLayer(
   layer: Layer,
   renderer: OlRenderer,
+  style: StyleFn,
   options: RenderMapOptions
 ): Promise<void> {
+  renderer.setStyle(style)
+
   const features = layer.query({
     bbox: options.bbox,
     crs: options.crs

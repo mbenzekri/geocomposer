@@ -182,7 +182,14 @@
                 180,
                 90
             ],
-            "style": "world"
+            "style": "world",
+            "pointProperties": [
+                {
+                    "x": "label_x",
+                    "y": "label_y",
+                    "crs": "EPSG:4326"
+                }
+            ]
         },
         "world-gml": {
             "title": "World GML",
@@ -195,7 +202,14 @@
                 180,
                 90
             ],
-            "style": "world"
+            "style": "world",
+            "pointProperties": [
+                {
+                    "x": "label_x",
+                    "y": "label_y",
+                    "crs": "EPSG:4326"
+                }
+            ]
         },
         "world-shp": {
             "title": "World Shapefile",
@@ -208,7 +222,14 @@
                 180,
                 90
             ],
-            "style": "world"
+            "style": "world",
+            "pointProperties": [
+                {
+                    "x": "LABEL_X",
+                    "y": "LABEL_Y",
+                    "crs": "EPSG:4326"
+                }
+            ]
         },
         "world-gpkg": {
             "title": "World GeoPackage",
@@ -221,7 +242,14 @@
                 180,
                 90
             ],
-            "style": "world"
+            "style": "world",
+            "pointProperties": [
+                {
+                    "x": "label_x",
+                    "y": "label_y",
+                    "crs": "EPSG:4326"
+                }
+            ]
         }
     }
 }

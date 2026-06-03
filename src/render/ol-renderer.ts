@@ -53,12 +53,12 @@ export class OlRenderer {
     private readonly vectorContext: ReturnType<typeof toContext>
     private readonly geometryAdapter = new OlGeometryAdapter()
     private readonly layerText: DeferredTextRenderItem[] = []
+    private style: StyleFn | null = null
 
     constructor(
         readonly width: number,
         readonly height: number,
         private readonly bbox: BBox,
-        private readonly style: StyleFn,
         private readonly resolution: number,
         private readonly deferredText: DeferredTextRenderQueue = createDeferredTextRenderQueue(),
         private readonly styleContext?: StyleContext
@@ -82,8 +82,15 @@ export class OlRenderer {
         })
     }
 
+    setStyle(style: StyleFn): void {
+        this.style = style
+    }
+
     async draw(feature: Feature): Promise<void> {
         if (!feature.geometry) return
+        if (!this.style) {
+            throw new Error('OlRenderer style must be set before drawing features')
+        }
 
         const styles = this.style(feature, this.resolution, this.styleContext)
         if (!styles) return

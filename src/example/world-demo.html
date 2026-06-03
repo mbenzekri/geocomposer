@@ -52,11 +52,19 @@
       color: var(--muted);
     }
 
+    .controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      margin: 0 0 18px;
+    }
+
     .toolbar {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin: 0 0 18px;
+      margin: 0;
       color: var(--muted);
       font-size: 14px;
     }
@@ -66,53 +74,29 @@
       color: var(--text);
     }
 
-    .scale-value {
-      display: inline-flex;
+    .choice-select {
+      min-width: 170px;
       min-height: 34px;
-      align-items: center;
-      padding: 0 10px;
+      padding: 0 34px 0 10px;
       border: 1px solid var(--line);
       background: var(--surface);
-      color: var(--text);
-      font-size: 14px;
-    }
-
-    .segmented {
-      display: inline-flex;
-      border: 1px solid var(--line);
-      background: var(--surface);
-    }
-
-    .segmented button {
-      min-width: 96px;
-      min-height: 34px;
-      border: 0;
-      border-right: 1px solid var(--line);
-      background: transparent;
       color: var(--text);
       font: inherit;
-      cursor: pointer;
     }
 
-    .segmented button:last-child {
-      border-right: 0;
-    }
-
-    .segmented button[aria-checked="true"] {
-      background: var(--accent-soft);
-      color: var(--accent);
-      font-weight: 700;
-    }
-
-    .segmented button:disabled {
+    .choice-select:disabled {
       color: var(--muted);
       cursor: not-allowed;
       opacity: 0.55;
     }
 
-    .segmented button:focus-visible {
+    .choice-select:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
+    }
+
+    .choice-select.compact {
+      min-width: 110px;
     }
 
     .map-shell {
@@ -159,10 +143,6 @@
       flex-wrap: wrap;
     }
 
-    .segmented.compact button {
-      min-width: 82px;
-    }
-
     .feature-info-status {
       margin-top: 8px;
       color: var(--muted);
@@ -193,48 +173,43 @@
 <body>
   <main>
     <h1>GeoComposer OpenLayers</h1>
-    <p id="projection-summary">Vue EPSG:3857, WMS, world GeoJSON + capitales GeoJSON, surface 1000 x 500 px.</p>
-    <div class="meta"><code id="service-url">http://localhost:3000/wms</code></div>
 
-    <div class="toolbar">
-      <span class="toolbar-label">Service</span>
-      <div class="segmented" role="radiogroup" aria-label="Service OGC">
-        <button type="button" role="radio" aria-checked="true" data-service="wms">WMS</button>
-        <button type="button" role="radio" aria-checked="false" data-service="wmts">WMTS</button>
-        <button type="button" role="radio" aria-checked="false" data-service="xyz">XYZ</button>
+    <div class="controls">
+      <div class="toolbar">
+        <label for="service-select" class="toolbar-label">Service</label>
+        <select id="service-select" class="choice-select">
+          <option value="wms" selected>WMS</option>
+          <option value="wmts">WMTS</option>
+          <option value="xyz">XYZ</option>
+        </select>
       </div>
-    </div>
 
-    <div class="toolbar">
-      <span class="toolbar-label">Projection</span>
-      <div class="segmented" role="radiogroup" aria-label="Projection">
-        <button type="button" role="radio" aria-checked="false" data-projection="EPSG:4326">EPSG:4326</button>
-        <button type="button" role="radio" aria-checked="true" data-projection="EPSG:3857">EPSG:3857</button>
+      <div class="toolbar">
+        <label for="projection-select" class="toolbar-label">Projection</label>
+        <select id="projection-select" class="choice-select">
+          <option value="EPSG:4326">EPSG:4326</option>
+          <option value="EPSG:3857" selected>EPSG:3857</option>
+        </select>
       </div>
-    </div>
 
-    <div id="format-toolbar" class="toolbar">
-      <span class="toolbar-label">Format</span>
-      <div class="segmented" role="radiogroup" aria-label="Format de source world">
-        <button type="button" role="radio" aria-checked="true" data-world-layer="world" data-format-label="GeoJSON">GeoJSON</button>
-        <button type="button" role="radio" aria-checked="false" data-world-layer="world-mem" data-format-label="Memory">MEM</button>
-        <button type="button" role="radio" aria-checked="false" data-world-layer="world-gml" data-format-label="GML">GML</button>
-        <button type="button" role="radio" aria-checked="false" data-world-layer="world-shp" data-format-label="Shapefile">SHP</button>
-        <button type="button" role="radio" aria-checked="false" data-world-layer="world-gpkg" data-format-label="GeoPackage">GPKG</button>
+      <div id="format-toolbar" class="toolbar">
+        <label for="world-layer-select" class="toolbar-label">Format</label>
+        <select id="world-layer-select" class="choice-select">
+          <option value="world" data-format-label="GeoJSON" selected>GeoJSON</option>
+          <option value="world-mem" data-format-label="Memory">MEM</option>
+          <option value="world-gml" data-format-label="GML">GML</option>
+          <option value="world-shp" data-format-label="Shapefile">SHP</option>
+          <option value="world-gpkg" data-format-label="GeoPackage">GPKG</option>
+        </select>
       </div>
-    </div>
 
-    <div id="tileset-toolbar" class="toolbar" hidden>
-      <span class="toolbar-label">Tileset</span>
-      <div class="segmented" role="radiogroup" aria-label="Tileset">
-        <button type="button" role="radio" aria-checked="false" data-tileset="world">World</button>
-        <button type="button" role="radio" aria-checked="true" data-tileset="world-capitals">World + Capitals</button>
+      <div id="tileset-toolbar" class="toolbar" hidden>
+        <label for="tileset-select" class="toolbar-label">Tileset</label>
+        <select id="tileset-select" class="choice-select">
+          <option value="world">World</option>
+          <option value="world-capitals" selected>World + Capitals</option>
+        </select>
       </div>
-    </div>
-
-    <div class="toolbar">
-      <span class="toolbar-label">Echelle</span>
-      <code id="scale-denominator" class="scale-value">1/...</code>
     </div>
 
     <div class="map-shell">
@@ -249,10 +224,10 @@
     <div class="request">
       <div class="info-header">
         <strong>GetFeatureInfo</strong>
-        <div class="segmented compact" role="radiogroup" aria-label="Format GetFeatureInfo">
-          <button type="button" role="radio" aria-checked="true" data-info-format="application/geo+json" data-info-format-label="GeoJSON">GeoJSON</button>
-          <button type="button" role="radio" aria-checked="false" data-info-format="text/xml" data-info-format-label="XML">XML</button>
-        </div>
+        <select id="info-format-select" class="choice-select compact" aria-label="Format GetFeatureInfo">
+          <option value="application/geo+json" data-info-format-label="GeoJSON" selected>GeoJSON</option>
+          <option value="text/xml" data-info-format-label="XML">XML</option>
+        </select>
       </div>
       <div id="feature-info-status" class="feature-info-status">Aucune selection</div>
       <code id="feature-info-url" class="request-url">En attente...</code>
@@ -273,9 +248,12 @@
     const tileMaxZoom = 8
     const tileResolutions = []
     const tileMatrixIds = []
+    const tileMatrixSizes = []
     for (let z = tileMinZoom; z <= tileMaxZoom; z += 1) {
-      tileResolutions.push((webMercatorMax * 2) / (tileSize * Math.pow(2, z)))
+      const matrixSize = Math.pow(2, z)
+      tileResolutions.push((webMercatorMax * 2) / (tileSize * matrixSize))
       tileMatrixIds.push(String(z))
+      tileMatrixSizes.push([matrixSize, matrixSize])
     }
     const projections = {
       'EPSG:4326': {
@@ -296,17 +274,15 @@
       world: 'World',
       'world-capitals': 'World + Capitals'
     }
-    const projectionSummary = document.getElementById('projection-summary')
     const serviceUrlElement = document.getElementById('service-url')
-    const serviceButtons = Array.from(document.querySelectorAll('[data-service]'))
-    const projectionButtons = Array.from(document.querySelectorAll('[data-projection]'))
+    const serviceSelect = document.getElementById('service-select')
+    const projectionSelect = document.getElementById('projection-select')
     const formatToolbar = document.getElementById('format-toolbar')
-    const formatButtons = Array.from(document.querySelectorAll('[data-world-layer]'))
+    const worldLayerSelect = document.getElementById('world-layer-select')
     const tilesetToolbar = document.getElementById('tileset-toolbar')
-    const tilesetButtons = Array.from(document.querySelectorAll('[data-tileset]'))
-    const infoFormatButtons = Array.from(document.querySelectorAll('[data-info-format]'))
+    const tilesetSelect = document.getElementById('tileset-select')
+    const infoFormatSelect = document.getElementById('info-format-select')
     const requestUrlElement = document.getElementById('request-url')
-    const scaleDenominatorElement = document.getElementById('scale-denominator')
     const featureInfoStatusElement = document.getElementById('feature-info-status')
     const featureInfoUrlElement = document.getElementById('feature-info-url')
     const featureInfoOutputElement = document.getElementById('feature-info-output')
@@ -407,8 +383,10 @@
         wrapX: false,
         tileGrid: new ol.tilegrid.WMTS({
           origin: [-webMercatorMax, webMercatorMax],
+          tileSize,
           resolutions: tileResolutions,
-          matrixIds: tileMatrixIds
+          matrixIds: tileMatrixIds,
+          sizes: tileMatrixSizes
         }),
         tileLoadFunction: (tile, src) => {
           if (!isActiveSource('wmts', version)) return
@@ -462,9 +440,7 @@
       replaceMapLayer()
 
       syncServiceControls()
-      updateProjectionSummary()
       clearFeatureInfo()
-      updateScaleReadout()
       updateRequestUrl()
     }
 
@@ -472,16 +448,12 @@
       if (!tileset || !tilesetLabels[tileset]) return
 
       currentTileset = tileset
-      for (const button of tilesetButtons) {
-        const selected = button.dataset.tileset === tileset
-        button.setAttribute('aria-checked', String(selected))
-      }
+      tilesetSelect.value = tileset
 
       if (currentService !== 'wms') {
         lastRequestUrl = ''
         requestUrlElement.textContent = 'En attente...'
         replaceMapLayer()
-        updateProjectionSummary()
         updateRequestUrl()
       }
 
@@ -501,40 +473,24 @@
       }
 
       syncServiceControls()
-      updateProjectionSummary()
       clearFeatureInfo()
-      updateScaleReadout()
       updateRequestUrl()
     }
 
     function syncServiceControls() {
       serviceUrlElement.textContent = serviceUrls[currentService]
-
-      for (const button of serviceButtons) {
-        const selected = button.dataset.service === currentService
-        button.setAttribute('aria-checked', String(selected))
-      }
+      serviceSelect.value = currentService
 
       const wmsMode = currentService === 'wms'
       formatToolbar.hidden = !wmsMode
       tilesetToolbar.hidden = wmsMode
 
-      for (const button of projectionButtons) {
-        const supported = wmsMode || button.dataset.projection === 'EPSG:3857'
-        const selected = button.dataset.projection === currentProjectionCode
-        button.disabled = !supported
-        button.setAttribute('aria-checked', String(selected))
+      for (const option of projectionSelect.options) {
+        option.disabled = !wmsMode && option.value !== 'EPSG:3857'
       }
-
-      for (const button of formatButtons) {
-        const selected = button.dataset.worldLayer === currentWorldLayer
-        button.setAttribute('aria-checked', String(selected))
-      }
-
-      for (const button of tilesetButtons) {
-        const selected = button.dataset.tileset === currentTileset
-        button.setAttribute('aria-checked', String(selected))
-      }
+      projectionSelect.value = currentProjectionCode
+      worldLayerSelect.value = currentWorldLayer
+      tilesetSelect.value = currentTileset
     }
 
     function setWorldLayer(layerName, formatLabel) {
@@ -549,13 +505,8 @@
         LAYERS: `${layerName},capitals`,
         STYLES: 'world,capitals'
       })
+      worldLayerSelect.value = layerName
 
-      for (const button of formatButtons) {
-        const selected = button.dataset.worldLayer === layerName
-        button.setAttribute('aria-checked', String(selected))
-      }
-
-      updateProjectionSummary()
       clearFeatureInfo()
       updateRequestUrl()
     }
@@ -565,38 +516,11 @@
 
       currentInfoFormat = format
       currentInfoFormatLabel = label || format
-
-      for (const button of infoFormatButtons) {
-        const selected = button.dataset.infoFormat === format
-        button.setAttribute('aria-checked', String(selected))
-      }
+      infoFormatSelect.value = format
 
       if (lastFeatureInfoCoordinate) {
         requestFeatureInfo(lastFeatureInfoCoordinate)
       }
-    }
-
-    function updateProjectionSummary() {
-      const content = currentService === 'wms'
-        ? `world ${currentFormatLabel} + capitales GeoJSON`
-        : `tileset ${tilesetLabels[currentTileset]}`
-      projectionSummary.textContent = `Vue ${currentProjectionCode}, ${serviceLabels[currentService]}, ${content}, surface 1000 x 500 px.`
-    }
-
-    function updateScaleReadout() {
-      const view = map.getView()
-      const resolution = view.getResolution()
-      const center = view.getCenter()
-      const projection = view.getProjection()
-
-      if (resolution === undefined || !center || !projection) {
-        scaleDenominatorElement.textContent = '1/...'
-        return
-      }
-
-      const metersPerPixel = ol.proj.getPointResolution(projection, resolution, center, 'm')
-      const denominator = Math.max(1, Math.round(metersPerPixel / 0.00028))
-      scaleDenominatorElement.textContent = `1/${denominator.toLocaleString('fr-FR')}`
     }
 
     function updateRequestUrl() {
@@ -826,25 +750,17 @@
       featureInfoOutputElement.textContent = 'Aucun resultat'
     }
 
-    for (const button of serviceButtons) {
-      button.addEventListener('click', () => setService(button.dataset.service))
-    }
-
-    for (const button of projectionButtons) {
-      button.addEventListener('click', () => setProjection(button.dataset.projection))
-    }
-
-    for (const button of formatButtons) {
-      button.addEventListener('click', () => setWorldLayer(button.dataset.worldLayer, button.dataset.formatLabel))
-    }
-
-    for (const button of tilesetButtons) {
-      button.addEventListener('click', () => setTileset(button.dataset.tileset))
-    }
-
-    for (const button of infoFormatButtons) {
-      button.addEventListener('click', () => setInfoFormat(button.dataset.infoFormat, button.dataset.infoFormatLabel))
-    }
+    serviceSelect.addEventListener('change', () => setService(serviceSelect.value))
+    projectionSelect.addEventListener('change', () => setProjection(projectionSelect.value))
+    worldLayerSelect.addEventListener('change', () => {
+      const option = worldLayerSelect.selectedOptions[0]
+      setWorldLayer(worldLayerSelect.value, option?.dataset.formatLabel)
+    })
+    tilesetSelect.addEventListener('change', () => setTileset(tilesetSelect.value))
+    infoFormatSelect.addEventListener('change', () => {
+      const option = infoFormatSelect.selectedOptions[0]
+      setInfoFormat(infoFormatSelect.value, option?.dataset.infoFormatLabel)
+    })
 
     map.on('pointerdown', handleMapPointerDown)
     map.on('pointerdrag', handleMapPointerDrag)
@@ -852,15 +768,11 @@
     map.on('singleclick', handleFeatureInfoClick)
     map.once('postrender', () => {
       updateRequestUrl()
-      updateScaleReadout()
     })
     map.on('moveend', updateRequestUrl)
-    map.on('moveend', updateScaleReadout)
 
     syncServiceControls()
-    updateProjectionSummary()
     clearFeatureInfo()
-    updateScaleReadout()
     updateRequestUrl()
   </script>
 </body>

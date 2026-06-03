@@ -540,7 +540,7 @@ class ShpGeometryParser {
 
 class DbfValueParser {
   static parse(raw: Buffer, field: DbfField, encoding: BufferEncoding): unknown {
-    const text = raw.toString(encoding).trim()
+    const text = raw.toString(encoding).replace(/\0+$/g, '').trim()
 
     if (text.length === 0) return null
 
