@@ -1,5 +1,5 @@
 import type { Feature, Props } from '../core/feature.js'
-import { pixelToCoordinate, type BBox, type CrsCode, type HitContext, type Position } from '../core/geometry.js'
+import { createHitContext, pixelToCoordinate, type BBox, type CrsCode, type HitContext, type Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { escape } from '../core/tools.js'
 import { HitFilter } from '../transform/hit-filter.js'
@@ -36,7 +36,8 @@ export type GetInfoOptions = {
 
 export async function getInfo(options: GetInfoOptions): Promise<InfoResult> {
     const point = pixelToCoordinate(options.bbox, options.width, options.height, options.i, options.j)
-    const context = createHitContext(options, point)
+    const tolerancePixels = options.tolerancePixels ?? 4
+    const context = createHitContext(tolerancePixels,options.bbox, options.width,options.height, point)
     const hits: Hit[] = []
 
     for (const layer of options.layers) {
@@ -201,26 +202,6 @@ async function collectHits(
         reader.releaseLock()
     }
 }
-
-function createHitContext(options: GetInfoOptions, point: Position): HitContext {
-    const tolerancePixels = options.tolerancePixels ?? 4
-    const toleranceX = ((options.bbox[2] - options.bbox[0]) / options.width) * tolerancePixels
-    const toleranceY = ((options.bbox[3] - options.bbox[1]) / options.height) * tolerancePixels
-
-    return {
-        point,
-        bbox: [
-            point[0] - toleranceX,
-            point[1] - toleranceY,
-            point[0] + toleranceX,
-            point[1] + toleranceY
-        ],
-        tolerance: Math.max(toleranceX, toleranceY),
-        toleranceX,
-        toleranceY
-    }
-}
-
 
 function groupHitsByLayer(hits: Hit[]): Map<string, Hit[]> {
     const groups = new Map<string, Hit[]>()
