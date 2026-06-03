@@ -19,7 +19,7 @@ import {
     type TextDeclutterMode,
     type TextRenderStep
 } from '../style/text-render-step.js'
-import { toPixels } from '../transform/to-pixels.js'
+import { toPixels } from '../stream/to-pixels.js'
 import { OlGeometryAdapter } from './ol-geometry-adapter.js'
 
 type OlGeometry = ReturnType<OlGeometryAdapter['toGeometry']>

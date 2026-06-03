@@ -1,5 +1,5 @@
 import type { Feature } from '../core/feature.js'
-import type { OlRenderer } from './ol-renderer.js'
+import type { OlRenderer } from '../render/ol-renderer.js'
 
 export class RenderWritable extends WritableStream<Feature> {
     constructor(renderer: OlRenderer) {

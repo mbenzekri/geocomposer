@@ -2,7 +2,7 @@ import type { PathLike } from 'node:fs'
 import type { BBox, CrsCode } from '../core/geometry.js'
 import type { Feature, SourceRef } from '../core/feature.js'
 import { Gt } from '../core/geotools.js'
-import { BboxFilter } from '../transform/bbox-filter.js'
+import { BboxFilter } from '../stream/bbox-filter.js'
 import type { Layer } from '../layer/layer.js'
 
 export type SourceStorage = 'mem' | 'file' | 'database'

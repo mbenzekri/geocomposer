@@ -2,7 +2,7 @@ import type { BBox, CrsCode } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { createStyleContext, type StyleFn } from '../style/style-fn.js'
 import { createDeferredTextRenderQueue, OlRenderer } from '../render/ol-renderer.js'
-import { RenderWritable } from '../render/render-writable.js'
+import { RenderWritable } from '../stream/render-writable.js'
 
 
 export type GetMapOptions = {

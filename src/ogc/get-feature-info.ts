@@ -2,7 +2,7 @@ import type { Feature, Props } from '../core/feature.js'
 import { createHitContext, pixelToCoordinate, type BBox, type CrsCode, type HitContext, type Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { escape } from '../core/tools.js'
-import { HitFilter } from '../transform/hit-filter.js'
+import { HitFilter } from '../stream/hit-filter.js'
 
 export type Hit = {
     layerName: string

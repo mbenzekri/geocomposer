@@ -2,8 +2,8 @@ import type { BBox, CrsCode } from '../core/geometry.js'
 import type { Feature } from '../core/feature.js'
 import type { QueryOptions, Source, StreamOptions } from '../source/source.js'
 import type { StyleFn } from '../style/style-fn.js'
-import { BboxFilter } from '../transform/bbox-filter.js'
-import { Reproject } from '../transform/reproject.js'
+import { BboxFilter } from '../stream/bbox-filter.js'
+import { Reproject } from '../stream/reproject.js'
 
 export type LayerStyle = {
   name: string
