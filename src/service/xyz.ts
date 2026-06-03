@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { BBox } from '../core/geometry.js'
-import { renderMap } from '../ogc/render-map.js'
+import { getMap } from '../ogc/get-map.js'
 import { TileCache } from '../tileset/tile-cache.js'
 import { getTileMatrixSet } from '../tileset/tile-matrix-set.js'
 import { TilesetLayers } from '../tileset/tileset-utils.js'
@@ -102,7 +102,7 @@ export class Xyz extends Service {
             const cachedImage = this.cache
                 ? await this.cache.read(tileCacheKey(tileRequest))
                 : null
-            const image = cachedImage ?? await renderMap({
+            const image = cachedImage ?? await getMap({
                 layers: tileRequest.tileset.layers,
                 styles: tileRequest.tileset.styles,
                 bbox: tileRequest.bbox,

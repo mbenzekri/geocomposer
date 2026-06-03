@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { Layer } from '../layer/layer.js'
 import { MemSource } from '../source/mem-source.js'
-import { renderMap } from '../ogc/render-map.js'
+import { getMap } from '../ogc/get-map.js'
 import { defaultStyleFn } from '../style/default-style.js'
 
 const source = new MemSource('demo', 'EPSG:4326', (layer) => [
@@ -60,7 +60,7 @@ const layer = new Layer('demo', {
 await rm('style-smoke/map.png', { force: true })
 await mkdir('style-smoke', { recursive: true })
 
-const image = await renderMap({
+const image = await getMap({
   layers:[layer],
   styles:[],
   bbox: [-6, 42, 6, 50],

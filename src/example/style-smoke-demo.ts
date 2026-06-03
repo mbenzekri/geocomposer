@@ -12,7 +12,7 @@ import Text from 'ol/style/Text.js'
 import Icon from 'ol/style/Icon.js'
 import type { Feature } from '../core/feature.js'
 import { Layer } from '../layer/layer.js'
-import { renderMap } from '../ogc/render-map.js'
+import { getMap } from '../ogc/get-map.js'
 import { MemSource } from '../source/mem-source.js'
 import type { StyleFn } from '../style/style-fn.js'
 
@@ -224,7 +224,7 @@ for (const smokeCase of smokeCases) {
       pointProperties: []
     })
 
-    const image = await renderMap({
+    const image = await getMap({
     layers: [layer],
     styles: [],
       bbox: [-1, -1, 1, 1],

@@ -3,11 +3,13 @@ import proj4 from 'proj4'
 import type { BBox, CrsCode } from '../core/geometry.js'
 import { MarkupTemplate } from '../core/template.js'
 import {
-    featureInfoToGeoJson,
-    featureInfoToXml,
-    getFeatureInfo
+    GeoJsonFormatter,
+    getInfo,
+    XmlFormatter,
+    type InfoFormatter,
+    type InfoResult
 } from '../ogc/get-feature-info.js'
-import { renderMap } from '../ogc/render-map.js'
+import { getMap } from '../ogc/get-map.js'
 import { escape, paramsFromUrl } from '../core/tools.js'
 import type { Layer } from '../layer/layer.js'
 import { Service } from './service.js'
@@ -16,7 +18,15 @@ import { Gt } from '../core/geotools.js'
 
 const WMS_VERSION = '1.3.0'
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
-const FEATURE_INFO_FORMATS = ['application/geo+json', 'application/json', 'text/xml', 'application/xml'] as const
+const INFO_FORMATS = ['application/geo+json', 'application/json', 'text/xml', 'application/xml'] as const
+const geoJsonFormatter = new GeoJsonFormatter()
+const xmlFormatter = new XmlFormatter()
+const infoFormatters: Record<InfoFormat, InfoFormatter> = {
+    'application/geo+json': geoJsonFormatter,
+    'application/json': geoJsonFormatter,
+    'text/xml': xmlFormatter,
+    'application/xml': xmlFormatter
+}
 
 export type WmsInfo = {
     title: string
@@ -112,7 +122,7 @@ export class Wms extends Service {
 
                 const mapRequest = this.parseGetMap(params, this.layerByName, this.crs, this.maxWidth, this.maxHeight)
                 logGetMapParams(traceId, mapRequest)
-                const image = await renderMap({
+                const image = await getMap({
                     layers: mapRequest.layers,
                     styles: mapRequest.styles,
                     bbox: mapRequest.bbox,
@@ -137,20 +147,20 @@ export class Wms extends Service {
             }
 
             if (request === 'GETFEATUREINFO') {
-                const featureInfoRequest = this.parseGetFeatureInfo(params, this.layerByName, this.crs, this.maxWidth, this.maxHeight)
-                const result = await getFeatureInfo({
-                    layers: featureInfoRequest.layers,
-                    bbox: featureInfoRequest.bbox,
-                    width: featureInfoRequest.width,
-                    height: featureInfoRequest.height,
-                    crs: featureInfoRequest.crs,
-                    i: featureInfoRequest.i,
-                    j: featureInfoRequest.j,
-                    featureCount: featureInfoRequest.featureCount,
-                    tolerancePixels: featureInfoRequest.tolerancePixels
+                const infoRequest = this.parseGetFeatureInfo(params, this.layerByName, this.crs, this.maxWidth, this.maxHeight)
+                const result = await getInfo({
+                    layers: infoRequest.layers,
+                    bbox: infoRequest.bbox,
+                    width: infoRequest.width,
+                    height: infoRequest.height,
+                    crs: infoRequest.crs,
+                    i: infoRequest.i,
+                    j: infoRequest.j,
+                    featureCount: infoRequest.featureCount,
+                    tolerancePixels: infoRequest.tolerancePixels
                 })
-                const body = formatFeatureInfo(result, featureInfoRequest.infoFormat)
-                Service.sendText(res, 200, body, contentTypeForInfoFormat(featureInfoRequest.infoFormat), req.method === 'HEAD')
+                const body = formatInfo(result, infoRequest.infoFormat)
+                Service.sendText(res, 200, body, contentTypeForInfoFormat(infoRequest.infoFormat), req.method === 'HEAD')
                 return
             }
 
@@ -229,7 +239,7 @@ export class Wms extends Service {
         supportedCrs: CrsCode[],
         maxWidth: number,
         maxHeight: number
-    ): FeatureInfoRequest {
+    ): InfoRequest {
         const mapRequest = this.parseGetMap(params, layerByName, supportedCrs, maxWidth, maxHeight)
         const queryLayerNames = this.require(params, 'QUERY_LAYERS')
             .split(',')
@@ -297,7 +307,7 @@ type MapRequest = {
     format: string
 }
 
-type FeatureInfoRequest = {
+type InfoRequest = {
     layers: Layer[]
     rawBbox: string
     bbox: BBox
@@ -310,10 +320,10 @@ type FeatureInfoRequest = {
     j: number
     featureCount: number
     tolerancePixels: number
-    infoFormat: FeatureInfoFormat
+    infoFormat: InfoFormat
 }
 
-type FeatureInfoFormat = typeof FEATURE_INFO_FORMATS[number]
+type InfoFormat = typeof INFO_FORMATS[number]
 
 type WmsBoundingBoxView = {
     crs: CrsCode
@@ -383,7 +393,7 @@ class WmsCapabilitiesBuilder {
             version: WMS_VERSION,
             service,
             onlineResource: service.onlineResource ?? path,
-            featureInfoFormats: FEATURE_INFO_FORMATS,
+            featureInfoFormats: INFO_FORMATS,
             crs: supportedCrs,
             layers: layerViews
         })
@@ -619,29 +629,25 @@ function isGetMapRequest(urlText: string | undefined): boolean {
     }
 }
 
-function normalizeInfoFormat(value: string | undefined): FeatureInfoFormat {
+function normalizeInfoFormat(value: string | undefined): InfoFormat {
     const format = (value ?? 'application/geo+json').toLowerCase()
-    if (isFeatureInfoFormat(format)) return format
+    if (isInfoFormat(format)) return format
 
     throw new Error(`Unsupported INFO_FORMAT: ${value ?? ''}`)
 }
 
-function isFeatureInfoFormat(value: string): value is FeatureInfoFormat {
-    return (FEATURE_INFO_FORMATS as readonly string[]).includes(value)
+function isInfoFormat(value: string): value is InfoFormat {
+    return (INFO_FORMATS as readonly string[]).includes(value)
 }
 
-function formatFeatureInfo(
-    result: Awaited<ReturnType<typeof getFeatureInfo>>,
-    format: FeatureInfoFormat
+function formatInfo(
+    result: InfoResult,
+    format: InfoFormat
 ): string {
-    if (format === 'text/xml' || format === 'application/xml') {
-        return featureInfoToXml(result)
-    }
-
-    return featureInfoToGeoJson(result)
+    return infoFormatters[format].format(result)
 }
 
-function contentTypeForInfoFormat(format: FeatureInfoFormat): string {
+function contentTypeForInfoFormat(format: InfoFormat): string {
     return `${format}; charset=utf-8`
 }
 

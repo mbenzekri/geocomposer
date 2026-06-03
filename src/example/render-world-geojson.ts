@@ -1,6 +1,6 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { Layer } from '../layer/layer.js'
-import { renderMap } from '../ogc/render-map.js'
+import { getMap } from '../ogc/get-map.js'
 import { GeoJsonSource } from '../source/geojson-source.js'
 import {
   WORLD_BBOX_3857,
@@ -24,7 +24,7 @@ const layer = new Layer('world', {
 
 await layer.open()
 try {
-  const image = await renderMap({
+  const image = await getMap({
     layers: [layer],
     styles: [],
     bbox: WORLD_BBOX_3857,

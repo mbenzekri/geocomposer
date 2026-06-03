@@ -1,6 +1,6 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { Layer } from '../layer/layer.js'
-import { renderMap } from '../ogc/render-map.js'
+import { getMap } from '../ogc/get-map.js'
 import { ShpSource } from '../source/shp-source.js'
 import {
   WORLD_BBOX_3857,
@@ -26,7 +26,7 @@ const layer = new Layer('world-shp', {
 
 await layer.open()
 try {
-  const image = await renderMap({
+  const image = await getMap({
     layers: [layer],
     styles: [],
     bbox: WORLD_BBOX_3857,

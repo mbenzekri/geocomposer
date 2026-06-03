@@ -4,12 +4,12 @@ import { Gt } from '../core/geotools.js'
 import type { Layer } from '../layer/layer.js'
 import { escape } from '../core/tools.js'
 
-export type FeatureInfoHit = {
+export type Hit = {
   layerName: string
   feature: Feature
 }
 
-export type FeatureInfoResult = {
+export type InfoResult = {
   crs: CrsCode
   bbox: BBox
   width: number
@@ -19,10 +19,10 @@ export type FeatureInfoResult = {
     j: number
   }
   coordinate: Position
-  hits: FeatureInfoHit[]
+  hits: Hit[]
 }
 
-export type GetFeatureInfoOptions = {
+export type GetInfoOptions = {
   layers: Layer[]
   bbox: BBox
   width: number
@@ -34,7 +34,7 @@ export type GetFeatureInfoOptions = {
   tolerancePixels?: number
 }
 
-export async function getFeatureInfo(options: GetFeatureInfoOptions): Promise<FeatureInfoResult> {
+export async function getInfo(options: GetInfoOptions): Promise<InfoResult> {
   const point = pixelToCoordinate(options.bbox, options.width, options.height, options.i, options.j)
   const tolerancePixels = options.tolerancePixels ?? 4
   const toleranceX = ((options.bbox[2] - options.bbox[0]) / options.width) * tolerancePixels
@@ -51,7 +51,7 @@ export async function getFeatureInfo(options: GetFeatureInfoOptions): Promise<Fe
     toleranceX,
     toleranceY
   }
-  const hits: FeatureInfoHit[] = []
+  const hits: Hit[] = []
 
   for (const layer of options.layers) {
     await collectLayerHits(layer, options.crs, context, options.featureCount, hits)
@@ -73,41 +73,49 @@ export async function getFeatureInfo(options: GetFeatureInfoOptions): Promise<Fe
   }
 }
 
-export function featureInfoToGeoJson(result: FeatureInfoResult): string {
-  return JSON.stringify({
-    type: 'FeatureCollection',
-    crs: {
-      type: 'name',
-      properties: {
-        name: result.crs
-      }
-    },
-    queryPoint: {
-      type: 'Point',
-      coordinates: result.coordinate,
-      crs: result.crs,
-      pixel: result.pixel
-    },
-    numberReturned: result.hits.length,
-    features: result.hits.map((hit) => toGeoJsonFeature(hit))
-  })
+export abstract class InfoFormatter {
+  abstract format(result: InfoResult): string
 }
 
-export function featureInfoToXml(result: FeatureInfoResult): string {
-  const layers = groupHitsByLayer(result.hits)
-  const layerXml = [...layers.entries()].map(([layerName, hits]) => [
-    `<Layer name="${escape(layerName)}">`,
-    ...hits.map((hit) => featureToXml(hit.feature)),
-    '</Layer>'
-  ].join('')).join('')
+export class GeoJsonFormatter extends InfoFormatter {
+  format(result: InfoResult): string {
+    return JSON.stringify({
+      type: 'FeatureCollection',
+      crs: {
+        type: 'name',
+        properties: {
+          name: result.crs
+        }
+      },
+      queryPoint: {
+        type: 'Point',
+        coordinates: result.coordinate,
+        crs: result.crs,
+        pixel: result.pixel
+      },
+      numberReturned: result.hits.length,
+      features: result.hits.map((hit) => toGeoJsonFeature(hit))
+    })
+  }
+}
 
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    `<FeatureInfoResponse version="1.3.0" crs="${escape(result.crs)}" numberReturned="${result.hits.length}">`,
-    `<QueryPoint i="${result.pixel.i}" j="${result.pixel.j}" x="${result.coordinate[0]}" y="${result.coordinate[1]}"/>`,
-    layerXml,
-    '</FeatureInfoResponse>'
-  ].join('')
+export class XmlFormatter extends InfoFormatter {
+  format(result: InfoResult): string {
+    const layers = groupHitsByLayer(result.hits)
+    const layerXml = [...layers.entries()].map(([layerName, hits]) => [
+      `<Layer name="${escape(layerName)}">`,
+      ...hits.map((hit) => featureToXml(hit.feature)),
+      '</Layer>'
+    ].join('')).join('')
+
+    return [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      `<FeatureInfoResponse version="1.3.0" crs="${escape(result.crs)}" numberReturned="${result.hits.length}">`,
+      `<QueryPoint i="${result.pixel.i}" j="${result.pixel.j}" x="${result.coordinate[0]}" y="${result.coordinate[1]}"/>`,
+      layerXml,
+      '</FeatureInfoResponse>'
+    ].join('')
+  }
 }
 
 function pixelToCoordinate(bbox: BBox, width: number, height: number, i: number, j: number): Position {
@@ -125,7 +133,7 @@ async function collectLayerHits(
   targetCrs: CrsCode,
   context: HitContext,
   featureCount: number,
-  hits: FeatureInfoHit[]
+  hits: Hit[]
 ): Promise<void> {
   const features = layer.query({
     bbox: context.bbox,
@@ -159,7 +167,7 @@ async function collectLayerHits(
   }
 }
 
-function toGeoJsonFeature(hit: FeatureInfoHit): Record<string, unknown> {
+function toGeoJsonFeature(hit: Hit): Record<string, unknown> {
   const feature: Record<string, unknown> = {
     type: 'Feature',
     layer: hit.layerName,
@@ -173,8 +181,8 @@ function toGeoJsonFeature(hit: FeatureInfoHit): Record<string, unknown> {
   return feature
 }
 
-function groupHitsByLayer(hits: FeatureInfoHit[]): Map<string, FeatureInfoHit[]> {
-  const groups = new Map<string, FeatureInfoHit[]>()
+function groupHitsByLayer(hits: Hit[]): Map<string, Hit[]> {
+  const groups = new Map<string, Hit[]>()
 
   for (const hit of hits) {
     const group = groups.get(hit.layerName)

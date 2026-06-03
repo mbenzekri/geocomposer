@@ -1,6 +1,6 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { Layer } from '../layer/layer.js'
-import { renderMap } from '../ogc/render-map.js'
+import { getMap } from '../ogc/get-map.js'
 import { MemSource } from '../source/mem-source.js'
 import { createDynamicStyleFn } from '../style/dynamic-style.js'
 
@@ -106,7 +106,7 @@ const layer = new Layer('dynamic-style-demo', {
 await rm('style-smoke/dynamic-style.png', { force: true })
 await mkdir('style-smoke', { recursive: true })
 
-const image = await renderMap({
+const image = await getMap({
   layers: [layer],
   styles: [],
   bbox: [-6, 42, 6, 50],
