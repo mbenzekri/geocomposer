@@ -70,3 +70,13 @@ export function getGroundResolutionMeters(crs: CrsCode, bbox: BBox, resolution: 
     ? resolution * METERS_PER_DEGREE
     : resolution
 }
+
+export function pixelToCoordinate(bbox: BBox, width: number, height: number, i: number, j: number): Position {
+  const resolutionX = (bbox[2] - bbox[0]) / width
+  const resolutionY = (bbox[3] - bbox[1]) / height
+
+  return [
+    bbox[0] + (i + 0.5) * resolutionX,
+    bbox[3] - (j + 0.5) * resolutionY
+  ]
+}
