@@ -3,7 +3,7 @@ import type { BBox, CrsCode } from '../core/geometry.js'
 import type { Feature, SourceRef } from '../core/feature.js'
 import { Gt } from '../core/geotools.js'
 import { BboxFilter } from '../transform/bbox-filter.js'
-import {Layer} from '../layer/layer.js'
+import type { Layer } from '../layer/layer.js'
 
 export type SourceStorage = 'mem' | 'file' | 'database'
 
@@ -15,8 +15,8 @@ export type SourceFile = {
 }
 
 export type StreamOptions = {
-  signal?: AbortSignal,
-  layer?: Layer
+  signal?: AbortSignal
+  layer: Layer
 }
 
 export type QueryOptions = StreamOptions & {
@@ -35,10 +35,10 @@ export abstract class Source {
 
   abstract open(): Promise<void>
   abstract close(): Promise<void>
-  abstract getExtent(): Promise<BBox | null>
+  abstract getExtent(layer: Layer): Promise<BBox | null>
 
-  abstract stream(options?: StreamOptions): ReadableStream<Feature>
-  abstract read(sourceRef: SourceRef,options?: StreamOptions): Promise<Feature | null>
+  abstract stream(options: StreamOptions): ReadableStream<Feature>
+  abstract read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null>
 
   query(options: QueryOptions): ReadableStream<Feature> {
     const input = this.stream(options)
@@ -56,10 +56,10 @@ export abstract class FeatureSource extends Source {
     super()
   }
 
-  async getExtent(): Promise<BBox | null> {
+  async getExtent(layer: Layer): Promise<BBox | null> {
     let extent: BBox | null = null
 
-    for await (const feature of this.readAll()) {
+    for await (const feature of this.readAll({ layer })) {
       const bbox = feature.bbox ?? Gt.bbox(feature.geometry)
       if (bbox) extent = extent ? Gt.expand(extent, bbox) : bbox
     }
@@ -67,39 +67,40 @@ export abstract class FeatureSource extends Source {
     return extent
   }
 
-  stream(options: StreamOptions = {}): ReadableStream<Feature> {
-    return toStream(this.readAll(options.signal), options, (signal) => this.abortReason(signal))
+  stream(options: StreamOptions): ReadableStream<Feature> {
+    return toStream(this.readAll(options), options, (signal) => this.abortReason(signal))
   }
 
-  async read(sourceRef: SourceRef): Promise<Feature | null> {
-    const feature = await this.readFeature(sourceRef)
+  async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+    const feature = await this.readFeature(sourceRef, options)
     if (!feature) return null
-    return this.mapFeature(feature, sourceRef.recordIndex ?? 0)
+    return this.mapFeature(feature, sourceRef.recordIndex ?? 0, options.layer)
   }
 
-  protected abstract streamFeatures(signal?: AbortSignal): AsyncIterable<Feature>
-  protected abstract readFeature(sourceRef: SourceRef): Promise<Feature | null>
+  protected abstract streamFeatures(options: StreamOptions): AsyncIterable<Feature>
+  protected abstract readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null>
 
   protected abortReason(signal: AbortSignal): unknown {
     return signal.reason
   }
 
-  private async *readAll(signal?: AbortSignal): AsyncGenerator<Feature> {
+  private async *readAll(options: StreamOptions): AsyncGenerator<Feature> {
     let index = 0
 
-    for await (const feature of this.streamFeatures(signal)) {
-      yield await this.mapFeature(feature, index)
+    for await (const feature of this.streamFeatures(options)) {
+      yield await this.mapFeature(feature, index, options.layer)
       index += 1
     }
   }
 
-  private async mapFeature(feature: Feature, index: number): Promise<Feature> {
+  private async mapFeature(feature: Feature, index: number, layer: Layer): Promise<Feature> {
     const output = this.transformFeature
       ? await this.transformFeature(feature, index)
       : feature
 
     return {
       ...output,
+      layer,
       sourceRef: feature.sourceRef
     }
   }
@@ -125,7 +126,7 @@ export abstract class DbSource extends FeatureSource {
 
 export function toStream<T>(
   items: AsyncIterable<T>,
-  options: StreamOptions = {},
+  options: { signal?: AbortSignal } = {},
   getAbortReason?: (signal: AbortSignal) => unknown
 ): ReadableStream<T> {
   const iterator = items[Symbol.asyncIterator]()

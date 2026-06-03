@@ -129,8 +129,7 @@ async function collectLayerHits(
 ): Promise<void> {
   const features = layer.query({
     bbox: context.bbox,
-    crs: targetCrs,
-    layer
+    crs: targetCrs
   })
   const reader = features.getReader()
   let done = false

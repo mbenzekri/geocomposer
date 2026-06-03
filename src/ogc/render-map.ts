@@ -112,8 +112,7 @@ async function renderLayer(
 ): Promise<void> {
   const features = layer.query({
     bbox: options.bbox,
-    crs: options.crs,
-    layer:layer
+    crs: options.crs
   })
 
   await features.pipeTo(new RenderWritable(renderer))

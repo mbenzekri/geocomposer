@@ -21,11 +21,12 @@ const svgIconPath = resolve('style-smoke/icon-source.svg')
 
 type SmokeCase = {
   name: string
-  feature: Feature
+  feature: (layer: Layer) => Feature
   style: () => Style | Style[] | Promise<Style | Style[]>
 }
 
-const pointFeature: Feature = {
+const pointFeature = (layer: Layer): Feature => ({
+  layer,
   type: 'Feature',
   id: 'point',
   properties: {},
@@ -33,9 +34,10 @@ const pointFeature: Feature = {
     type: 'Point',
     coordinates: [0, 0]
   }
-}
+})
 
-const lineFeature: Feature = {
+const lineFeature = (layer: Layer): Feature => ({
+  layer,
   type: 'Feature',
   id: 'line',
   properties: {},
@@ -46,9 +48,10 @@ const lineFeature: Feature = {
       [0.8, 0.5]
     ]
   }
-}
+})
 
-const polygonFeature: Feature = {
+const polygonFeature = (layer: Layer): Feature => ({
+  layer,
   type: 'Feature',
   id: 'polygon',
   properties: {},
@@ -64,7 +67,7 @@ const polygonFeature: Feature = {
       ]
     ]
   }
-}
+})
 
 const smokeCases: SmokeCase[] = [
   {
@@ -209,7 +212,7 @@ let failed = false
 
 for (const smokeCase of smokeCases) {
   try {
-    const source = new MemSource(smokeCase.name, 'EPSG:4326', [smokeCase.feature])
+    const source = new MemSource(smokeCase.name, 'EPSG:4326', (layer) => [smokeCase.feature(layer)])
     const olStyle = await smokeCase.style()
     const style: StyleFn = () => olStyle
     const layer = new Layer(smokeCase.name, {

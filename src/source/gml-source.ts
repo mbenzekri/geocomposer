@@ -2,7 +2,9 @@ import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open } from 'node:fs/promises'
 import type { Feature, FileRef, SourceRef, Props } from '../core/feature.js'
 import type { Geometry, Position, CrsCode } from '../core/geometry.js'
+import type { Layer } from '../layer/layer.js'
 import { FileSource, type FeatureTransform } from './source.js'
+import type { StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 
 export type GmlAxisOrder = 'xy' | 'yx' | 'auto'
@@ -95,12 +97,12 @@ export class GmlSource extends FileSource {
     await this.reader.close()
   }
 
-  protected override streamFeatures(signal?: AbortSignal): AsyncIterable<Feature> {
-    return this.reader.stream(signal)
+  protected override streamFeatures(options: StreamOptions): AsyncIterable<Feature> {
+    return this.reader.stream(options)
   }
 
-  protected override readFeature(sourceRef: SourceRef): Promise<Feature | null> {
-    return this.reader.read(sourceRef)
+  protected override readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+    return this.reader.read(sourceRef, options)
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
@@ -127,7 +129,8 @@ class GmlReader {
 
   async close(): Promise<void> {}
 
-  async *stream(signal?: AbortSignal): AsyncGenerator<Feature> {
+  async *stream(options: StreamOptions): AsyncGenerator<Feature> {
+    const { layer, signal } = options
     let index = 0
     const parser = new GmlFeatureStreamParser(this.options.featureElementNames, this.options.encoding)
     const file = createReadStream(this.filePath, {
@@ -148,14 +151,15 @@ class GmlReader {
             parseGmlFeature(parsed.xml, {
               axisOrder: this.options.axisOrder,
               geometryPropertyNames: this.options.geometryPropertyNames
-            }),
+            }, layer),
             {
               storage: 'file',
               sourceId: this.sourceId,
               offset: parsed.offset,
               byteLength: parsed.byteLength,
               recordIndex: index
-            }
+            },
+            layer
           )
 
           index += 1
@@ -169,7 +173,7 @@ class GmlReader {
     }
   }
 
-  async read(sourceRef: SourceRef): Promise<Feature | null> {
+  async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     const ref = this.toFileRef(sourceRef)
     const handle = await open(this.filePath, 'r')
 
@@ -184,23 +188,25 @@ class GmlReader {
         parseGmlFeature(buffer.toString(this.options.encoding), {
           axisOrder: this.options.axisOrder,
           geometryPropertyNames: this.options.geometryPropertyNames
-        }),
+        }, options.layer),
         {
           storage: 'file',
           sourceId: this.sourceId,
           offset: ref.offset,
           byteLength: ref.byteLength,
           recordIndex: ref.recordIndex
-        }
+        },
+        options.layer
       )
     } finally {
       await handle.close()
     }
   }
 
-  private withSourceRef(feature: Feature, sourceRef: SourceRef): Feature {
+  private withSourceRef(feature: Feature, sourceRef: SourceRef, layer: Layer): Feature {
     return {
       ...feature,
+      layer,
       sourceRef
     }
   }
@@ -295,7 +301,8 @@ class GmlFeatureStreamParser {
 
 function parseGmlFeature(
   xml: string,
-  options: Pick<GmlSourceOptions, 'axisOrder' | 'geometryPropertyNames'>
+  options: Pick<GmlSourceOptions, 'axisOrder' | 'geometryPropertyNames'>,
+  layer: Layer
 ): Feature {
   const root = readFirstElement(xml)
   if (!root) throw new Error('Invalid GML: expected a feature XML element')
@@ -310,6 +317,7 @@ function parseGmlFeature(
     ?? undefined
 
   return {
+    layer,
     type: 'Feature',
     id,
     properties,

@@ -1,4 +1,4 @@
-import { Layer } from '../layer/layer.js'
+import type { Layer } from '../layer/layer.js'
 import type { BBox, CrsCode } from './geometry.js'
 import type { Geometry } from './geometry.js'
 
@@ -36,7 +36,7 @@ export type SourceRef = SourceLoc & {
 }
 
 export type Feature = {
-    layer?: Layer
+    layer: Layer
     type: 'Feature'
     id?: string | number
     properties: Props | null

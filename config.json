@@ -153,7 +153,7 @@
             "pointProperties": [
                 {
                     "x": "label_x",
-                    "y": "label_x",
+                    "y": "label_y",
                     "crs": "EPSG:4326"
                 }
             ]

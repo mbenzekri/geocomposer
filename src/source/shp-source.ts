@@ -2,7 +2,9 @@ import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open, readFile, type FileHandle } from 'node:fs/promises'
 import type { Feature, Props, ByteRange, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position, CrsCode} from '../core/geometry.js'
+import type { Layer } from '../layer/layer.js'
 import { FileSource, type FeatureTransform } from './source.js'
+import type { StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 
 export type ShpSourceOptions = {
@@ -69,12 +71,12 @@ export class ShpSource extends FileSource {
     await this.reader.close()
   }
 
-  protected override streamFeatures(signal?: AbortSignal): AsyncIterable<Feature> {
-    return this.reader.stream(signal)
+  protected override streamFeatures(options: StreamOptions): AsyncIterable<Feature> {
+    return this.reader.stream(options)
   }
 
-  protected override readFeature(sourceRef: SourceRef): Promise<Feature | null> {
-    return this.reader.read(sourceRef)
+  protected override readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+    return this.reader.read(sourceRef, options)
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
@@ -106,7 +108,8 @@ class ShpReader {
     this.dbfReader = null
   }
 
-  async *stream(signal?: AbortSignal): AsyncGenerator<Feature> {
+  async *stream(options: StreamOptions): AsyncGenerator<Feature> {
+    const { layer, signal } = options
     const dbf = await this.getDbfReader()
     const parser = new ShpRecordParser()
     const file = createReadStream(this.shpPath, {
@@ -124,7 +127,7 @@ class ShpReader {
           const record = parser.read()
           if (!record) break
 
-          yield this.toFeature(record, await dbf.readRecord(record.recordNumber - 1))
+          yield this.toFeature(record, await dbf.readRecord(record.recordNumber - 1), layer)
           AbortSignalGuard.throwIfAborted(signal, 'Shapefile stream aborted')
         }
       }
@@ -137,7 +140,7 @@ class ShpReader {
     }
   }
 
-  async read(sourceRef: SourceRef): Promise<Feature | null> {
+  async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     const ref = this.toShpRef(sourceRef)
     const handle = await open(this.shpPath, 'r')
     const dbf = await this.getDbfReader()
@@ -161,7 +164,7 @@ class ShpReader {
       }
       const recordIndex = ref.recordIndex ?? record.recordNumber - 1
 
-      return this.toFeature(record, await dbf.readRecord(recordIndex), recordIndex)
+      return this.toFeature(record, await dbf.readRecord(recordIndex), options.layer, recordIndex)
     } finally {
       await handle.close()
     }
@@ -175,7 +178,12 @@ class ShpReader {
     return this.dbfReader
   }
 
-  private toFeature(record: ShpRecord, dbfRecord: DbfRecord, recordIndex = record.recordNumber - 1): Feature {
+  private toFeature(
+    record: ShpRecord,
+    dbfRecord: DbfRecord,
+    layer: Layer,
+    recordIndex = record.recordNumber - 1
+  ): Feature {
     const sourceRef: SourceRef = {
       storage: 'file',
       sourceId: `${this.sourceId}:shp`,
@@ -188,6 +196,7 @@ class ShpReader {
     }
 
     return {
+      layer,
       type: 'Feature',
       id: record.recordNumber,
       properties: dbfRecord.properties,

@@ -2,7 +2,9 @@ import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open } from 'node:fs/promises'
 import type { CrsCode } from '../core/geometry.js'
 import type { Feature, FileRef, SourceRef } from '../core/feature.js'
+import type { Layer } from '../layer/layer.js'
 import { FileSource, type FeatureTransform } from './source.js'
+import type { StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 
 export type GeoJsonSourceOptions = {
@@ -44,12 +46,12 @@ export class GeoJsonSource extends FileSource {
     await this.reader.close()
   }
 
-  protected override streamFeatures(signal?: AbortSignal): AsyncIterable<Feature> {
-    return this.reader.stream(signal)
+  protected override streamFeatures(options: StreamOptions): AsyncIterable<Feature> {
+    return this.reader.stream(options)
   }
 
-  protected override readFeature(sourceRef: SourceRef): Promise<Feature | null> {
-    return this.reader.read(sourceRef)
+  protected override readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+    return this.reader.read(sourceRef, options)
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
@@ -73,8 +75,9 @@ class GeoJsonReader {
 
   async close(): Promise<void> {}
 
-  async *stream(signal?: AbortSignal): AsyncGenerator<Feature> {
-    const parser = new FeatureCollectionParser(this.options.encoding)
+  async *stream(options: StreamOptions): AsyncGenerator<Feature> {
+    const { layer, signal } = options
+    const parser = new FeatureCollectionParser(this.options.encoding, layer)
     const file = createReadStream(this.filePath, {
       highWaterMark: this.options.highWaterMark,
       signal
@@ -94,7 +97,7 @@ class GeoJsonReader {
             sourceId: this.sourceId,
             offset: parsed.offset,
             byteLength: parsed.byteLength
-          })
+          }, layer)
 
           AbortSignalGuard.throwIfAborted(signal, 'GeoJSON stream aborted')
         }
@@ -108,7 +111,7 @@ class GeoJsonReader {
     }
   }
 
-  async read(sourceRef: SourceRef): Promise<Feature | null> {
+  async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     const ref = this.toFileRef(sourceRef)
     const handle = await open(this.filePath, 'r')
 
@@ -120,23 +123,25 @@ class GeoJsonReader {
       }
 
       return this.withSourceRef(
-        toFeature(JSON.parse(buffer.toString(this.options.encoding))),
+        toFeature(JSON.parse(buffer.toString(this.options.encoding)), options.layer),
         {
           storage: 'file',
           sourceId: this.sourceId,
           offset: ref.offset,
           byteLength: ref.byteLength,
           recordIndex: ref.recordIndex
-        }
+        },
+        options.layer
       )
     } finally {
       await handle.close()
     }
   }
 
-  private withSourceRef(feature: Feature, sourceRef: SourceRef): Feature {
+  private withSourceRef(feature: Feature, sourceRef: SourceRef, layer: Layer): Feature {
     return {
       ...feature,
+      layer,
       sourceRef
     }
   }
@@ -172,7 +177,10 @@ class FeatureCollectionParser {
   private searchDepth = 0
   private state: 'searching-features' | 'reading-features' | 'done' = 'searching-features'
 
-  constructor(private readonly encoding: BufferEncoding) {}
+  constructor(
+    private readonly encoding: BufferEncoding,
+    private readonly layer: Layer
+  ) {}
 
   get done(): boolean {
     return this.state === 'done'
@@ -299,7 +307,7 @@ class FeatureCollectionParser {
     if (end === null) return null
 
     const featureJson = Buffer.from(this.buffer.slice(start, end), 'latin1').toString(this.encoding)
-    const parsedFeature = toFeature(JSON.parse(featureJson))
+    const parsedFeature = toFeature(JSON.parse(featureJson), this.layer)
     const offset = this.bufferOffset + start
     // The slice starts at { and ends after }, so it can be parsed directly later.
     const byteLength = end - start
@@ -421,14 +429,17 @@ function isWhitespace(char: string): boolean {
   return char === ' ' || char === '\n' || char === '\r' || char === '\t'
 }
 
-function toFeature(value: unknown): Feature {
+function toFeature(value: unknown, layer: Layer): Feature {
   if (!value || typeof value !== 'object' || (value as { type?: unknown }).type !== 'Feature') {
     throw new Error('Invalid GeoJSON: expected a Feature object')
   }
 
-  const feature = value as Feature
+  const feature = value as Partial<Feature>
   return {
     ...feature,
-    properties: feature.properties ?? null
+    layer,
+    type: 'Feature',
+    properties: feature.properties ?? null,
+    geometry: feature.geometry ?? null
   }
 }

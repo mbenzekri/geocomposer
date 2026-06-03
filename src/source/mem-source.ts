@@ -1,36 +1,40 @@
 import type { BBox, CrsCode } from '../core/geometry.js'
 import { Gt } from '../core/geotools.js'
 import type { Feature, MemRef, SourceRef } from '../core/feature.js'
+import type { Layer } from '../layer/layer.js'
 import { Source, type StreamOptions } from './source.js'
+
+export type MemFeatureProvider = (layer: Layer) => Feature[] | Promise<Feature[]>
 
 export class MemSource extends Source {
   readonly type = 'mem'
   readonly storage = 'mem' as const
   private readonly source: Source | null
+  private readonly featureProvider: MemFeatureProvider | null
+  private readonly initialFeatures: Feature[] | null
   private readonly memoryCrs: CrsCode
-  private features: Feature[]
-  private loaded: boolean
-  private opening: Promise<void> | null = null
+  private readonly featuresByLayer = new Map<Layer, Feature[]>()
+  private readonly openings = new Map<Layer, Promise<void>>()
 
   constructor(id: string, source: Source)
-  constructor(id: string, crs: CrsCode, features: Feature[])
+  constructor(id: string, crs: CrsCode, features: Feature[] | MemFeatureProvider)
   constructor(
     readonly id: string,
     sourceOrCrs: Source | CrsCode,
-    features: Feature[] = []
+    features: Feature[] | MemFeatureProvider = []
   ) {
     super()
 
     if (isSource(sourceOrCrs)) {
       this.source = sourceOrCrs
+      this.featureProvider = null
+      this.initialFeatures = null
       this.memoryCrs = sourceOrCrs.crs
-      this.features = []
-      this.loaded = false
     } else {
       this.source = null
+      this.featureProvider = typeof features === 'function' ? features : null
+      this.initialFeatures = typeof features === 'function' ? null : features
       this.memoryCrs = sourceOrCrs
-      this.features = features
-      this.loaded = true
     }
   }
 
@@ -39,33 +43,25 @@ export class MemSource extends Source {
   }
 
   async open(): Promise<void> {
-    if (this.loaded) return
-
-    if (!this.opening) {
-      this.opening = this.load()
-    }
-
-    try {
-      await this.opening
-    } finally {
-      this.opening = null
-    }
+    await this.source?.open()
   }
 
   async close(): Promise<void> {
-    if (!this.source) return
+    if (this.openings.size > 0) {
+      await Promise.all(this.openings.values())
+    }
 
-    await this.source.close()
-    this.features = []
-    this.loaded = false
+    await this.source?.close()
+    this.featuresByLayer.clear()
+    this.openings.clear()
   }
 
-  async getExtent(): Promise<BBox | null> {
-    await this.open()
+  async getExtent(layer: Layer): Promise<BBox | null> {
+    const features = await this.ensureLoaded(layer)
 
     let extent: BBox | null = null
 
-    for (const feature of this.features) {
+    for (const feature of features) {
       const bbox = feature.bbox ?? Gt.bbox(feature.geometry)
       if (bbox) extent = extent ? Gt.expand(extent, bbox) : bbox
     }
@@ -73,7 +69,7 @@ export class MemSource extends Source {
     return extent
   }
 
-  stream(options: StreamOptions = {}): ReadableStream<Feature> {
+  stream(options: StreamOptions): ReadableStream<Feature> {
     let index = 0
 
     return new ReadableStream<Feature>({
@@ -83,54 +79,83 @@ export class MemSource extends Source {
           return
         }
 
+        let features: Feature[]
         try {
           await this.open()
+          features = await this.ensureLoaded(options.layer, options.signal)
         } catch (error) {
           controller.error(error)
           return
         }
 
-        if (index >= this.features.length) {
+        if (index >= features.length) {
           controller.close()
           return
         }
 
-        controller.enqueue(this.withSourceRef(this.features[index], index))
+        controller.enqueue(this.withSourceRef(features[index], index, options.layer))
         index += 1
       }
     })
   }
 
-  async read(sourceRef: SourceRef): Promise<Feature | null> {
-    await this.open()
-
+  async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     const ref = this.toMemRef(sourceRef)
-    const feature = this.features[ref.featureIndex]
+    const features = await this.ensureLoaded(options.layer, options.signal)
+    const feature = features[ref.featureIndex]
     if (!feature) return null
-    return this.withSourceRef(feature, ref.featureIndex)
+    return this.withSourceRef(feature, ref.featureIndex, options.layer)
   }
 
-  private async load(): Promise<void> {
+  private async ensureLoaded(layer: Layer, signal?: AbortSignal): Promise<Feature[]> {
+    const loaded = this.featuresByLayer.get(layer)
+    if (loaded) return loaded
+
+    let opening = this.openings.get(layer)
+    if (!opening) {
+      opening = this.load(layer, signal)
+      this.openings.set(layer, opening)
+    }
+
+    try {
+      await opening
+    } finally {
+      this.openings.delete(layer)
+    }
+
+    return this.featuresByLayer.get(layer) ?? []
+  }
+
+  private async load(layer: Layer, signal?: AbortSignal): Promise<void> {
+    const features: Feature[] = []
+
     if (!this.source) {
-      this.loaded = true
+      const loaded = this.featureProvider
+        ? await this.featureProvider(layer)
+        : this.initialFeatures ?? []
+
+      this.featuresByLayer.set(layer, loaded.map((feature) => ({
+        ...feature,
+        layer
+      })))
       return
     }
 
     await this.source.open()
 
-    const features: Feature[] = []
-
-    await this.source.stream().pipeTo(new WritableStream<Feature>({
+    await this.source.stream({ layer, signal }).pipeTo(new WritableStream<Feature>({
       write(feature) {
         features.push(feature)
       }
     }))
 
-    this.features = features
-    this.loaded = true
+    this.featuresByLayer.set(layer, features.map((feature) => ({
+      ...feature,
+      layer
+    })))
   }
 
-  private withSourceRef(feature: Feature, index: number): Feature {
+  private withSourceRef(feature: Feature, index: number, layer: Layer): Feature {
     const sourceRef: SourceRef = {
       storage: 'mem',
       sourceId: this.id,
@@ -146,6 +171,7 @@ export class MemSource extends Source {
 
     return {
       ...feature,
+      layer,
       sourceRef
     }
   }

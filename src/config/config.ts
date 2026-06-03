@@ -410,10 +410,13 @@ function createLayers(
         const sourceCrs = normalizeSourceCrs(entry.sourceCrs, source, name, crsReg)
         const pointProperties = []
         for (let pp of entry.pointProperties ?? []) {
+            if (pp.x === pp.y) {
+                throw new Error(`Layer "${name}" pointProperties must use different x and y properties`)
+            }
+
             const crs = normalizeSourceCrs(pp.crs, source, name, crsReg)
             pointProperties.push({ x: pp.x, y: pp.y, crs })
         }
-        console.log(`----- Point Properties: ${JSON.stringify(pointProperties)}`)
         return new Layer(name, {
             title: entry.title,
             summary: entry.abstract,

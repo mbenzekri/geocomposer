@@ -2,7 +2,9 @@ import { constants, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
 import type { DbRef, Feature, SourceRef, Props} from '../core/feature.js'
 import type { Geometry, Position, BBox, CrsCode} from '../core/geometry.js'
+import type { Layer } from '../layer/layer.js'
 import { DbSource, type FeatureTransform } from './source.js'
+import type { StreamOptions } from './source.js'
 import { AbortSignalGuard } from './source-utils.js'
 
 export type GpkgSourceOptions = {
@@ -84,14 +86,14 @@ export class GpkgSource extends DbSource {
     this.opened = false
   }
 
-  protected override async readFeature(sourceRef: SourceRef): Promise<Feature | null> {
+  protected override async readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     await this.open()
-    return this.reader.read(sourceRef)
+    return this.reader.read(sourceRef, options)
   }
 
-  protected override async *streamFeatures(signal?: AbortSignal): AsyncGenerator<Feature> {
+  protected override async *streamFeatures(options: StreamOptions): AsyncGenerator<Feature> {
     await this.open()
-    yield* this.reader.stream(signal)
+    yield* this.reader.stream(options)
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
@@ -142,22 +144,23 @@ class GpkgReader {
     this.meta = null
   }
 
-  async *stream(signal?: AbortSignal): AsyncGenerator<Feature> {
+  async *stream(options: StreamOptions): AsyncGenerator<Feature> {
     const state = this.requireOpen()
     const rows = state.db.prepare(this.selectAllSql(state.meta)).all()
+    const signal = options.signal
 
     for (let index = 0; index < rows.length; index += 1) {
       AbortSignalGuard.throwIfAborted(signal, 'GeoPackage stream aborted')
-      yield this.toFeature(state.meta, rows[index], index)
+      yield this.toFeature(state.meta, rows[index], index, options.layer)
     }
   }
 
-  async read(sourceRef: SourceRef): Promise<Feature | null> {
+  async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     const state = this.requireOpen()
     const ref = this.toDbRef(sourceRef, state.meta)
     const row = state.db.prepare(this.selectOneSql(state.meta)).get(ref.rowId)
     if (!row) return null
-    return this.toFeature(state.meta, row, ref.recordIndex ?? 0)
+    return this.toFeature(state.meta, row, ref.recordIndex ?? 0, options.layer)
   }
 
   private requireOpen(): { db: SqliteDatabase, meta: GeoPackageTableMeta } {
@@ -171,7 +174,7 @@ class GpkgReader {
     }
   }
 
-  private toFeature(meta: GeoPackageTableMeta, row: Record<string, unknown>, index: number): Feature {
+  private toFeature(meta: GeoPackageTableMeta, row: Record<string, unknown>, index: number, layer: Layer): Feature {
     const idValue = row.__id__
     const rowId = toFeatureRowId(idValue, index)
     const sourceRef: SourceRef = {
@@ -190,6 +193,7 @@ class GpkgReader {
     }
 
     return {
+      layer,
       type: 'Feature',
       id: rowId,
       properties,

@@ -9,22 +9,33 @@ export class Reproject extends TransformStream<Feature, Feature> {
   ) {
     super({
       transform: (feature, controller) => {
-        if (sourceCrs === targetCrs || !feature.geometry) {
+        const shouldTransformGeometry = sourceCrs !== targetCrs && feature.geometry !== null
+        const shouldTransformPointProperties = feature.layer.pointProperties.some((pointProperty) =>
+          pointProperty.crs !== targetCrs
+        )
+
+        if (!shouldTransformGeometry && !shouldTransformPointProperties) {
           controller.enqueue(feature)
           return
         }
 
-        const geometry = Gt.transformGeometry(feature.geometry, sourceCrs, targetCrs)
-        const bbox = Gt.bbox(geometry) ?? undefined
+        const geometry = shouldTransformGeometry && feature.geometry
+          ? Gt.transformGeometry(feature.geometry, sourceCrs, targetCrs)
+          : feature.geometry
+        const bbox = geometry ? Gt.bbox(geometry) ?? undefined : feature.bbox
         let properties = feature.properties
-        if (feature?.layer) console.log(`----- traitement de reprojection ${feature.layer.name}`)
-        if (properties != null && feature.layer?.pointProperties != null) {
-            for (let pp of feature.layer.pointProperties) {
-                console.log(`----- traitement de reprojection ${feature.layer.name}`)
-                if (sourceCrs != targetCrs) {
-                    properties = Gt.transformLabelPosition(properties, pp.x, pp.y, pp.crs ?? sourceCrs, targetCrs)
-                }
-            }
+        if (properties != null) {
+          for (const pointProperty of feature.layer.pointProperties) {
+            if (pointProperty.crs === targetCrs) continue
+
+            properties = Gt.transformLabelPosition(
+              properties,
+              pointProperty.x,
+              pointProperty.y,
+              pointProperty.crs,
+              targetCrs
+            )
+          }
         }
 
         controller.enqueue({
@@ -37,5 +48,3 @@ export class Reproject extends TransformStream<Feature, Feature> {
     })
   }
 }
-
-

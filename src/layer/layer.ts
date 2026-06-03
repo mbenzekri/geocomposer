@@ -27,6 +27,9 @@ export type LayerOptions = {
   pointProperties: PointProperties[]
 }
 
+export type LayerStreamOptions = Omit<StreamOptions, 'layer'>
+export type LayerQueryOptions = Omit<QueryOptions, 'layer'>
+
 export class Layer {
   readonly title?: string
   readonly summary?: string
@@ -66,14 +69,14 @@ export class Layer {
   }
 
   async getExtent(): Promise<BBox | null> {
-    return this.extent ?? await this.source.getExtent()
+    return this.extent ?? await this.source.getExtent(this)
   }
 
-  stream(options?: StreamOptions): ReadableStream<Feature> {
-    return this.source.stream({...options, layer: options?.layer})
+  stream(options: LayerStreamOptions = {}): ReadableStream<Feature> {
+    return this.source.stream({ ...options, layer: this })
   }
 
-  query(options: QueryOptions = {layer: this}): ReadableStream<Feature> {
+  query(options: LayerQueryOptions = {}): ReadableStream<Feature> {
     const crs = options.crs ?? this.sourceCrs
 
     if (crs === this.sourceCrs) {

@@ -4,8 +4,9 @@ import { MemSource } from '../source/mem-source.js'
 import { renderMap } from '../ogc/render-map.js'
 import { defaultStyleFn } from '../style/default-style.js'
 
-const source = new MemSource('demo', 'EPSG:4326', [
+const source = new MemSource('demo', 'EPSG:4326', (layer) => [
   {
+    layer,
     type: 'Feature',
     id: 1,
     properties: { name: 'line' },
@@ -19,6 +20,7 @@ const source = new MemSource('demo', 'EPSG:4326', [
     }
   },
   {
+    layer,
     type: 'Feature',
     id: 2,
     properties: { name: 'polygon' },
@@ -36,6 +38,7 @@ const source = new MemSource('demo', 'EPSG:4326', [
     }
   },
   {
+    layer,
     type: 'Feature',
     id: 3,
     properties: { name: 'point' },

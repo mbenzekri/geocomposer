@@ -4,8 +4,9 @@ import { renderMap } from '../ogc/render-map.js'
 import { MemSource } from '../source/mem-source.js'
 import { createDynamicStyleFn } from '../style/dynamic-style.js'
 
-const source = new MemSource('dynamic-style-demo', 'EPSG:4326', [
+const source = new MemSource('dynamic-style-demo', 'EPSG:4326', (layer) => [
   {
+    layer,
     type: 'Feature',
     id: 1,
     properties: { kind: 'area', name: 'Zone' },
@@ -21,6 +22,7 @@ const source = new MemSource('dynamic-style-demo', 'EPSG:4326', [
     }
   },
   {
+    layer,
     type: 'Feature',
     id: 2,
     properties: { kind: 'route', name: 'Axe' },
@@ -34,6 +36,7 @@ const source = new MemSource('dynamic-style-demo', 'EPSG:4326', [
     }
   },
   {
+    layer,
     type: 'Feature',
     id: 3,
     properties: { kind: 'city', name: 'Paris' },
