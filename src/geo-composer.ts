@@ -3,10 +3,12 @@ import { fileURLToPath } from 'node:url'
 import { createServer,type Server, type IncomingMessage, type ServerResponse } from 'node:http'
 import { Config } from './config/config.js'
 import { Service } from './service/service.js'
+import { parsePort } from './core/tools.js'
 
 type Args = {
     configPath: string
     clearTileCache: boolean
+    port?: number
 }
 
 export class GeoComposer {
@@ -14,7 +16,7 @@ export class GeoComposer {
 
     private shuttingDown = false
 
-    constructor(
+    private constructor(
         private readonly config: Config,
         private readonly port = config.server.port
     ) {
@@ -57,7 +59,7 @@ export class GeoComposer {
 
                 this.server.once('error', onError)
                 this.server.once('listening', onListening)
-                this.server.listen(this.port)
+                this.server.listen(this.config.server.port)
             })
         } catch (error) {
             try {
@@ -181,16 +183,7 @@ export class GeoComposer {
 
 }
 
-function parsePort(value: string | undefined, fallback: number): number {
-    if (value === undefined || value === '') return fallback
 
-    const port = Number.parseInt(value, 10)
-    if (!Number.isFinite(port) || port <= 0 || port > 65535) {
-        throw new Error(`Invalid PORT: ${value}`)
-    }
-
-    return port
-}
 
 function parseArgs(): Args {
     const args = process.argv.slice(2)
@@ -202,8 +195,19 @@ function parseArgs(): Args {
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index]
 
-        if (arg === '--clear-tile-cache') {
+        if (arg === '--clear-tile-cache' || arg === '-cc') {
             options.clearTileCache = true
+            continue
+        }
+
+        if (arg === '--port' || arg === '-p') {
+            const value = args[index + 1]
+            if (!value || value.startsWith('-')) {
+                throw new Error(`${arg} requires a port number`)
+            }
+
+            options.port = parsePort(value,undefined)
+            index += 1
             continue
         }
 

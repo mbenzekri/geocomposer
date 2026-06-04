@@ -147,7 +147,7 @@
     },
     "tilesets": {
       "type": "object",
-      "minProperties": 1,
+      "minProperties": 0,
       "additionalProperties": {
         "$ref": "#/$defs/tileset"
       }

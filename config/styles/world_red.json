@@ -1,0 +1,40 @@
+{
+    "title": "World",
+    "cacheKey": "world",
+    "static": {
+        "country": {
+            "stroke": {
+                "color": "#334155",
+                "width": 0.75
+            },
+            "fill": {
+                "color": "rgba(248, 100, 56, 0.18)"
+            }
+        },
+        "country-label": {
+            "text": {
+                "step": "map",
+                "declutter": "first",
+                "text": "",
+                "font": "12px sans-serif",
+                "fill": {
+                    "color": "#0f172a"
+                },
+                "stroke": {
+                    "color": "rgba(255, 255, 255, 0.9)",
+                    "width": 3
+                }
+            }
+        }
+    },
+    "dynamic": [
+        {
+            "pointer": "#/country-label/geometry",
+            "value": "=> { const x = Number(F.properties?.label_x ?? F.properties?.LABEL_X); const y = Number(F.properties?.label_y ?? F.properties?.LABEL_Y); return Number.isFinite(x) && Number.isFinite(y) ? { type: 'Point', coordinates: [x, y] } : undefined }"
+        },
+        {
+            "pointer": "#/country-label/text/text",
+            "value": "=> F.properties?.name_fr ?? F.properties?.NAME_FR ?? ''"
+        }
+    ]
+}

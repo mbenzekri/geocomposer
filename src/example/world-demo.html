@@ -501,10 +501,17 @@
       requestUrlElement.textContent = 'En attente...'
       currentFormatLabel = formatLabel || layerName
       currentWorldLayer = layerName
-      source.updateParams({
-        LAYERS: `${layerName},capitals`,
-        STYLES: 'world,capitals'
-      })
+      if (tilesetSelect.value == 'world') {
+        source.updateParams({
+            LAYERS: `world`,
+            STYLES: 'world'
+        })
+      } else {
+        source.updateParams({
+            LAYERS: `world,capitals`,
+            STYLES: 'world,capitals'
+        })
+      }
       worldLayerSelect.value = layerName
 
       clearFeatureInfo()

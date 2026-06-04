@@ -2,6 +2,17 @@ export function isTruthy(value: unknown): boolean {
     return Boolean(Array.isArray(value) ? value.length : value)
 }
 
+export function parsePort(value: string | undefined, fallback: number | undefined): number | undefined {
+    if (value === undefined || value === '') return fallback
+
+    const port = Number.parseInt(value, 10)
+    if (!Number.isFinite(port) || port <= 0 || port > 65535) {
+        throw new Error(`Invalid PORT: ${value}`)
+    }
+
+    return port
+}
+
 export function stringify(value: unknown): string {
     return String(value == null ? '' : value)
 }

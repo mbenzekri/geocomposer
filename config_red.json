@@ -1,0 +1,91 @@
+{
+    "$schema": "./config.schema.json",
+    "server": {
+        "port": 3000
+    },
+    "services": {
+        "wms": {
+            "path": "/wms",
+            "title": "GeoComposer WMS",
+            "abstract": "Minimal WMS server backed by the GeoComposer render pipeline.",
+            "onlineResource": "http://localhost:3000/wms",
+            "maxWidth": 4096,
+            "maxHeight": 4096
+        }
+    },
+    "tilesets": {
+
+    },
+    "projections": {
+        "EPSG:4326": {
+            "title": "WGS84"
+        },
+        "EPSG:3857": {
+            "title": "Web Mercator"
+        }
+    },
+    "sources": {
+        "world": {
+            "type": "geojson",
+            "title": "World GeoJSON",
+            "abstract": "World country boundaries GeoJSON demo source.",
+            "crs": "EPSG:4326",
+            "path": "data/world.geojson"
+        },
+        "capitals": {
+            "type": "geojson",
+            "title": "Capitals GeoJSON",
+            "abstract": "World capitals GeoJSON demo source.",
+            "crs": "EPSG:4326",
+            "path": "data/capitals.geojson"
+        }
+    },
+    "styles": {
+        "world": {
+            "type": "dynamic",
+            "title": "World Red",
+            "abstract": "Country boundaries rendered from a DynStyle JSON file.",
+            "path": "config/styles/world_red.json"
+        },
+        "capitals": {
+            "type": "dynamic",
+            "title": "Capitals",
+            "abstract": "Capital city points and labels rendered from a DynStyle JSON file.",
+            "path": "config/styles/capitals.json",
+            "options": {
+                "units": "dd"
+            }
+        }
+
+    },
+    "layers": {
+        "world": {
+            "title": "World GeoJSON",
+            "abstract": "World country boundaries from the GeoJSON demo dataset.",
+            "source": "world",
+            "sourceCrs": "EPSG:4326",
+            "extent": [ -180, -90, 180, 90 ],
+            "style": "world",
+            "pointProperties": [
+                {
+                    "x": "label_x",
+                    "y": "label_y",
+                    "crs": "EPSG:4326"
+                }
+            ]
+        },
+        "capitals": {
+            "title": "Capitals GeoJSON",
+            "abstract": "World capitals from the GeoJSON demo dataset.",
+            "source": "capitals",
+            "sourceCrs": "EPSG:4326",
+            "extent": [
+                -180,
+                -90,
+                180,
+                90
+            ],
+            "style": "capitals"
+        }
+    }
+}
