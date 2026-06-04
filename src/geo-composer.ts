@@ -28,7 +28,7 @@ export class GeoComposer {
         })
     }
 
-    static async fromEnv(args: Partial<Args> = {}): Promise<GeoComposer> {
+    static async from(args: Partial<Args> = {}): Promise<GeoComposer> {
         const configPath = path.resolve(process.cwd(), args.configPath ?? process.env.CONFIG ?? 'config.json')
         const config = await Config.load(configPath)
 
@@ -241,7 +241,7 @@ function parseArgs(): Args {
 
 if (isMain()) {
     const args = parseArgs()
-    const geo = await GeoComposer.fromEnv(args)
+    const geo = await GeoComposer.from(args)
     await geo.start()
 }
 
