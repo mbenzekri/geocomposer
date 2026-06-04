@@ -532,15 +532,22 @@
           },
           "uniqueItems": true
         },
-        "pointProperties" : {
+        "pointProperties": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["x","y"],
-            "properties" : {
-                "x" : "string",
-                "y" : "string",
-                "crs" : "string"
+            "additionalProperties": false,
+            "required": ["x", "y"],
+            "properties": {
+              "x": {
+                "type": "string"
+              },
+              "y": {
+                "type": "string"
+              },
+              "crs": {
+                "type": "string"
+              }
             }
           }
         }
