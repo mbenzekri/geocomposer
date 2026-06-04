@@ -6,8 +6,6 @@
   "scripts": {
     "build": "tsc",
     "serve": "tsx src/geo-composer.ts",
-    "serve:wms": "tsx src/example/run-world-wms-server.ts",
-    "serve:xyz": "tsx src/example/run-world-xyz-server.ts",
     "demo": "tsx src/example/render-demo.ts",
     "demo:styles": "tsx src/example/style-smoke-demo.ts",
     "demo:world": "tsx src/example/render-world-geojson.ts",
