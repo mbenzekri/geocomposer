@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { Layer } from '../layer/layer.js'
 import { MemSource } from '../source/mem-source.js'
 import { getMap } from '../ogc/get-map.js'
-import { defaultStyleFn } from '../style/default-style.js'
+import { createDynamicStyleFn } from '../style/dynamic-style.js'
 
 const source = new MemSource('demo', 'EPSG:4326', (layer) => [
   {
@@ -48,11 +48,42 @@ const source = new MemSource('demo', 'EPSG:4326', (layer) => [
     }
   }
 ])
+const style = await createDynamicStyleFn('demo', {
+  cacheKey: "=> F.geometry?.type ?? 'unknown'",
+  static: {
+    point: {
+      when: "=> ['Point', 'MultiPoint'].includes(F.geometry?.type ?? '')",
+      image: {
+        type: 'Circle',
+        radius: 4,
+        fill: { color: 'rgba(220, 0, 0, 0.9)' },
+        stroke: { color: '#ffffff', width: 1 }
+      }
+    },
+    line: {
+      when: "=> ['LineString', 'MultiLineString'].includes(F.geometry?.type ?? '')",
+      stroke: {
+        color: '#0055ff',
+        width: 2
+      }
+    },
+    polygon: {
+      when: "=> ['Polygon', 'MultiPolygon'].includes(F.geometry?.type ?? '')",
+      stroke: {
+        color: '#0055ff',
+        width: 1
+      },
+      fill: {
+        color: 'rgba(0, 85, 255, 0.15)'
+      }
+    }
+  }
+})
 const layer = new Layer('demo', {
   source,
   styles: [{
     name: 'default',
-    style: defaultStyleFn,
+    style
   }],
   pointProperties: []
 })
@@ -61,8 +92,8 @@ await rm('style-smoke/map.png', { force: true })
 await mkdir('style-smoke', { recursive: true })
 
 const image = await getMap({
-  layers:[layer],
-  styles:[],
+  layers: [layer],
+  styles: [],
   bbox: [-6, 42, 6, 50],
   width: 800,
   height: 600,

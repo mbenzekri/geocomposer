@@ -1,20 +1,21 @@
 import type { BBox } from '../core/geometry.js'
-import Fill from 'ol/style/Fill.js'
-import Stroke from 'ol/style/Stroke.js'
-import Style from 'ol/style/Style.js'
 import type { StyleFn } from '../style/style-fn.js'
+import { createDynamicStyleFn } from '../style/dynamic-style.js'
 
-export const worldStyle = new Style({
-  stroke: new Stroke({
-    color: '#334155',
-    width: 0.75
-  }),
-  fill: new Fill({
-    color: 'rgba(56, 189, 248, 0.18)'
-  })
+export const worldStyleFn: StyleFn = await createDynamicStyleFn('world-smoke', {
+  cacheKey: 'world-smoke',
+  static: {
+    country: {
+      stroke: {
+        color: '#334155',
+        width: 0.75
+      },
+      fill: {
+        color: 'rgba(56, 189, 248, 0.18)'
+      }
+    }
+  }
 })
-
-export const worldStyleFn: StyleFn = () => worldStyle
 
 const WEB_MERCATOR_MAX = 20037508.342789244
 

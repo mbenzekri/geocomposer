@@ -1,35 +1,37 @@
-import { Buffer } from 'node:buffer'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { createCanvas, loadImage } from 'canvas'
+import { createCanvas } from 'canvas'
 import '../render/openlayers-node-shim.js'
-import Style from 'ol/style/Style.js'
-import Stroke from 'ol/style/Stroke.js'
-import Fill from 'ol/style/Fill.js'
-import CircleStyle from 'ol/style/Circle.js'
-import RegularShape from 'ol/style/RegularShape.js'
-import Text from 'ol/style/Text.js'
-import Icon from 'ol/style/Icon.js'
 import type { Feature } from '../core/feature.js'
 import { Layer } from '../layer/layer.js'
 import { getMap } from '../ogc/get-map.js'
 import { MemSource } from '../source/mem-source.js'
-import type { StyleFn } from '../style/style-fn.js'
+import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-style.js'
 
 const pngIconPath = resolve('style-smoke/icon-source.png')
 const svgIconPath = resolve('style-smoke/icon-source.svg')
 
-type SmokeCase = {
-  name: string
-  feature: (layer: Layer) => Feature
-  style: () => Style | Style[] | Promise<Style | Style[]>
+class SmokeCase {
+  constructor(
+    readonly name: string,
+    private readonly featureFactory: (layer: Layer) => Feature,
+    private readonly styleFactory: () => DynamicStyleJson
+  ) {}
+
+  feature(layer: Layer): Feature {
+    return this.featureFactory(layer)
+  }
+
+  createStyle() {
+    return createDynamicStyleFn(this.name, this.styleFactory())
+  }
 }
 
 const pointFeature = (layer: Layer): Feature => ({
   layer,
   type: 'Feature',
   id: 'point',
-  properties: {},
+  properties: { label: 'Label' },
   geometry: {
     type: 'Point',
     coordinates: [0, 0]
@@ -69,134 +71,172 @@ const polygonFeature = (layer: Layer): Feature => ({
   }
 })
 
-const smokeCases: SmokeCase[] = [
-  {
-    name: 'stroke-line',
-    feature: lineFeature,
-    style: () => new Style({
-      stroke: new Stroke({ color: '#0055ff', width: 3 })
-    })
-  },
-  {
-    name: 'fill-polygon',
-    feature: polygonFeature,
-    style: () => new Style({
-      stroke: new Stroke({ color: '#0055ff', width: 2 }),
-      fill: new Fill({ color: 'rgba(0, 85, 255, 0.2)' })
-    })
-  },
-  {
-    name: 'gradient-fill-polygon',
-    feature: polygonFeature,
-    style: () => new Style({
-      stroke: new Stroke({ color: '#1f2937', width: 2 }),
-      fill: new Fill({
-        color: createLinearGradientFill() as unknown as CanvasGradient
-      })
-    })
-  },
-  {
-    name: 'image-pattern-fill-polygon',
-    feature: polygonFeature,
-    style: async () => new Style({
-      stroke: new Stroke({ color: '#1f2937', width: 2 }),
-      fill: new Fill({
-        color: await createImagePatternFill() as unknown as CanvasPattern
-      })
-    })
-  },
-  {
-    name: 'svg-cross-pattern-fill-polygon',
-    feature: polygonFeature,
-    style: async () => new Style({
-      stroke: new Stroke({ color: '#1f2937', width: 2 }),
-      fill: new Fill({
-        color: await createSvgCrossPatternFill() as unknown as CanvasPattern
-      })
-    })
-  },
-  {
-    name: 'circle-point',
-    feature: pointFeature,
-    style: () => new Style({
-      image: new CircleStyle({
-        radius: 8,
-        fill: new Fill({ color: '#dc0000' }),
-        stroke: new Stroke({ color: '#ffffff', width: 2 })
-      })
-    })
-  },
-  {
-    name: 'regular-shape-point',
-    feature: pointFeature,
-    style: () => new Style({
-      image: new RegularShape({
-        points: 5,
-        radius: 10,
-        fill: new Fill({ color: '#f2b705' }),
-        stroke: new Stroke({ color: '#1f2937', width: 2 })
-      })
-    })
-  },
-  {
-    name: 'text-point',
-    feature: pointFeature,
-    style: () => [
-      new Style({
-        image: new CircleStyle({
+const smokeCases = [
+  new SmokeCase('stroke-line', lineFeature, () => ({
+    cacheKey: 'stroke-line',
+    static: {
+      line: {
+        stroke: { color: '#0055ff', width: 3 }
+      }
+    }
+  })),
+  new SmokeCase('fill-polygon', polygonFeature, () => ({
+    cacheKey: 'fill-polygon',
+    static: {
+      polygon: {
+        stroke: { color: '#0055ff', width: 2 },
+        fill: { color: 'rgba(0, 85, 255, 0.2)' }
+      }
+    }
+  })),
+  new SmokeCase('gradient-fill-polygon', polygonFeature, () => ({
+    cacheKey: 'gradient-fill-polygon',
+    static: {
+      polygon: {
+        stroke: { color: '#1f2937', width: 2 },
+        fill: {
+          color: {
+            type: 'LinearGradient',
+            x0: 0,
+            y0: 0,
+            x1: 180,
+            y1: 140,
+            colorStops: [
+              { offset: 0, color: '#dc2626' },
+              { offset: 1, color: '#2563eb' }
+            ]
+          }
+        }
+      }
+    }
+  })),
+  new SmokeCase('image-pattern-fill-polygon', polygonFeature, () => ({
+    cacheKey: 'image-pattern-fill-polygon',
+    static: {
+      polygon: {
+        stroke: { color: '#1f2937', width: 2 },
+        fill: {
+          color: {
+            type: 'CanvasPattern',
+            image: createCheckerPatternDataUrl(),
+            repetition: 'repeat'
+          }
+        }
+      }
+    }
+  })),
+  new SmokeCase('svg-cross-pattern-fill-polygon', polygonFeature, () => ({
+    cacheKey: 'svg-cross-pattern-fill-polygon',
+    static: {
+      polygon: {
+        stroke: { color: '#1f2937', width: 2 },
+        fill: {
+          color: {
+            type: 'CanvasPattern',
+            image: createCrossSvgMarkup(),
+            repetition: 'repeat'
+          }
+        }
+      }
+    }
+  })),
+  new SmokeCase('circle-point', pointFeature, () => ({
+    cacheKey: 'circle-point',
+    static: {
+      point: {
+        image: {
+          type: 'Circle',
+          radius: 8,
+          fill: { color: '#dc0000' },
+          stroke: { color: '#ffffff', width: 2 }
+        }
+      }
+    }
+  })),
+  new SmokeCase('regular-shape-point', pointFeature, () => ({
+    cacheKey: 'regular-shape-point',
+    static: {
+      point: {
+        image: {
+          type: 'RegularShape',
+          points: 5,
+          radius: 10,
+          fill: { color: '#f2b705' },
+          stroke: { color: '#1f2937', width: 2 }
+        }
+      }
+    }
+  })),
+  new SmokeCase('text-point', pointFeature, () => ({
+    cacheKey: 'text-point',
+    static: {
+      point: {
+        image: {
+          type: 'Circle',
           radius: 4,
-          fill: new Fill({ color: '#0055ff' })
-        })
-      }),
-      new Style({
-        text: new Text({
-          text: 'Label',
+          fill: { color: '#0055ff' }
+        }
+      },
+      label: {
+        text: {
+          text: '',
           font: '16px sans-serif',
           offsetY: -18,
-          fill: new Fill({ color: '#111827' }),
-          stroke: new Stroke({ color: '#ffffff', width: 3 })
-        })
-      })
+          fill: { color: '#111827' },
+          stroke: { color: '#ffffff', width: 3 }
+        }
+      }
+    },
+    dynamic: [
+      { pointer: '#/label/text/text', value: "=> F.get('label') ?? ''" }
     ]
-  },
-  {
-    name: 'icon-canvas-point',
-    feature: pointFeature,
-    style: () => new Style({
-      image: new Icon({
-        img: createIconCanvas() as unknown as HTMLCanvasElement,
-        size: [24, 24]
-      })
-    })
-  },
-  {
-    name: 'icon-src-point',
-    feature: pointFeature,
-    style: () => new Style({
-      image: new Icon({
-        src: pngIconPath
-      })
-    })
-  },
-  {
-    name: 'icon-svg-point',
-    feature: pointFeature,
-    style: () => new Style({
-      image: new Icon({
-        src: svgIconPath
-      })
-    })
-  },
-  {
-    name: 'icon-svg-img-point',
-    feature: pointFeature,
-    style: async () => new Style({
-      image: new Icon({
-        img: (await createSvgIconCanvas()) as unknown as HTMLCanvasElement,
-        size: [32, 32]
-      })
-    })
-  }
+  })),
+  new SmokeCase('icon-canvas-point', pointFeature, () => ({
+    cacheKey: 'icon-canvas-point',
+    static: {
+      point: {
+        image: {
+          type: 'Icon',
+          img: createIconCanvasDataUrl(),
+          size: [24, 24]
+        }
+      }
+    }
+  })),
+  new SmokeCase('icon-src-point', pointFeature, () => ({
+    cacheKey: 'icon-src-point',
+    static: {
+      point: {
+        image: {
+          type: 'Icon',
+          src: pngIconPath
+        }
+      }
+    }
+  })),
+  new SmokeCase('icon-svg-point', pointFeature, () => ({
+    cacheKey: 'icon-svg-point',
+    static: {
+      point: {
+        image: {
+          type: 'Icon',
+          src: svgIconPath
+        }
+      }
+    }
+  })),
+  new SmokeCase('icon-svg-img-point', pointFeature, () => ({
+    cacheKey: 'icon-svg-img-point',
+    static: {
+      point: {
+        image: {
+          type: 'Icon',
+          img: createSvgIconMarkup(),
+          size: [32, 32]
+        }
+      }
+    }
+  }))
 ]
 
 await mkdir('style-smoke', { recursive: true })
@@ -213,8 +253,7 @@ let failed = false
 for (const smokeCase of smokeCases) {
   try {
     const source = new MemSource(smokeCase.name, 'EPSG:4326', (layer) => [smokeCase.feature(layer)])
-    const olStyle = await smokeCase.style()
-    const style: StyleFn = () => olStyle
+    const style = await smokeCase.createStyle()
     const layer = new Layer(smokeCase.name, {
       source,
       styles: [{
@@ -225,8 +264,8 @@ for (const smokeCase of smokeCases) {
     })
 
     const image = await getMap({
-    layers: [layer],
-    styles: [],
+      layers: [layer],
+      styles: [],
       bbox: [-1, -1, 1, 1],
       width: 180,
       height: 140,
@@ -259,18 +298,11 @@ function createIconCanvas(): ReturnType<typeof createCanvas> {
   return canvas
 }
 
-function createLinearGradientFill(): ReturnType<CanvasRenderingContext2D['createLinearGradient']> {
-  const canvas = createCanvas(180, 140)
-  const context = canvas.getContext('2d')
-  const gradient = context.createLinearGradient(0, 0, 180, 140)
-
-  gradient.addColorStop(0, '#dc2626')
-  gradient.addColorStop(1, '#2563eb')
-
-  return gradient
+function createIconCanvasDataUrl(): string {
+  return createIconCanvas().toDataURL('image/png')
 }
 
-async function createImagePatternFill(): Promise<NonNullable<ReturnType<CanvasRenderingContext2D['createPattern']>>> {
+function createCheckerPatternDataUrl(): string {
   const canvas = createCanvas(12, 12)
   const context = canvas.getContext('2d')
 
@@ -283,29 +315,7 @@ async function createImagePatternFill(): Promise<NonNullable<ReturnType<CanvasRe
   context.lineWidth = 1
   context.strokeRect(0.5, 0.5, 11, 11)
 
-  const pattern = context.createPattern(canvas, 'repeat')
-  if (!pattern) {
-    throw new Error('Unable to create canvas pattern')
-  }
-
-  return pattern
-}
-
-async function createSvgCrossPatternFill(): Promise<NonNullable<ReturnType<CanvasRenderingContext2D['createPattern']>>> {
-  const tile = createCanvas(24, 24)
-  const context = tile.getContext('2d')
-  const cross = await loadImage(Buffer.from(createCrossSvgMarkup(), 'utf8'))
-
-  context.fillStyle = '#f8fafc'
-  context.fillRect(0, 0, 24, 24)
-  context.drawImage(cross, 4, 4, 16, 16)
-
-  const pattern = context.createPattern(tile, 'repeat')
-  if (!pattern) {
-    throw new Error('Unable to create SVG cross pattern')
-  }
-
-  return pattern
+  return canvas.toDataURL('image/png')
 }
 
 function createSvgIconMarkup(): string {
@@ -321,12 +331,4 @@ function createCrossSvgMarkup(): string {
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
   <path d="M7 2h2v5h5v2H9v5H7V9H2V7h5z" fill="#111827"/>
 </svg>`
-}
-
-async function createSvgIconCanvas(): Promise<ReturnType<typeof createCanvas>> {
-  const image = await loadImage(Buffer.from(createSvgIconMarkup(), 'utf8'))
-  const canvas = createCanvas(32, 32)
-  const context = canvas.getContext('2d')
-  context.drawImage(image, 0, 0, 32, 32)
-  return canvas
 }

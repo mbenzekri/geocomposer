@@ -2,8 +2,7 @@
 
 # Refactoring
 
-2) revoir les tests de style pour utiliser des style dynamic (en plus ou en remplacement ?)
-
+- [x] Revoir les tests de style pour utiliser des styles dynamic.
 
 
 
