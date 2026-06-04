@@ -3,8 +3,7 @@ import type { Server } from 'node:http'
 import type { Socket } from 'node:net'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { loadConfig, type LoadedConfig } from './config/config.js'
-import { Lifecycle } from './lifecycle/lifecycle.js'
+import { Config } from './config/config.js'
 import { Service } from './service/service.js'
 import { Wms } from './service/wms.js'
 import { Wmts } from './service/wmts.js'
@@ -28,26 +27,21 @@ export class GeoComposer {
   private readonly wms: Wms
   private readonly xyz?: Xyz
   private readonly wmts?: Wmts
-  private readonly lifecycle: Lifecycle
   private readonly sockets = new Set<Socket>()
   private shuttingDown = false
 
   constructor(
-    private readonly loaded: LoadedConfig,
-    private readonly port = loaded.server.port
+    private readonly config: Config,
+    private readonly port = config.server.port
   ) {
-    this.wms = new Wms(loaded.wms)
-    this.xyz = loaded.xyz ? new Xyz(loaded.xyz) : undefined
-    this.wmts = loaded.wmts ? new Wmts(loaded.wmts) : undefined
+    this.wms = new Wms(config.wms)
+    this.xyz = config.xyz ? new Xyz(config.xyz) : undefined
+    this.wmts = config.wmts ? new Wmts(config.wmts) : undefined
     this.services = [
       this.wms,
       ...(this.xyz ? [this.xyz] : []),
       ...(this.wmts ? [this.wmts] : [])
     ]
-    this.lifecycle = new Lifecycle({
-      sources: loaded.registry.sources,
-      services: this.services
-    })
 
     this.paths = {
       wms: this.wms.path,
@@ -67,13 +61,13 @@ export class GeoComposer {
 
   static async fromEnv(options: Partial<LaunchOptions> = {}): Promise<GeoComposer> {
     const configPath = resolve(process.cwd(), options.configPath ?? process.env.CONFIG ?? 'config.json')
-    const loaded = await loadConfig(configPath)
+    const config = await Config.load(configPath)
 
     if (options.clearTileCache) {
-      await clearTileCaches(loaded)
+      await clearTileCaches(config)
     }
 
-    return new GeoComposer(loaded, parsePort(process.env.PORT, loaded.server.port))
+    return new GeoComposer(config, parsePort(process.env.PORT, config.server.port))
   }
 
   async start(): Promise<void> {
@@ -180,25 +174,25 @@ export class GeoComposer {
 
   private logListening(): void {
     const baseUrl = `http://localhost:${this.port}`
-    console.log(`Config: ${this.loaded.path}`)
+    console.log(`Config: ${this.config.path}`)
     console.log(`WMS listening on ${baseUrl}${this.paths.wms}`)
     console.log(`GetCapabilities: ${baseUrl}${this.paths.wms}?SERVICE=WMS&REQUEST=GetCapabilities`)
 
-    if (this.paths.xyz && this.loaded.xyz) {
+    if (this.paths.xyz && this.config.xyz) {
       console.log(`XYZ listening on ${baseUrl}${this.paths.xyz}`)
 
-      const sampleTileset = this.loaded.xyz.tilesets[0]?.name
+      const sampleTileset = this.config.xyz.tilesets[0]?.name
       if (sampleTileset) {
         console.log(`Sample tile: ${baseUrl}${this.paths.xyz}/${encodeURIComponent(sampleTileset)}/1/1/1.png`)
         console.log(`Retina sample: ${baseUrl}${this.paths.xyz}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`)
       }
     }
 
-    if (this.paths.wmts && this.loaded.wmts) {
+    if (this.paths.wmts && this.config.wmts) {
       console.log(`WMTS listening on ${baseUrl}${this.paths.wmts}`)
       console.log(`WMTS GetCapabilities: ${baseUrl}${this.paths.wmts}?SERVICE=WMTS&REQUEST=GetCapabilities`)
 
-      const sampleTileset = this.loaded.wmts.tilesets[0]?.name
+      const sampleTileset = this.config.wmts.tilesets[0]?.name
       if (sampleTileset) {
         console.log(`WMTS sample tile: ${baseUrl}${this.paths.wmts}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(sampleTileset)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=1&TILEROW=1&TILECOL=1&FORMAT=image%2Fpng`)
       }
@@ -223,11 +217,31 @@ export class GeoComposer {
   }
 
   private async openRuntime(): Promise<void> {
-    await this.lifecycle.open()
+    await this.config.open()
+
+    for (const service of this.services) {
+      await service.open()
+    }
   }
 
   private async closeRuntime(): Promise<void> {
-    await this.lifecycle.close()
+    let firstError: unknown
+
+    for (const service of [...this.services].reverse()) {
+      try {
+        await service.close()
+      } catch (error) {
+        firstError ??= error
+      }
+    }
+
+    try {
+      await this.config.close()
+    } catch (error) {
+      firstError ??= error
+    }
+
+    if (firstError) throw firstError
   }
 
   private destroySockets(): void {
@@ -289,10 +303,10 @@ function parseLaunchOptions(args: readonly string[]): LaunchOptions {
   return options
 }
 
-async function clearTileCaches(loaded: LoadedConfig): Promise<void> {
+async function clearTileCaches(config: Config): Promise<void> {
   const dirs = uniqueStrings([
-    loaded.xyz?.cache,
-    loaded.wmts?.cache
+    config.xyz?.cache,
+    config.wmts?.cache
   ])
 
   if (dirs.length === 0) {

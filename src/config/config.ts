@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
+import { Lifecycle } from '../lifecycle/lifecycle.js'
 import { Layer, type NamedStyle } from '../layer/layer.js'
 import type { WmsInfo, WmsOptions } from '../service/wms.js'
 import { GeoJsonSource } from '../source/geojson-source.js'
@@ -177,16 +178,6 @@ export type GeoComposerJson = {
     tilesets?: NamedConfig<TilesetJson>
 }
 
-export type LoadedConfig = {
-    path: string
-    dir: string
-    registry: ConfigRegistry
-    server: Required<ServerJson>
-    wms: WmsOptions
-    xyz?: XyzOptions
-    wmts?: WmtsOptions
-}
-
 export type ConfigRegistry = {
     sources: readonly Source[]
     styles: readonly NamedStyle[]
@@ -198,46 +189,108 @@ const BUILTIN_STYLES: Record<string, StyleFn> = {
     default: defaultStyleFn
 }
 
-export async function loadConfig(configPath: string): Promise<LoadedConfig> {
-    const path = resolve(configPath)
-    const dir = dirname(path)
-    const config = await readJsonFile<GeoComposerJson>(path)
-    const crs = new CrsRegistry(config.projections)
-    const sources = createSources(config.sources, dir, crs)
-    const styles = await createStyles(config.styles ?? {}, dir)
-    const layers = createLayers(config.layers, sources, styles, crs)
-    const tilesets = createTilesets(config.tilesets ?? {}, layers)
-    const xyz = config.services.xyz ? createXyzOptions(config.services.xyz, tilesets, dir) : undefined
-    const wmts = config.services.wmts ? createWmtsOptions(config.services.wmts, tilesets, dir) : undefined
-    const wmsLayers = selectLayers(config.services.wms.layers, layers, 'WMS')
-    const wmsCrs = crs.codes()
+export class Config {
+    private static shared: Config | null = null
 
-    return {
-        path,
-        dir,
-        registry: {
+    readonly path: string
+    readonly dir: string
+    registry!: ConfigRegistry
+    server!: Required<ServerJson>
+    wms!: WmsOptions
+    xyz?: XyzOptions
+    wmts?: WmtsOptions
+    private lifecycle: Lifecycle | null = null
+    private loaded = false
+
+    constructor(configPath: string) {
+        this.path = resolve(configPath)
+        this.dir = dirname(this.path)
+    }
+
+    static get current(): Config {
+        if (!this.shared) {
+            throw new Error('Config has not been loaded')
+        }
+
+        return this.shared
+    }
+
+    static async load(configPath: string): Promise<Config> {
+        const path = resolve(configPath)
+        if (this.shared) {
+            if (this.shared.path !== path) {
+                throw new Error(`Config singleton already loaded from ${this.shared.path}`)
+            }
+
+            return this.shared
+        }
+
+        return new Config(path).load()
+    }
+
+    async load(): Promise<this> {
+        if (Config.shared && Config.shared !== this) {
+            throw new Error(`Config singleton already loaded from ${Config.shared.path}`)
+        }
+
+        if (this.loaded) return this
+
+        const json = await readJsonFile<GeoComposerJson>(this.path)
+        const crs = new CrsRegistry(json.projections)
+        const sources = createSources(json.sources, this.dir, crs)
+        const styles = await createStyles(json.styles ?? {}, this.dir)
+        const layers = createLayers(json.layers, sources, styles, crs)
+        const tilesets = createTilesets(json.tilesets ?? {}, layers)
+        const xyz = json.services.xyz ? createXyzOptions(json.services.xyz, tilesets, this.dir) : undefined
+        const wmts = json.services.wmts ? createWmtsOptions(json.services.wmts, tilesets, this.dir) : undefined
+        const wmsLayers = selectLayers(json.services.wms.layers, layers, 'WMS')
+        const wmsCrs = crs.codes()
+
+        this.registry = {
             sources: [...sources.values()],
             styles: [...styles.values()],
             layers,
             tilesets
-        },
-        server: {
-            port: config.server?.port ?? 3000
-        },
-        wms: {
-            path: config.services.wms.path ?? '/wms',
-            maxWidth: config.services.wms.maxWidth ?? 4096,
-            maxHeight: config.services.wms.maxHeight ?? 4096,
+        }
+        this.server = {
+            port: json.server?.port ?? 3000
+        }
+        this.wms = {
+            path: json.services.wms.path ?? '/wms',
+            maxWidth: json.services.wms.maxWidth ?? 4096,
+            maxHeight: json.services.wms.maxHeight ?? 4096,
             info: {
-                title: config.services.wms.title,
-                abstract: config.services.wms.abstract,
-                onlineResource: config.services.wms.onlineResource
+                title: json.services.wms.title,
+                abstract: json.services.wms.abstract,
+                onlineResource: json.services.wms.onlineResource
             },
             ...(wmsCrs.length > 0 ? { crs: wmsCrs } : {}),
             layers: wmsLayers
-        },
-        ...(xyz ? { xyz } : {}),
-        ...(wmts ? { wmts } : {})
+        }
+        this.xyz = xyz
+        this.wmts = wmts
+        this.lifecycle = new Lifecycle({
+            sources: this.registry.sources
+        })
+        this.loaded = true
+        Config.shared = this
+        return this
+    }
+
+    async open(): Promise<void> {
+        this.ensureLoaded()
+        await this.lifecycle?.open()
+    }
+
+    async close(): Promise<void> {
+        this.ensureLoaded()
+        await this.lifecycle?.close()
+    }
+
+    private ensureLoaded(): void {
+        if (!this.loaded) {
+            throw new Error('Config must be loaded before use')
+        }
     }
 }
 
