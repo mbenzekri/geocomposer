@@ -189,7 +189,7 @@ export class Wms extends Service {
         validateCrs(supportedCrs, crs)
         const styleNames = parseStyles(params.get('STYLES'), selectedLayers.length)
         const layers = selectedLayers.map((layer, index) => layer);
-        const styles = selectedLayers.map((layer, index) => resolveLayerStyle(layer, styleNames[index]))
+        const styles = selectedLayers.map((layer, index) => resolveNamedStyle(layer, styleNames[index]))
         const format = params.get('FORMAT') ?? 'image/png'
         if (format !== 'image/png') {
             throw new Error(`Unsupported FORMAT: ${format}`)
@@ -468,7 +468,7 @@ function parseStyles(value: string | undefined, layerCount: number): Array<strin
     return styleNames.map((style) => style || undefined)
 }
 
-function resolveLayerStyle(layer: Layer, styleName: string | undefined): StyleFn {
+function resolveNamedStyle(layer: Layer, styleName: string | undefined): StyleFn {
     return layer.resolveStyle(styleName)
 }
 

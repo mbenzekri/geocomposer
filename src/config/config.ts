@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { Layer, type LayerStyle } from '../layer/layer.js'
+import { Layer, type NamedStyle } from '../layer/layer.js'
 import type { WmsInfo, WmsOptions } from '../service/wms.js'
 import { GeoJsonSource } from '../source/geojson-source.js'
 import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
@@ -335,8 +335,8 @@ function createSource(
 async function createStyles(
     styleEntries: NamedConfig<StyleJson>,
     baseDir: string
-): Promise<Map<string, LayerStyle>> {
-    const styles = new Map<string, LayerStyle>([
+): Promise<Map<string, NamedStyle>> {
+    const styles = new Map<string, NamedStyle>([
         [
             'default',
             {
@@ -354,7 +354,7 @@ async function createStyles(
     return styles
 }
 
-async function createStyle(name: string, entry: StyleJson, baseDir: string): Promise<LayerStyle> {
+async function createStyle(name: string, entry: StyleJson, baseDir: string): Promise<NamedStyle> {
     switch (entry.type) {
         case 'builtin':
             if (!BUILTIN_STYLES[name]) {
@@ -387,7 +387,7 @@ async function createStyle(name: string, entry: StyleJson, baseDir: string): Pro
 function createLayers(
     layerEntries: NamedConfig<LayerJson>,
     sources: Map<string, Source>,
-    styles: Map<string, LayerStyle>,
+    styles: Map<string, NamedStyle>,
     crsReg: CrsRegistry
 ): Layer[] {
     return Object.entries(layerEntries).map(([name, entry]) => {
@@ -482,7 +482,7 @@ function createTileset(
                 throw new Error(`Unknown layer "${ref.layer}" in tileset "${name}"`)
             }
 
-            validateTilesetLayerStyle(layer, ref.style, name)
+            validateTilesetNamedStyle(layer, ref.style, name)
 
             return layer
         }),
@@ -492,7 +492,7 @@ function createTileset(
                 throw new Error(`Unknown layer "${ref.layer}" in tileset "${name}"`)
             }
 
-            validateTilesetLayerStyle(layer, ref.style, name)
+            validateTilesetNamedStyle(layer, ref.style, name)
 
             return ref.style ?? "default"
         })
@@ -510,7 +510,7 @@ function normalizeTilesetLayers(name: string, entry: TilesetJson): TilesetLayerJ
     }))
 }
 
-function validateTilesetLayerStyle(layer: Layer, styleName: string | undefined, tilesetName: string): void {
+function validateTilesetNamedStyle(layer: Layer, styleName: string | undefined, tilesetName: string): void {
     try {
         layer.resolveStyle(styleName)
     } catch (error) {

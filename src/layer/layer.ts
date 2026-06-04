@@ -5,7 +5,7 @@ import type { StyleFn } from '../style/style-fn.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
 import { Reproject } from '../stream/reproject.js'
 
-export type LayerStyle = {
+export type NamedStyle = {
   name: string
   title?: string
   summary?: string
@@ -23,7 +23,7 @@ export type LayerOptions = {
   source: Source
   sourceCrs?: CrsCode
   extent?: BBox
-  styles: LayerStyle[]
+  styles: NamedStyle[]
   pointProperties: PointProperties[]
 }
 
@@ -36,7 +36,7 @@ export class Layer {
   readonly source: Source
   readonly sourceCrs: CrsCode
   readonly extent?: BBox
-  readonly styles: readonly LayerStyle[]
+  readonly styles: readonly NamedStyle[]
   readonly pointProperties: PointProperties[]
 
   constructor(

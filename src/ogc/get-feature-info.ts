@@ -4,6 +4,10 @@ import type { Layer } from '../layer/layer.js'
 import { escape } from '../core/tools.js'
 import { HitFilter } from '../stream/hit-filter.js'
 
+export const INFO_FORMATS = ['application/geo+json', 'application/json', 'text/xml', 'application/xml'] as const
+
+export type InfoFormat = typeof INFO_FORMATS[number]
+
 export type InfoResult = {
     crs: CrsCode
     bbox: BBox
@@ -16,10 +20,6 @@ export type InfoResult = {
     coordinate: Position
     hits: Feature[]
 }
-
-export const INFO_FORMATS = ['application/geo+json', 'application/json', 'text/xml', 'application/xml'] as const
-
-export type InfoFormat = typeof INFO_FORMATS[number]
 
 export type InfoTextResult = {
     body: string
@@ -50,9 +50,23 @@ export type GetInfoOptions = {
 
 const INFO_LIMIT_REACHED = new Error('Info feature limit reached')
 
+
+function getInfoFormater(format: string| undefined) {
+    switch(format) {
+        case 'application/geo+json' : return new GeoJsonFormatter();
+        case 'application/json' : return new GeoJsonFormatter();
+        case 'text/xml' : return new XmlFormatter();
+        case 'application/xml' : return new XmlFormatter();
+        
+    }
+    return new InfoResultFormatter()
+}
+
 export function getInfo(options: GetInfoOptions & { formatted: true }): Promise<InfoTextResult>
 export function getInfo(options: GetInfoOptions): Promise<InfoResult>
 export async function getInfo(options: GetInfoOptions): Promise<InfoResult | InfoTextResult> {
+
+    const formatter = getInfoFormater(options.infoFormat)
     const point = pixelToCoordinate(options.bbox, options.width, options.height, options.i, options.j)
     const tolerancePixels = options.tolerancePixels ?? 4
     const hitContext = createHitContext(tolerancePixels, options.bbox, options.width, options.height, point)
@@ -69,7 +83,6 @@ export async function getInfo(options: GetInfoOptions): Promise<InfoResult | Inf
         featureCount: options.featureCount
     }
     const format = options.formatted ? normalizeInfoFormat(options.infoFormat) : undefined
-    const formatter = format ? infoFormatters[format] : infoResultFormatter
     let limitReached = options.featureCount <= 0
     let abortCurrentLayer: (() => void) | undefined
     const output = formatter.writableStream(infoContext, () => {
@@ -171,9 +184,8 @@ class InfoResultFormatter extends InfoFormatter<InfoResult> {
     }
 }
 
-const infoResultFormatter = new InfoResultFormatter()
 
-export class GeoJsonFormatter extends InfoFormatter {
+class GeoJsonFormatter extends InfoFormatter {
     format(result: InfoResult): string {
         return JSON.stringify({
             type: 'FeatureCollection',
@@ -223,7 +235,7 @@ export class GeoJsonFormatter extends InfoFormatter {
 
 }
 
-export class XmlFormatter extends InfoFormatter {
+class XmlFormatter extends InfoFormatter {
     format(result: InfoResult): string {
         return [
             '<?xml version="1.0" encoding="UTF-8"?>',
@@ -293,14 +305,6 @@ export class XmlFormatter extends InfoFormatter {
     }
 }
 
-const geoJsonFormatter = new GeoJsonFormatter()
-const xmlFormatter = new XmlFormatter()
-const infoFormatters: Record<InfoFormat, InfoFormatter> = {
-    'application/geo+json': geoJsonFormatter,
-    'application/json': geoJsonFormatter,
-    'text/xml': xmlFormatter,
-    'application/xml': xmlFormatter
-}
 
 function normalizeInfoFormat(value: string | undefined): InfoFormat {
     const format = (value ?? 'application/geo+json').toLowerCase()
