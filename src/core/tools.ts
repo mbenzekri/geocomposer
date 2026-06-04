@@ -1,4 +1,3 @@
-
 export function isTruthy(value: unknown): boolean {
     return Boolean(Array.isArray(value) ? value.length : value)
 }

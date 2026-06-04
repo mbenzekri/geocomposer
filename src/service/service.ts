@@ -19,6 +19,8 @@ export abstract class Service {
 
   async open(): Promise<void> {}
 
+  async clearCache(): Promise<void> {}
+
   async close(): Promise<void> {}
 
   static setCorsHeaders(res: ServerResponse): void {

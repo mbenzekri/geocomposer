@@ -49,6 +49,15 @@ export class Xyz extends Service {
         return pathname === this.path || pathname.startsWith(`${this.path}/`)
     }
 
+    async clearCache(): Promise<void> {
+        if (!this.cache) {
+            return
+        }
+
+        await this.cache.clear()
+        console.log(`Cleared tile cache: ${this.options.cache}`)
+    }
+
     async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const fullUrl = Service.requestUrl(req)
         let tileTrace: { id: number, startedAt: number } | null = null
