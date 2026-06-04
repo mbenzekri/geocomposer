@@ -41,7 +41,8 @@ export class GeoComposer {
     }
 
     async start(): Promise<void> {
-        this.trapSignals()
+        process.once('SIGINT', () =>  this.shutdown('SIGINT'))
+        process.once('SIGTERM', () =>  this.shutdown('SIGTERM'))
 
         try {
             await this.config.open()
@@ -72,28 +73,18 @@ export class GeoComposer {
     }
 
     async stop(signal = 'manual'): Promise<void> {
-        if (this.shuttingDown) {
-            return
-        }
+        if (this.shuttingDown)  return
 
         this.shuttingDown = true
         console.log(`Stopping GeoComposer server (${signal})...`)
 
-        const forceClose = setTimeout(() => {
-            this.server.closeAllConnections?.()
-        }, 10_000)
+        const forceClose = setTimeout(() =>  this.server.closeAllConnections?.(), 10_000)
 
         try {
             await new Promise<void>((resolve, reject) => {
                 this.server.close((error?: Error) => {
-                    if (error) {
-                        reject(error)
-                        return
-                    }
-
-                    resolve()
+                    return error ? reject(error) : resolve()
                 })
-
                 this.server.closeIdleConnections?.()
             })
 
@@ -102,16 +93,6 @@ export class GeoComposer {
             clearTimeout(forceClose)
             this.shuttingDown = false
         }
-    }
-
-    private trapSignals(): void {
-        process.once('SIGINT', () => {
-            this.shutdown('SIGINT')
-        })
-
-        process.once('SIGTERM', () => {
-            this.shutdown('SIGTERM')
-        })
     }
 
     private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -170,10 +151,8 @@ export class GeoComposer {
             process.exit(1)
         }
 
-        void this.stop(signal).then(
-            () => {
-                process.exit(0)
-            },
+        this.stop(signal).then(
+            () => process.exit(0) ,
             (error: unknown) => {
                 console.error(error)
                 process.exit(1)
@@ -182,8 +161,6 @@ export class GeoComposer {
     }
 
 }
-
-
 
 function parseArgs(): Args {
     const args = process.argv.slice(2)
