@@ -1,7 +1,6 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import type { Server } from 'node:http'
+import { createServer,type Server, type IncomingMessage, type ServerResponse } from 'node:http'
 import { Config } from './config/config.js'
 import { Service } from './service/service.js'
 
@@ -32,9 +31,8 @@ export class GeoComposer {
         const config = await Config.load(configPath)
 
         if (args.clearTileCache) {
-            for (const service of config.services) {
-                await service.clearCache()
-            }
+            await config.xyzService?.clearCache()
+            await config.wmtsService?.clearCache()
         }
 
         return new GeoComposer(config, parsePort(process.env.PORT, config.server.port))

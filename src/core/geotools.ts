@@ -4,9 +4,7 @@ import { Feature } from './feature.js'
 
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
 
-export class Gt {
-    private constructor() { }
-
+export abstract class Gt {
     static intersects(a: BBox, b: BBox): boolean {
         return a[0] <= b[2]
             && a[2] >= b[0]

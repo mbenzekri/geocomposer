@@ -42,10 +42,6 @@ export class MemSource extends Source {
     return this.source?.crs ?? this.memoryCrs
   }
 
-  async open(): Promise<void> {
-    await this.source?.open()
-  }
-
   async close(): Promise<void> {
     if (this.openings.size > 0) {
       await Promise.all(this.openings.values())
@@ -81,7 +77,6 @@ export class MemSource extends Source {
 
         let features: Feature[]
         try {
-          await this.open()
           features = await this.ensureLoaded(options.layer, options.signal)
         } catch (error) {
           controller.error(error)

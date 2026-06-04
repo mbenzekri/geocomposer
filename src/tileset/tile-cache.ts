@@ -43,7 +43,11 @@ export class TileCache {
     try {
       await rename(tmpPath, path)
     } catch (error) {
-      await unlink(tmpPath).catch(() => {})
+      try {
+        await unlink(tmpPath)
+      } catch {
+        // Cleanup is best-effort; keep the rename failure as the reported error.
+      }
       throw error
     }
   }

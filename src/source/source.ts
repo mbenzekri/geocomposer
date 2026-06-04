@@ -33,8 +33,10 @@ export abstract class Source {
   abstract readonly storage: SourceStorage
   abstract readonly crs: CrsCode
 
-  abstract open(): Promise<void>
-  abstract close(): Promise<void>
+  async open(): Promise<void> {}
+
+  async close(): Promise<void> {}
+
   abstract getExtent(layer: Layer): Promise<BBox | null>
 
   abstract stream(options: StreamOptions): ReadableStream<Feature>

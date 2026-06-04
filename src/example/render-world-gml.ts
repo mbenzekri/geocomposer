@@ -23,20 +23,15 @@ const layer = new Layer('world-gml', {
   pointProperties: []
 })
 
-await source.open()
-try {
-  const image = await getMap({
-    layers: [layer],
-    styles: [],
-    bbox: WORLD_BBOX_3857,
-    width: 500,
-    height: 500,
-    crs: 'EPSG:3857'
-  })
+const image = await getMap({
+  layers: [layer],
+  styles: [],
+  bbox: WORLD_BBOX_3857,
+  width: 500,
+  height: 500,
+  crs: 'EPSG:3857'
+})
 
-  await writeFile('style-smoke/world_gml.png', image)
-} finally {
-  await source.close()
-}
+await writeFile('style-smoke/world_gml.png', image)
 
 console.log('style-smoke/world_gml.png generated')

@@ -293,7 +293,6 @@ export class Config {
         if (this.opened) return
 
         const openedSources: Source[] = []
-        const openedServices: Service[] = []
 
         try {
             for (const source of this.registry.sources) {
@@ -301,16 +300,10 @@ export class Config {
                 openedSources.push(source)
             }
 
-            for (const service of this.services) {
-                await service.open()
-                openedServices.push(service)
-            }
-
             this.opened = true
         } catch (error) {
             try {
-                await closeResources([...openedServices].reverse())
-                await closeResources([...openedSources].reverse())
+                await closeSources([...openedSources].reverse())
             } catch {
                 // Preserve the startup error; cleanup errors are secondary here.
             }
@@ -322,16 +315,11 @@ export class Config {
         this.ensureLoaded()
         if (!this.opened) return
 
-        let firstError: unknown
-
         try {
-            firstError = await closeResources([...this.services].reverse(), firstError)
-            firstError = await closeResources([...this.registry.sources].reverse(), firstError)
+            await closeSources([...this.registry.sources].reverse())
         } finally {
             this.opened = false
         }
-
-        if (firstError) throw firstError
     }
 
     private ensureLoaded(): void {
@@ -341,22 +329,18 @@ export class Config {
     }
 }
 
-type Closeable = {
-    close(): Promise<void>
-}
+async function closeSources(sources: Iterable<Source>): Promise<void> {
+    let firstError: unknown
 
-async function closeResources(resources: Iterable<Closeable>, firstError?: unknown): Promise<unknown> {
-    let errorToReport = firstError
-
-    for (const resource of resources) {
+    for (const source of sources) {
         try {
-            await resource.close()
+            await source.close()
         } catch (error) {
-            errorToReport ??= error
+            firstError ??= error
         }
     }
 
-    return errorToReport
+    if (firstError) throw firstError
 }
 
 async function readJsonFile<T>(path: string): Promise<T> {

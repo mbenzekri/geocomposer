@@ -17,12 +17,6 @@ export abstract class Service {
 
   abstract handle(req: IncomingMessage, res: ServerResponse): Promise<void>
 
-  async open(): Promise<void> {}
-
-  async clearCache(): Promise<void> {}
-
-  async close(): Promise<void> {}
-
   static setCorsHeaders(res: ServerResponse): void {
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS')
@@ -61,7 +55,6 @@ export abstract class Service {
 
     return `${protocol}://${host}`
   }
-
 
   protected require(params: Map<string, string>, name: string, missingMessage = `${name} is required`): string {
     const value = params.get(name)

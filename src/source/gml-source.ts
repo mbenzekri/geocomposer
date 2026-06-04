@@ -1,5 +1,5 @@
-import { constants, createReadStream, type PathLike } from 'node:fs'
-import { access, open } from 'node:fs/promises'
+import { createReadStream, type PathLike } from 'node:fs'
+import { open } from 'node:fs/promises'
 import type { Feature, FileRef, SourceRef, Props } from '../core/feature.js'
 import type { Geometry, Position, CrsCode } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
@@ -89,14 +89,6 @@ export class GmlSource extends FileSource {
     return [{ role: 'data', path: this.filePath }]
   }
 
-  async open(): Promise<void> {
-    await this.reader.open()
-  }
-
-  async close(): Promise<void> {
-    await this.reader.close()
-  }
-
   protected override streamFeatures(options: StreamOptions): AsyncIterable<Feature> {
     return this.reader.stream(options)
   }
@@ -122,12 +114,6 @@ class GmlReader {
       axisOrder: GmlAxisOrder
     }
   ) {}
-
-  async open(): Promise<void> {
-    await access(this.filePath, constants.R_OK)
-  }
-
-  async close(): Promise<void> {}
 
   async *stream(options: StreamOptions): AsyncGenerator<Feature> {
     const { layer, signal } = options
