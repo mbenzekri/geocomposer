@@ -31,13 +31,14 @@ export class GeoComposer {
     static async from(args: Partial<Args> = {}): Promise<GeoComposer> {
         const configPath = path.resolve(process.cwd(), args.configPath ?? process.env.CONFIG ?? 'config.json')
         const config = await Config.load(configPath)
+        const port = args.port ?? parsePort(process.env.PORT, config.server.port) ?? config.server.port
 
         if (args.clearTileCache) {
             await config.xyzService?.clearCache()
             await config.wmtsService?.clearCache()
         }
 
-        return new GeoComposer(config, parsePort(process.env.PORT, config.server.port))
+        return new GeoComposer(config, port)
     }
 
     async start(): Promise<void> {
@@ -60,7 +61,7 @@ export class GeoComposer {
 
                 this.server.once('error', onError)
                 this.server.once('listening', onListening)
-                this.server.listen(this.config.server.port)
+                this.server.listen(this.port)
             })
         } catch (error) {
             try {

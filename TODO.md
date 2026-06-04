@@ -6,7 +6,7 @@
 
 ### A decider - bugs probables / incoherences
 
-- [ ] Corriger la prise en compte du port dans `src/geo-composer.ts`: `--port` est parse, `PORT` est lu, mais `server.listen()` utilise encore `config.server.port`; rendre le port effectif et les logs coherents.
+- [x] Corriger la prise en compte du port dans `src/geo-composer.ts`: `--port` est parse, `PORT` est lu, mais `server.listen()` utilise encore `config.server.port`; rendre le port effectif et les logs coherents.
 - [ ] Corriger les scripts `serve:wms` et `serve:xyz` dans `package.json` ou recreer les fichiers cibles absents (`src/example/run-world-wms-server.ts`, `src/example/run-world-xyz-server.ts`).
 - [ ] Corriger la reference README vers `src/example/world-services-openlayers.html`, qui n'existe pas dans le depot actuel; pointer vers le viewer existant ou ajouter le fichier.
 - [ ] Corriger `config.schema.json` pour `layers.*.pointProperties`: `x`, `y` et `crs` doivent etre des schemas `{ "type": "string" }`, pas des chaines brutes.
