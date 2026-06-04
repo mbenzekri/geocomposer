@@ -4,6 +4,7 @@ import type { Socket } from 'node:net'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadConfig, type LoadedConfig } from './config/config.js'
+import { Lifecycle } from './lifecycle/lifecycle.js'
 import { Service } from './service/service.js'
 import { Wms } from './service/wms.js'
 import { Wmts } from './service/wmts.js'
@@ -27,6 +28,7 @@ export class GeoComposer {
   private readonly wms: Wms
   private readonly xyz?: Xyz
   private readonly wmts?: Wmts
+  private readonly lifecycle: Lifecycle
   private readonly sockets = new Set<Socket>()
   private shuttingDown = false
 
@@ -42,6 +44,10 @@ export class GeoComposer {
       ...(this.xyz ? [this.xyz] : []),
       ...(this.wmts ? [this.wmts] : [])
     ]
+    this.lifecycle = new Lifecycle({
+      sources: loaded.registry.sources,
+      services: this.services
+    })
 
     this.paths = {
       wms: this.wms.path,
@@ -72,7 +78,7 @@ export class GeoComposer {
 
   async start(): Promise<void> {
     try {
-      await this.openServices()
+      await this.openRuntime()
       await new Promise<void>((resolve, reject) => {
         const onError = (error: Error) => {
           this.server.off('listening', onListening)
@@ -90,7 +96,11 @@ export class GeoComposer {
         this.server.listen(this.port)
       })
     } catch (error) {
-      await this.closeServices()
+      try {
+        await this.closeRuntime()
+      } catch {
+        // Preserve the startup error; cleanup errors are secondary here.
+      }
       throw error
     }
   }
@@ -125,7 +135,7 @@ export class GeoComposer {
       clearTimeout(forceClose)
     })
 
-    await this.closeServices()
+    await this.closeRuntime()
     this.shuttingDown = false
   }
 
@@ -212,16 +222,12 @@ export class GeoComposer {
     )
   }
 
-  private async openServices(): Promise<void> {
-    for (const service of this.services) {
-      await service.open()
-    }
+  private async openRuntime(): Promise<void> {
+    await this.lifecycle.open()
   }
 
-  private async closeServices(): Promise<void> {
-    for (const service of [...this.services].reverse()) {
-      await service.close()
-    }
+  private async closeRuntime(): Promise<void> {
+    await this.lifecycle.close()
   }
 
   private destroySockets(): void {

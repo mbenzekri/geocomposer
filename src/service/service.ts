@@ -15,10 +15,11 @@ export abstract class Service {
     return pathname === this.path
   }
 
-  abstract open(): Promise<void>
-  abstract close(): Promise<void>
   abstract handle(req: IncomingMessage, res: ServerResponse): Promise<void>
 
+  async open(): Promise<void> {}
+
+  async close(): Promise<void> {}
 
   static setCorsHeaders(res: ServerResponse): void {
     res.setHeader('Access-Control-Allow-Origin', '*')

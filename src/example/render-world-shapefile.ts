@@ -24,7 +24,7 @@ const layer = new Layer('world-shp', {
   pointProperties: []
 })
 
-await layer.open()
+await source.open()
 try {
   const image = await getMap({
     layers: [layer],
@@ -37,7 +37,7 @@ try {
 
   await writeFile('style-smoke/world_shp.png', image)
 } finally {
-  await layer.close()
+  await source.close()
 }
 
 console.log('style-smoke/world_shp.png generated')

@@ -180,10 +180,18 @@ export type GeoComposerJson = {
 export type LoadedConfig = {
     path: string
     dir: string
+    registry: ConfigRegistry
     server: Required<ServerJson>
     wms: WmsOptions
     xyz?: XyzOptions
     wmts?: WmtsOptions
+}
+
+export type ConfigRegistry = {
+    sources: readonly Source[]
+    styles: readonly NamedStyle[]
+    layers: readonly Layer[]
+    tilesets: readonly Tileset[]
 }
 
 const BUILTIN_STYLES: Record<string, StyleFn> = {
@@ -207,6 +215,12 @@ export async function loadConfig(configPath: string): Promise<LoadedConfig> {
     return {
         path,
         dir,
+        registry: {
+            sources: [...sources.values()],
+            styles: [...styles.values()],
+            layers,
+            tilesets
+        },
         server: {
             port: config.server?.port ?? 3000
         },

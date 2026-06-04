@@ -3,7 +3,6 @@ import type { BBox } from '../core/geometry.js'
 import { getMap } from '../ogc/get-map.js'
 import { TileCache } from '../tileset/tile-cache.js'
 import { getTileMatrixSet } from '../tileset/tile-matrix-set.js'
-import { TilesetLayers } from '../tileset/tileset-utils.js'
 import { Tileset } from '../tileset/tileset.js'
 import { Service } from './service.js'
 import { nonNegativeInteger } from '../core/tools.js'
@@ -48,18 +47,6 @@ export class Xyz extends Service {
 
     matches(pathname: string): boolean {
         return pathname === this.path || pathname.startsWith(`${this.path}/`)
-    }
-
-    async open(): Promise<void> {
-        for (const layer of TilesetLayers.unique(this.tilesets)) {
-            await layer.open()
-        }
-    }
-
-    async close(): Promise<void> {
-        for (const layer of TilesetLayers.unique(this.tilesets)) {
-            await layer.close()
-        }
     }
 
     async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {

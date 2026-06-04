@@ -4,7 +4,6 @@ import { MarkupTemplate } from '../core/template.js'
 import { getMap } from '../ogc/get-map.js'
 import { TileCache } from '../tileset/tile-cache.js'
 import type { TileMatrixSet } from '../tileset/tile-matrix-set.js'
-import { TilesetLayers } from '../tileset/tileset-utils.js'
 import type { Tileset } from '../tileset/tileset.js'
 import { Service } from './service.js'
 
@@ -121,18 +120,6 @@ export class Wmts extends Service {
         this.tilesetByName = new Map(options.tilesets.map((tileset) => [tileset.name, tileset]))
         this.cache = options.cache ? new TileCache(options.cache) : undefined
         validateWmtsTilesets(options.tilesets)
-    }
-
-    async open(): Promise<void> {
-        for (const layer of TilesetLayers.unique(this.options.tilesets)) {
-            await layer.open()
-        }
-    }
-
-    async close(): Promise<void> {
-        for (const layer of TilesetLayers.unique(this.options.tilesets)) {
-            await layer.close()
-        }
     }
 
     async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {

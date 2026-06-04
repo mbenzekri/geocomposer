@@ -51,18 +51,6 @@ export class Wms extends Service {
         )
     }
 
-    async open(): Promise<void> {
-        for (const layer of this.options.layers) {
-            await layer.open()
-        }
-    }
-
-    async close(): Promise<void> {
-        for (const layer of this.options.layers) {
-            await layer.close()
-        }
-    }
-
     async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const fullUrl = Service.requestUrl(req)
         let mapTrace: { id: number, startedAt: number } | null = null

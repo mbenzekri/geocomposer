@@ -60,14 +60,6 @@ export class Layer {
     return this.styles[0].style
   }
 
-  async open(): Promise<void> {
-    await this.source.open()
-  }
-
-  async close(): Promise<void> {
-    await this.source.close()
-  }
-
   async getExtent(): Promise<BBox | null> {
     return this.extent ?? await this.source.getExtent(this)
   }
