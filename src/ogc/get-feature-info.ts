@@ -1,5 +1,5 @@
 import type { Feature, Props } from '../core/feature.js'
-import { createHitContext, pixelToCoordinate, type BBox, type CrsCode, type HitContext, type Position } from '../core/geometry.js'
+import { createHitContext, pixelToCoordinate, type BBox, type CrsCode, type Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { escape } from '../core/tools.js'
 import { HitFilter } from '../stream/hit-filter.js'
@@ -17,6 +17,23 @@ export type InfoResult = {
     hits: Feature[]
 }
 
+export const INFO_FORMATS = ['application/geo+json', 'application/json', 'text/xml', 'application/xml'] as const
+
+export type InfoFormat = typeof INFO_FORMATS[number]
+
+export type InfoTextResult = {
+    body: string
+    contentType: string
+}
+
+export type InfoContext = Omit<InfoResult, 'hits'> & {
+    featureCount: number
+}
+
+export type InfoWritableStream<T> = WritableStream<Feature> & {
+    result: Promise<T>
+}
+
 export type GetInfoOptions = {
     layers: Layer[]
     bbox: BBox
@@ -27,26 +44,19 @@ export type GetInfoOptions = {
     j: number
     featureCount: number
     tolerancePixels?: number
+    infoFormat?: string
+    formatted?: boolean
 }
 
-export async function getInfo(options: GetInfoOptions): Promise<InfoResult> {
+const INFO_LIMIT_REACHED = new Error('Info feature limit reached')
+
+export function getInfo(options: GetInfoOptions & { formatted: true }): Promise<InfoTextResult>
+export function getInfo(options: GetInfoOptions): Promise<InfoResult>
+export async function getInfo(options: GetInfoOptions): Promise<InfoResult | InfoTextResult> {
     const point = pixelToCoordinate(options.bbox, options.width, options.height, options.i, options.j)
     const tolerancePixels = options.tolerancePixels ?? 4
-    const context = createHitContext(tolerancePixels,options.bbox, options.width,options.height, point)
-    const hits: Feature[] = []
-
-    for (const layer of options.layers) {
-        const layerHits = layer.query({
-            bbox: context.bbox,
-            crs: options.crs
-        }).pipeThrough(new HitFilter(context))
-
-        await collectHits(layerHits, options.featureCount - hits.length, hits)
-
-        if (hits.length >= options.featureCount) break
-    }
-
-    return {
+    const hitContext = createHitContext(tolerancePixels, options.bbox, options.width, options.height, point)
+    const infoContext: InfoContext = {
         crs: options.crs,
         bbox: options.bbox,
         width: options.width,
@@ -56,13 +66,112 @@ export async function getInfo(options: GetInfoOptions): Promise<InfoResult> {
             j: options.j
         },
         coordinate: point,
-        hits
+        featureCount: options.featureCount
+    }
+    const format = options.formatted ? normalizeInfoFormat(options.infoFormat) : undefined
+    const formatter = format ? infoFormatters[format] : infoResultFormatter
+    let limitReached = options.featureCount <= 0
+    let abortCurrentLayer: (() => void) | undefined
+    const output = formatter.writableStream(infoContext, () => {
+        limitReached = true
+        abortCurrentLayer?.()
+    })
+
+    for (const layer of options.layers) {
+        if (limitReached) break
+
+        const abortController = new AbortController()
+        abortCurrentLayer = () => abortController.abort(INFO_LIMIT_REACHED)
+        const layerHits = layer.query({
+            bbox: hitContext.bbox,
+            crs: options.crs,
+            signal: abortController.signal
+        }).pipeThrough(new HitFilter(hitContext))
+
+        try {
+            await layerHits.pipeTo(output, {
+                preventAbort: true,
+                preventClose: true,
+                signal: abortController.signal
+            })
+        } catch (error) {
+            if (abortController.signal.reason !== INFO_LIMIT_REACHED) {
+                throw error
+            }
+        } finally {
+            abortCurrentLayer = undefined
+        }
+    }
+
+    const writer = output.getWriter()
+    try {
+        await writer.close()
+    } finally {
+        writer.releaseLock()
+    }
+    const result = await output.result
+
+    return format
+        ? {
+            body: result as string,
+            contentType: contentTypeForInfoFormat(format)
+        }
+        : result as InfoResult
+}
+
+export abstract class InfoFormatter<T = string> {
+    abstract format(result: InfoResult): T
+
+    writableStream(context: InfoContext, terminate: () => void = () => undefined): InfoWritableStream<T> {
+        const hits: Feature[] = []
+        const formatter = this
+        let resolveResult!: (value: T) => void
+        let rejectResult!: (reason?: unknown) => void
+        const result = new Promise<T>((resolve, reject) => {
+            resolveResult = resolve
+            rejectResult = reject
+        })
+
+        const writable = new WritableStream<Feature>({
+            write(feature) {
+                if (hits.length >= context.featureCount) {
+                    terminate()
+                    return
+                }
+
+                hits.push(feature)
+                if (hits.length >= context.featureCount) {
+                    terminate()
+                }
+            },
+            close() {
+                try {
+                    const { featureCount, ...resultContext } = context
+                    resolveResult(formatter.format({
+                        ...resultContext,
+                        hits
+                    }))
+                } catch (error) {
+                    rejectResult(error)
+                    throw error
+                }
+            },
+            abort(reason) {
+                rejectResult(reason)
+            }
+        })
+
+        return Object.assign(writable, { result })
     }
 }
 
-export abstract class InfoFormatter {
-    abstract format(result: InfoResult): string
+class InfoResultFormatter extends InfoFormatter<InfoResult> {
+    format(result: InfoResult): InfoResult {
+        return result
+    }
 }
+
+const infoResultFormatter = new InfoResultFormatter()
 
 export class GeoJsonFormatter extends InfoFormatter {
     format(result: InfoResult): string {
@@ -116,20 +225,38 @@ export class GeoJsonFormatter extends InfoFormatter {
 
 export class XmlFormatter extends InfoFormatter {
     format(result: InfoResult): string {
-        const layers = groupHitsByLayer(result.hits)
-        const layerXml = [...layers.entries()].map(([layerName, hits]) => [
-            `<Layer name="${escape(layerName)}">`,
-            ...hits.map((feature) => this.featureToXml(feature)),
-            '</Layer>'
-        ].join('')).join('')
-
         return [
             '<?xml version="1.0" encoding="UTF-8"?>',
             `<FeatureInfoResponse version="1.3.0" crs="${escape(result.crs)}" numberReturned="${result.hits.length}">`,
             `<QueryPoint i="${result.pixel.i}" j="${result.pixel.j}" x="${result.coordinate[0]}" y="${result.coordinate[1]}"/>`,
-            layerXml,
+            this.featuresToXml(result.hits),
             '</FeatureInfoResponse>'
         ].join('')
+    }
+
+    private featuresToXml(features: Feature[]): string {
+        const xml: string[] = []
+        let currentLayerName: string | null = null
+
+        for (const feature of features) {
+            const layerName = feature.layer.name
+            if (layerName !== currentLayerName) {
+                if (currentLayerName !== null) {
+                    xml.push('</Layer>')
+                }
+
+                xml.push(`<Layer name="${escape(layerName)}">`)
+                currentLayerName = layerName
+            }
+
+            xml.push(this.featureToXml(feature))
+        }
+
+        if (currentLayerName !== null) {
+            xml.push('</Layer>')
+        }
+
+        return xml.join('')
     }
 
     private featureToXml(feature: Feature): string {
@@ -166,52 +293,26 @@ export class XmlFormatter extends InfoFormatter {
     }
 }
 
-
-
-async function collectHits(
-    stream: ReadableStream<Feature>,
-    limit: number,
-    hits: Feature[]
-): Promise<void> {
-    if (limit <= 0) return
-
-    const reader = stream.getReader()
-    let collected = 0
-    let done = false
-
-    try {
-        while (collected < limit) {
-            const next = await reader.read()
-            if (next.done) {
-                done = true
-                break
-            }
-
-            hits.push(next.value)
-            collected += 1
-        }
-    } finally {
-        if (!done) {
-            await reader.cancel()
-        }
-        reader.releaseLock()
-    }
+const geoJsonFormatter = new GeoJsonFormatter()
+const xmlFormatter = new XmlFormatter()
+const infoFormatters: Record<InfoFormat, InfoFormatter> = {
+    'application/geo+json': geoJsonFormatter,
+    'application/json': geoJsonFormatter,
+    'text/xml': xmlFormatter,
+    'application/xml': xmlFormatter
 }
 
-function groupHitsByLayer(hits: Feature[]): Map<string, Feature[]> {
-    const groups = new Map<string, Feature[]>()
+function normalizeInfoFormat(value: string | undefined): InfoFormat {
+    const format = (value ?? 'application/geo+json').toLowerCase()
+    if (isInfoFormat(format)) return format
 
-    for (const hit of hits) {
-        const layerName = hit.layer.name
-        const group = groups.get(layerName)
-        if (group) {
-            group.push(hit)
-            continue
-        }
-
-        groups.set(layerName, [hit])
-    }
-
-    return groups
+    throw new Error(`Unsupported INFO_FORMAT: ${value ?? ''}`)
 }
 
+function isInfoFormat(value: string): value is InfoFormat {
+    return (INFO_FORMATS as readonly string[]).includes(value)
+}
+
+function contentTypeForInfoFormat(format: InfoFormat): string {
+    return `${format}; charset=utf-8`
+}

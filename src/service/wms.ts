@@ -3,11 +3,9 @@ import proj4 from 'proj4'
 import type { BBox, CrsCode } from '../core/geometry.js'
 import { MarkupTemplate } from '../core/template.js'
 import {
-    GeoJsonFormatter,
     getInfo,
-    XmlFormatter,
-    type InfoFormatter,
-    type InfoResult
+    INFO_FORMATS,
+    type GetInfoOptions
 } from '../ogc/get-feature-info.js'
 import { getMap } from '../ogc/get-map.js'
 import { escape, paramsFromUrl } from '../core/tools.js'
@@ -18,15 +16,6 @@ import { Gt } from '../core/geotools.js'
 
 const WMS_VERSION = '1.3.0'
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
-const INFO_FORMATS = ['application/geo+json', 'application/json', 'text/xml', 'application/xml'] as const
-const geoJsonFormatter = new GeoJsonFormatter()
-const xmlFormatter = new XmlFormatter()
-const infoFormatters: Record<InfoFormat, InfoFormatter> = {
-    'application/geo+json': geoJsonFormatter,
-    'application/json': geoJsonFormatter,
-    'text/xml': xmlFormatter,
-    'application/xml': xmlFormatter
-}
 
 export type WmsInfo = {
     title: string
@@ -148,19 +137,8 @@ export class Wms extends Service {
 
             if (request === 'GETFEATUREINFO') {
                 const infoRequest = this.parseGetFeatureInfo(params, this.layerByName, this.crs, this.maxWidth, this.maxHeight)
-                const result = await getInfo({
-                    layers: infoRequest.layers,
-                    bbox: infoRequest.bbox,
-                    width: infoRequest.width,
-                    height: infoRequest.height,
-                    crs: infoRequest.crs,
-                    i: infoRequest.i,
-                    j: infoRequest.j,
-                    featureCount: infoRequest.featureCount,
-                    tolerancePixels: infoRequest.tolerancePixels
-                })
-                const body = formatInfo(result, infoRequest.infoFormat)
-                Service.sendText(res, 200, body, contentTypeForInfoFormat(infoRequest.infoFormat), req.method === 'HEAD')
+                const info = await getInfo(infoRequest)
+                Service.sendText(res, 200, info.body, info.contentType, req.method === 'HEAD')
                 return
             }
 
@@ -271,7 +249,7 @@ export class Wms extends Service {
         const tolerancePixels = params.has('BUFFER')
             ? parseNonNegativeInt(this.require(params, 'BUFFER'), 'BUFFER', 50)
             : 4
-        const infoFormat = normalizeInfoFormat(params.get('INFO_FORMAT'))
+        const infoFormat = params.get('INFO_FORMAT') ?? undefined
 
         return {
             layers,
@@ -286,7 +264,8 @@ export class Wms extends Service {
             j,
             featureCount,
             tolerancePixels,
-            infoFormat
+            infoFormat,
+            formatted: true
         }
     }
 
@@ -307,23 +286,12 @@ type MapRequest = {
     format: string
 }
 
-type InfoRequest = {
-    layers: Layer[]
+type InfoRequest = GetInfoOptions & {
     rawBbox: string
-    bbox: BBox
     bboxOrder: 'xy' | 'yx'
-    width: number
-    height: number
-    crs: CrsCode
     version: string
-    i: number
-    j: number
-    featureCount: number
-    tolerancePixels: number
-    infoFormat: InfoFormat
+    formatted: true
 }
-
-type InfoFormat = typeof INFO_FORMATS[number]
 
 type WmsBoundingBoxView = {
     crs: CrsCode
@@ -627,28 +595,6 @@ function isGetMapRequest(urlText: string | undefined): boolean {
     } catch {
         return false
     }
-}
-
-function normalizeInfoFormat(value: string | undefined): InfoFormat {
-    const format = (value ?? 'application/geo+json').toLowerCase()
-    if (isInfoFormat(format)) return format
-
-    throw new Error(`Unsupported INFO_FORMAT: ${value ?? ''}`)
-}
-
-function isInfoFormat(value: string): value is InfoFormat {
-    return (INFO_FORMATS as readonly string[]).includes(value)
-}
-
-function formatInfo(
-    result: InfoResult,
-    format: InfoFormat
-): string {
-    return infoFormatters[format].format(result)
-}
-
-function contentTypeForInfoFormat(format: InfoFormat): string {
-    return `${format}; charset=utf-8`
 }
 
 function logGetMapStart(traceId: number, method: string, url: string): void {
