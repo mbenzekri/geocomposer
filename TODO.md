@@ -10,7 +10,7 @@
 - [x] Corriger les scripts `serve:wms` et `serve:xyz` dans `package.json` ou recreer les fichiers cibles absents (`src/example/run-world-wms-server.ts`, `src/example/run-world-xyz-server.ts`).
 - [x] Corriger la reference README vers `src/example/world-services-openlayers.html`, qui n'existe pas dans le depot actuel; pointer vers le viewer existant ou ajouter le fichier.
 - [x] Corriger `config.schema.json` pour `layers.*.pointProperties`: `x`, `y` et `crs` doivent etre des schemas `{ "type": "string" }`, pas des chaines brutes.
-- [ ] Decider de la strategie GeoPackage sous Node: exiger explicitement Node `22.5+` (`engines`, README, scripts demo) ou ajouter un fallback SQLite natif non-GDAL.
+- [x] Decider de la strategie GeoPackage sous Node: utiliser Node `22.5+` fourni par l'environnement courant/nvm pour `node:sqlite`, sans ajouter de specificite `package.json` ni fallback SQLite natif non-GDAL.
 
 ### A decider - fiabilite et production
 
