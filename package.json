@@ -16,6 +16,7 @@
     "demo:all": "npm run build && npm run demo:styles && npm run demo && npm run demo:world && npm run demo:world:shp && npm run demo:world:gml && npm run demo:world:gpkg && npm run demo:dynamic-style"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "canvas": "^3.2.0",
     "ol": "^10.6.1",
     "proj4": "^2.19.10"

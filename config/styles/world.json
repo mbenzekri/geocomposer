@@ -1,9 +1,10 @@
 {
+    "$schema": "../../dynamic-style.schema.json",
     "title": "World",
     "cacheKey": "world",
     "static": {
         "country": {
-            "stroke": {
+            "toto": {
                 "color": "#334155",
                 "width": 0.75
             },

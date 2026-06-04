@@ -25,6 +25,7 @@ type CircleOptions = ConstructorParameters<typeof CircleStyle>[0]
 type TextOptions = ConstructorParameters<typeof Text>[0]
 
 export type DynamicStyleJson = {
+  $schema?: string
   constants?: JsonObject
   definitions?: JsonObject
   debug?: boolean
@@ -572,6 +573,7 @@ class FeatureView {
 function normalizeStyleJson(jsonStyle: DynamicStyleJson, name: string): Required<DynamicStyleJson> {
   const cloned = deepClone(jsonStyle)
   const normalized: Required<DynamicStyleJson> = {
+    $schema: cloned.$schema ?? '',
     constants: isPlainObject(cloned.constants) ? cloned.constants : {},
     definitions: isPlainObject(cloned.definitions) ? cloned.definitions : {},
     debug: cloned.debug ?? false,

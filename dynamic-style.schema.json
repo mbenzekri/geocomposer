@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geocomposer.local/dynamic-style.schema.json",
+  "title": "GeoComposer dynamic style",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "constants": {
+      "type": "object"
+    },
+    "definitions": {
+      "type": "object"
+    },
+    "debug": {
+      "type": "boolean"
+    },
+    "format": {
+      "type": "string"
+    },
+    "group": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "id": {
+      "type": ["string", "null"]
+    },
+    "crs": {
+      "type": "string"
+    },
+    "scales": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "cacheKey": true,
+    "visible": {
+      "type": "boolean"
+    },
+    "static": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/styleDescription"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/styleDescription"
+          }
+        }
+      ]
+    },
+    "dynamic": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dynamicPatch"
+      }
+    }
+  },
+  "$defs": {
+    "dynamicPatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pointer", "value"],
+      "properties": {
+        "pointer": {
+          "type": "string",
+          "pattern": "^#/"
+        },
+        "value": true
+      }
+    },
+    "condition": {
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "expression": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^\\s*=>"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^\\s*(\\?|default\\s*=>)"
+          }
+        }
+      ]
+    },
+    "styleDescription": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "fill": {
+          "$ref": "#/$defs/stylePart"
+        },
+        "stroke": {
+          "$ref": "#/$defs/stylePart"
+        },
+        "image": {
+          "$ref": "#/$defs/stylePart"
+        },
+        "text": {
+          "$ref": "#/$defs/stylePart"
+        },
+        "geometry": true,
+        "zIndex": {
+          "type": "number"
+        }
+      }
+    },
+    "stylePart": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/expression"
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "type": {
+              "enum": [
+                "Fill",
+                "Stroke",
+                "Icon",
+                "RegularShape",
+                "Circle",
+                "Text",
+                "Style",
+                "LinearGradient",
+                "RadialGradient",
+                "ConicGradient",
+                "CanvasPattern"
+              ]
+            },
+            "when": {
+              "$ref": "#/$defs/condition"
+            },
+            "fill": {
+              "$ref": "#/$defs/stylePart"
+            },
+            "stroke": {
+              "$ref": "#/$defs/stylePart"
+            },
+            "backgroundFill": {
+              "$ref": "#/$defs/stylePart"
+            },
+            "backgroundStroke": {
+              "$ref": "#/$defs/stylePart"
+            },
+            "color": {
+              "$ref": "#/$defs/color"
+            },
+            "colorStops": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/colorStop"
+              }
+            }
+          }
+        },
+        {
+          "const": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "color": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "type": {
+              "enum": [
+                "LinearGradient",
+                "RadialGradient",
+                "ConicGradient",
+                "CanvasPattern"
+              ]
+            },
+            "colorStops": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/colorStop"
+              }
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/expression"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "colorStop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["offset", "color"],
+      "properties": {
+        "offset": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "color": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

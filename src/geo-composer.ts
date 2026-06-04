@@ -219,8 +219,12 @@ function parseArgs(): Args {
 
 if (isMain()) {
     const args = parseArgs()
-    const geo = await GeoComposer.from(args)
-    await geo.start()
+    try {
+        const geo = await GeoComposer.from(args)
+        await geo.start()
+    } catch(e) {
+        console.error(`Unable to continue due to\n=> ${String(e)}`)
+    }
 }
 
 function isMain(): boolean {

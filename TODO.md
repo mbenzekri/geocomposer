@@ -31,7 +31,7 @@
 
 ### A decider - styles Dynamic
 
-- [ ] Ajouter un schema dedie aux fichiers DynStyle (`config/styles/*.json`) et valider les styles au chargement, pas seulement a l'execution.
+- [x] Ajouter un schema dedie aux fichiers DynStyle (`config/styles/*.json`) et valider les styles au chargement, pas seulement a l'execution.
 - [ ] Encadrer l'usage de `new Function` dans `DynamicStyle`: mode "trusted config" explicite, documentation du risque, ou mini-langage/compilation plus limitee si les configs peuvent etre non fiables.
 - [ ] Rendre les erreurs de pointeur dynamique plus strictes: signaler les `dynamic.pointer` qui ne ciblent aucun style/objet au lieu de les ignorer silencieusement.
 - [ ] Ajouter une limite ou strategie de purge au cache de styles dynamiques si `cacheKey` depend de valeurs a forte cardinalite.

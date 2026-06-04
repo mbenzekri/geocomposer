@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { Layer, type NamedStyle } from '../layer/layer.js'
 import type { Service } from '../service/service.js'
@@ -17,6 +16,7 @@ import { Wmts, type WmtsInfo, type WmtsOptions } from '../service/wmts.js'
 import { Tileset } from '../tileset/tileset.js'
 import { Gt } from '../core/geotools.js'
 import { BBox, CrsCode } from '../core/geometry.js'
+import { JsonSchemaValidator } from './json-schema-validator.js'
 
 export type NamedConfig<T> = Record<string, T>
 
@@ -189,6 +189,8 @@ export type ConfigRegistry = {
 const BUILTIN_STYLES: Record<string, StyleFn> = {
     default: defaultStyleFn
 }
+const CONFIG_SCHEMA_FILE = 'config.schema.json'
+const DYNAMIC_STYLE_SCHEMA_FILE = 'dynamic-style.schema.json'
 
 export class Config {
     private static shared: Config | null = null
@@ -240,7 +242,10 @@ export class Config {
 
         if (this.loaded) return this
 
-        const json = await readJsonFile<GeoComposerJson>(this.path)
+        const configValidator = new JsonSchemaValidator<GeoComposerJson>(
+            resolve(this.dir, CONFIG_SCHEMA_FILE), "Configuration Schema"
+        )
+        const json = configValidator.validate(this.path)
         const crs = new CrsRegistry(json.projections)
         const sources = createSources(json.sources, this.dir, crs)
         const styles = await createStyles(json.styles ?? {}, this.dir)
@@ -341,22 +346,6 @@ async function closeSources(sources: Iterable<Source>): Promise<void> {
     }
 
     if (firstError) throw firstError
-}
-
-async function readJsonFile<T>(path: string): Promise<T> {
-    let text: string
-
-    try {
-        text = await readFile(path, 'utf8')
-    } catch (error) {
-        throw new Error(`Unable to read JSON file ${path}: ${String(error)}`)
-    }
-
-    try {
-        return JSON.parse(text) as T
-    } catch (error) {
-        throw new Error(`Invalid JSON in ${path}: ${String(error)}`)
-    }
 }
 
 function createSources(
@@ -462,15 +451,23 @@ async function createStyles(
             }
         ]
     ])
+    const dynamicStyleValidator = new JsonSchemaValidator<DynamicStyleJson>(
+        resolve(baseDir, DYNAMIC_STYLE_SCHEMA_FILE), "Dynamic Style Schema"
+    )
 
     for (const [name, entry] of Object.entries(styleEntries)) {
-        styles.set(name, await createStyle(name, entry, baseDir))
+        styles.set(name, await createStyle(name, entry, baseDir, dynamicStyleValidator))
     }
 
     return styles
 }
 
-async function createStyle(name: string, entry: StyleJson, baseDir: string): Promise<NamedStyle> {
+async function createStyle(
+    name: string,
+    entry: StyleJson,
+    baseDir: string,
+    dynamicStyleValidator: JsonSchemaValidator<DynamicStyleJson>
+): Promise<NamedStyle> {
     switch (entry.type) {
         case 'builtin':
             if (!BUILTIN_STYLES[name]) {
@@ -485,7 +482,7 @@ async function createStyle(name: string, entry: StyleJson, baseDir: string): Pro
             }
 
         case 'dynamic': {
-            const json = await readJsonFile<DynamicStyleJson>(resolve(baseDir, entry.path))
+            const json = dynamicStyleValidator.validate(resolve(baseDir, entry.path))
             const style = await createDynamicStyleFn(name, json, {
                 units: entry.options?.units,
                 dotsPerInch: entry.options?.dotsPerInch
