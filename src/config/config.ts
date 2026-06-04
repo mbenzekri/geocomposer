@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { Lifecycle } from '../lifecycle/lifecycle.js'
 import { Layer, type NamedStyle } from '../layer/layer.js'
-import type { WmsInfo, WmsOptions } from '../service/wms.js'
+import type { Service } from '../service/service.js'
+import { Wms, type WmsInfo, type WmsOptions } from '../service/wms.js'
 import { GeoJsonSource } from '../source/geojson-source.js'
 import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
 import { GpkgSource } from '../source/gpkg-source.js'
@@ -12,8 +12,8 @@ import type { Source } from '../source/source.js'
 import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-style.js'
 import { defaultStyleFn } from '../style/default-style.js'
 import type { StyleFn } from '../style/style-fn.js'
-import type { XyzOptions } from '../service/xyz.js'
-import type { WmtsInfo, WmtsOptions } from '../service/wmts.js'
+import { Xyz, type XyzOptions } from '../service/xyz.js'
+import { Wmts, type WmtsInfo, type WmtsOptions } from '../service/wmts.js'
 import { Tileset } from '../tileset/tileset.js'
 import { Gt } from '../core/geotools.js'
 import { BBox, CrsCode } from '../core/geometry.js'
@@ -183,6 +183,7 @@ export type ConfigRegistry = {
     styles: readonly NamedStyle[]
     layers: readonly Layer[]
     tilesets: readonly Tileset[]
+    services: readonly Service[]
 }
 
 const BUILTIN_STYLES: Record<string, StyleFn> = {
@@ -199,8 +200,12 @@ export class Config {
     wms!: WmsOptions
     xyz?: XyzOptions
     wmts?: WmtsOptions
-    private lifecycle: Lifecycle | null = null
+    wmsService!: Wms
+    xyzService?: Xyz
+    wmtsService?: Wmts
+    services!: readonly Service[]
     private loaded = false
+    private opened = false
 
     constructor(configPath: string) {
         this.path = resolve(configPath)
@@ -246,12 +251,6 @@ export class Config {
         const wmsLayers = selectLayers(json.services.wms.layers, layers, 'WMS')
         const wmsCrs = crs.codes()
 
-        this.registry = {
-            sources: [...sources.values()],
-            styles: [...styles.values()],
-            layers,
-            tilesets
-        }
         this.server = {
             port: json.server?.port ?? 3000
         }
@@ -269,9 +268,21 @@ export class Config {
         }
         this.xyz = xyz
         this.wmts = wmts
-        this.lifecycle = new Lifecycle({
-            sources: this.registry.sources
-        })
+        this.wmsService = new Wms(this.wms)
+        this.xyzService = this.xyz ? new Xyz(this.xyz) : undefined
+        this.wmtsService = this.wmts ? new Wmts(this.wmts) : undefined
+        this.services = [
+            this.wmsService,
+            ...(this.xyzService ? [this.xyzService] : []),
+            ...(this.wmtsService ? [this.wmtsService] : [])
+        ]
+        this.registry = {
+            sources: [...sources.values()],
+            styles: [...styles.values()],
+            layers,
+            tilesets,
+            services: this.services
+        }
         this.loaded = true
         Config.shared = this
         return this
@@ -279,12 +290,48 @@ export class Config {
 
     async open(): Promise<void> {
         this.ensureLoaded()
-        await this.lifecycle?.open()
+        if (this.opened) return
+
+        const openedSources: Source[] = []
+        const openedServices: Service[] = []
+
+        try {
+            for (const source of this.registry.sources) {
+                await source.open()
+                openedSources.push(source)
+            }
+
+            for (const service of this.services) {
+                await service.open()
+                openedServices.push(service)
+            }
+
+            this.opened = true
+        } catch (error) {
+            try {
+                await closeResources([...openedServices].reverse())
+                await closeResources([...openedSources].reverse())
+            } catch {
+                // Preserve the startup error; cleanup errors are secondary here.
+            }
+            throw error
+        }
     }
 
     async close(): Promise<void> {
         this.ensureLoaded()
-        await this.lifecycle?.close()
+        if (!this.opened) return
+
+        let firstError: unknown
+
+        try {
+            firstError = await closeResources([...this.services].reverse(), firstError)
+            firstError = await closeResources([...this.registry.sources].reverse(), firstError)
+        } finally {
+            this.opened = false
+        }
+
+        if (firstError) throw firstError
     }
 
     private ensureLoaded(): void {
@@ -292,6 +339,24 @@ export class Config {
             throw new Error('Config must be loaded before use')
         }
     }
+}
+
+type Closeable = {
+    close(): Promise<void>
+}
+
+async function closeResources(resources: Iterable<Closeable>, firstError?: unknown): Promise<unknown> {
+    let errorToReport = firstError
+
+    for (const resource of resources) {
+        try {
+            await resource.close()
+        } catch (error) {
+            errorToReport ??= error
+        }
+    }
+
+    return errorToReport
 }
 
 async function readJsonFile<T>(path: string): Promise<T> {

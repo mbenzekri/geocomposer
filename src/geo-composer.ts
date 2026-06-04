@@ -1,13 +1,9 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { Server } from 'node:http'
-import type { Socket } from 'node:net'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Config } from './config/config.js'
 import { Service } from './service/service.js'
-import { Wms } from './service/wms.js'
-import { Wmts } from './service/wmts.js'
-import { Xyz } from './service/xyz.js'
 import { TileCache } from './tileset/tile-cache.js'
 
 type LaunchOptions = {
@@ -17,46 +13,19 @@ type LaunchOptions = {
 
 export class GeoComposer {
   readonly server: Server
-  readonly paths: {
-    readonly wms: string
-    readonly xyz?: string
-    readonly wmts?: string
-  }
 
-  private readonly services: readonly Service[]
-  private readonly wms: Wms
-  private readonly xyz?: Xyz
-  private readonly wmts?: Wmts
-  private readonly sockets = new Set<Socket>()
   private shuttingDown = false
 
   constructor(
     private readonly config: Config,
     private readonly port = config.server.port
   ) {
-    this.wms = new Wms(config.wms)
-    this.xyz = config.xyz ? new Xyz(config.xyz) : undefined
-    this.wmts = config.wmts ? new Wmts(config.wmts) : undefined
-    this.services = [
-      this.wms,
-      ...(this.xyz ? [this.xyz] : []),
-      ...(this.wmts ? [this.wmts] : [])
-    ]
-
-    this.paths = {
-      wms: this.wms.path,
-      ...(this.xyz ? { xyz: this.xyz.path } : {}),
-      ...(this.wmts ? { wmts: this.wmts.path } : {})
-    }
-
     this.server = createServer((req, res) => {
       void this.handle(req, res).catch((error) => {
         const message = error instanceof Error ? error.message : String(error)
         Service.sendText(res, 500, message, 'text/plain; charset=utf-8', req.method === 'HEAD')
       })
     })
-
-    this.trackConnections()
   }
 
   static async fromEnv(options: Partial<LaunchOptions> = {}): Promise<GeoComposer> {
@@ -72,7 +41,7 @@ export class GeoComposer {
 
   async start(): Promise<void> {
     try {
-      await this.openRuntime()
+      await this.config.open()
       await new Promise<void>((resolve, reject) => {
         const onError = (error: Error) => {
           this.server.off('listening', onListening)
@@ -91,7 +60,7 @@ export class GeoComposer {
       })
     } catch (error) {
       try {
-        await this.closeRuntime()
+        await this.config.close()
       } catch {
         // Preserve the startup error; cleanup errors are secondary here.
       }
@@ -101,7 +70,6 @@ export class GeoComposer {
 
   async stop(signal = 'manual'): Promise<void> {
     if (this.shuttingDown) {
-      this.destroySockets()
       return
     }
 
@@ -110,27 +78,27 @@ export class GeoComposer {
 
     const forceClose = setTimeout(() => {
       this.server.closeAllConnections?.()
-      this.destroySockets()
-    }, 1000)
+    }, 10_000)
 
-    await new Promise<void>((resolve, reject) => {
-      this.server.close((error?: Error) => {
-        if (error) {
-          reject(error)
-          return
-        }
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.server.close((error?: Error) => {
+          if (error) {
+            reject(error)
+            return
+          }
 
-        resolve()
+          resolve()
+        })
+
+        this.server.closeIdleConnections?.()
       })
 
-      this.server.closeIdleConnections?.()
-      this.server.closeAllConnections?.()
-    }).finally(() => {
+      await this.config.close()
+    } finally {
       clearTimeout(forceClose)
-    })
-
-    await this.closeRuntime()
-    this.shuttingDown = false
+      this.shuttingDown = false
+    }
   }
 
   trapSignals(): void {
@@ -145,7 +113,7 @@ export class GeoComposer {
 
   private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost')
-    const service = this.services.find((entry) => entry.matches(url.pathname))
+    const service = this.config.services.find((entry) => entry.matches(url.pathname))
 
     if (service) {
       await service.handle(req, res)
@@ -163,45 +131,39 @@ export class GeoComposer {
     Service.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8', req.method === 'HEAD')
   }
 
-  private trackConnections(): void {
-    this.server.on('connection', (socket) => {
-      this.sockets.add(socket)
-      socket.on('close', () => {
-        this.sockets.delete(socket)
-      })
-    })
-  }
-
   private logListening(): void {
     const baseUrl = `http://localhost:${this.port}`
+    const wmsPath = this.config.wmsService.path
     console.log(`Config: ${this.config.path}`)
-    console.log(`WMS listening on ${baseUrl}${this.paths.wms}`)
-    console.log(`GetCapabilities: ${baseUrl}${this.paths.wms}?SERVICE=WMS&REQUEST=GetCapabilities`)
+    console.log(`WMS listening on ${baseUrl}${wmsPath}`)
+    console.log(`GetCapabilities: ${baseUrl}${wmsPath}?SERVICE=WMS&REQUEST=GetCapabilities`)
 
-    if (this.paths.xyz && this.config.xyz) {
-      console.log(`XYZ listening on ${baseUrl}${this.paths.xyz}`)
+    if (this.config.xyzService && this.config.xyz) {
+      const xyzPath = this.config.xyzService.path
+      console.log(`XYZ listening on ${baseUrl}${xyzPath}`)
 
       const sampleTileset = this.config.xyz.tilesets[0]?.name
       if (sampleTileset) {
-        console.log(`Sample tile: ${baseUrl}${this.paths.xyz}/${encodeURIComponent(sampleTileset)}/1/1/1.png`)
-        console.log(`Retina sample: ${baseUrl}${this.paths.xyz}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`)
+        console.log(`Sample tile: ${baseUrl}${xyzPath}/${encodeURIComponent(sampleTileset)}/1/1/1.png`)
+        console.log(`Retina sample: ${baseUrl}${xyzPath}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`)
       }
     }
 
-    if (this.paths.wmts && this.config.wmts) {
-      console.log(`WMTS listening on ${baseUrl}${this.paths.wmts}`)
-      console.log(`WMTS GetCapabilities: ${baseUrl}${this.paths.wmts}?SERVICE=WMTS&REQUEST=GetCapabilities`)
+    if (this.config.wmtsService && this.config.wmts) {
+      const wmtsPath = this.config.wmtsService.path
+      console.log(`WMTS listening on ${baseUrl}${wmtsPath}`)
+      console.log(`WMTS GetCapabilities: ${baseUrl}${wmtsPath}?SERVICE=WMTS&REQUEST=GetCapabilities`)
 
       const sampleTileset = this.config.wmts.tilesets[0]?.name
       if (sampleTileset) {
-        console.log(`WMTS sample tile: ${baseUrl}${this.paths.wmts}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(sampleTileset)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=1&TILEROW=1&TILECOL=1&FORMAT=image%2Fpng`)
+        console.log(`WMTS sample tile: ${baseUrl}${wmtsPath}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(sampleTileset)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=1&TILEROW=1&TILECOL=1&FORMAT=image%2Fpng`)
       }
     }
   }
 
   private shutdown(signal: string): void {
     if (this.shuttingDown) {
-      this.destroySockets()
+      this.server.closeAllConnections?.()
       process.exit(1)
     }
 
@@ -216,39 +178,6 @@ export class GeoComposer {
     )
   }
 
-  private async openRuntime(): Promise<void> {
-    await this.config.open()
-
-    for (const service of this.services) {
-      await service.open()
-    }
-  }
-
-  private async closeRuntime(): Promise<void> {
-    let firstError: unknown
-
-    for (const service of [...this.services].reverse()) {
-      try {
-        await service.close()
-      } catch (error) {
-        firstError ??= error
-      }
-    }
-
-    try {
-      await this.config.close()
-    } catch (error) {
-      firstError ??= error
-    }
-
-    if (firstError) throw firstError
-  }
-
-  private destroySockets(): void {
-    for (const socket of this.sockets) {
-      socket.destroy()
-    }
-  }
 }
 
 function parsePort(value: string | undefined, fallback: number): number {
