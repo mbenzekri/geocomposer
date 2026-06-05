@@ -71,6 +71,95 @@ const INCHES_PER_UNIT = {
 
 const STYLE_NAME = Symbol('dynamicStyleName')
 
+type DynamicPatchTargetKind = 'style' | 'fill' | 'stroke' | 'text' | 'icon' | 'circle' | 'regularShape' | 'image'
+
+type DynamicPatchTarget = {
+  kind: DynamicPatchTargetKind
+  description: unknown
+  unknown: boolean
+}
+
+type DynamicPatchValidationResult = {
+  valid: true
+} | {
+  valid: false
+  optional: boolean
+  reason: string
+}
+
+const STYLE_WRITABLE_PROPERTIES = new Set([
+  'geometry',
+  'fill',
+  'image',
+  'renderer',
+  'hitDetectionRenderer',
+  'stroke',
+  'text',
+  'zIndex'
+])
+const FILL_WRITABLE_PROPERTIES = new Set(['color'])
+const STROKE_WRITABLE_PROPERTIES = new Set([
+  'color',
+  'lineCap',
+  'lineDash',
+  'lineDashOffset',
+  'lineJoin',
+  'miterLimit',
+  'offset',
+  'width'
+])
+const TEXT_WRITABLE_PROPERTIES = new Set([
+  'step',
+  'declutter',
+  'rank',
+  'font',
+  'maxAngle',
+  'offsetX',
+  'offsetY',
+  'overflow',
+  'placement',
+  'repeat',
+  'rotateWithView',
+  'keepUpright',
+  'fill',
+  'rotation',
+  'scale',
+  'stroke',
+  'text',
+  'textAlign',
+  'justify',
+  'textBaseline',
+  'backgroundFill',
+  'backgroundStroke',
+  'padding',
+  'declutterMode'
+])
+const ICON_WRITABLE_PROPERTIES = new Set([
+  'anchor',
+  'color',
+  'src',
+  'displacement',
+  'opacity',
+  'rotateWithView',
+  'rotation',
+  'scale'
+])
+const SHAPE_WRITABLE_PROPERTIES = new Set([
+  'fill',
+  'radius',
+  'radius2',
+  'stroke',
+  'displacement',
+  'opacity',
+  'rotateWithView',
+  'rotation',
+  'scale'
+])
+const IMAGE_WRITABLE_PROPERTIES = new Set([
+  ...ICON_WRITABLE_PROPERTIES,
+  ...SHAPE_WRITABLE_PROPERTIES
+])
+
 let layerCount = 0
 
 export async function createDynamicStyleFn(
@@ -106,6 +195,7 @@ export class DynamicStyle {
 
   async compile(): Promise<StyleFn> {
     if (!this.compiled) {
+      this.validateDynamicPatches()
       this.compileExpressions()
       this.compileDefinitions()
       this.compiled = true
@@ -234,6 +324,10 @@ export class DynamicStyle {
 
     return Object.entries(staticStyles)
       .filter((entry): entry is [string, JsonObject] => isPlainObject(entry[1]))
+  }
+
+  private validateDynamicPatches(): void {
+    new DynamicPatchValidator(this.name, this.staticStyleEntries(), this.jsonStyle.dynamic).validate()
   }
 
   private compileExpressions(): void {
@@ -567,6 +661,280 @@ class FeatureView {
 
   getProperties(): Feature['properties'] {
     return this.properties
+  }
+}
+
+class DynamicPatchValidator {
+  constructor(
+    private readonly styleName: string,
+    private readonly staticStyles: Array<[string, JsonObject]>,
+    private readonly patches: DynamicStylePatch[]
+  ) {}
+
+  validate(): void {
+    for (const patch of this.patches) {
+      this.validatePatch(patch)
+    }
+  }
+
+  private validatePatch(patch: DynamicStylePatch): void {
+    const { styleSelector, path, property } = this.parsePointer(patch.pointer)
+
+    if (styleSelector === '*') {
+      this.validateWildcardPatch(patch.pointer, path, property)
+      return
+    }
+
+    const styleDescription = this.staticStyles.find(([name]) => name === styleSelector)?.[1]
+    if (!styleDescription) {
+      throw new Error(
+        `Invalid dynamic style "${this.styleName}" patch "${patch.pointer}": static style "${styleSelector}" does not exist`
+      )
+    }
+
+    const result = this.validatePath(styleSelector, styleDescription, path, property)
+    if (!result.valid) {
+      throw new Error(`Invalid dynamic style "${this.styleName}" patch "${patch.pointer}": ${result.reason}`)
+    }
+  }
+
+  private validateWildcardPatch(pointer: string, path: string[], property: string): void {
+    if (this.staticStyles.length === 0) {
+      throw new Error(`Invalid dynamic style "${this.styleName}" patch "${pointer}": static has no styles`)
+    }
+
+    const results = this.staticStyles.map(([name, styleDescription]) => (
+      this.validatePath(name, styleDescription, path, property)
+    ))
+    const invalid = results.find((result) => !result.valid && !result.optional)
+    if (invalid && !invalid.valid) {
+      throw new Error(`Invalid dynamic style "${this.styleName}" patch "${pointer}": ${invalid.reason}`)
+    }
+
+    if (!results.some((result) => result.valid)) {
+      const reason = results.find((result) => !result.valid)?.reason ?? 'no static style matches this pointer'
+      throw new Error(`Invalid dynamic style "${this.styleName}" patch "${pointer}": ${reason}`)
+    }
+  }
+
+  private parsePointer(pointer: string): { styleSelector: string, path: string[], property: string } {
+    if (!pointer.startsWith('#/')) {
+      throw new Error(`Invalid dynamic style "${this.styleName}" patch pointer "${pointer}": expected "#/<style>/<property>"`)
+    }
+
+    const segments = pointer
+      .slice(2)
+      .split('/')
+      .map(unescapeJsonPointer)
+    const styleSelector = segments.shift()
+    const property = segments.pop()
+
+    if (!styleSelector || !property) {
+      throw new Error(`Invalid dynamic style "${this.styleName}" patch pointer "${pointer}": expected "#/<style>/<property>"`)
+    }
+
+    return { styleSelector, path: segments, property }
+  }
+
+  private validatePath(
+    styleName: string,
+    styleDescription: JsonObject,
+    path: string[],
+    property: string
+  ): DynamicPatchValidationResult {
+    let target: DynamicPatchTarget = {
+      kind: 'style',
+      description: styleDescription,
+      unknown: false
+    }
+    const currentPath: string[] = []
+
+    for (const segment of path) {
+      currentPath.push(segment)
+      const childKind = this.childKind(target.kind, segment)
+
+      if (!childKind) {
+        return this.invalid(
+          true,
+          `cannot traverse "${currentPath.join('/')}" from ${this.kindLabel(target.kind)}`
+        )
+      }
+
+      const child = this.childTarget(target, segment, childKind)
+      if (!child.valid) {
+        return this.invalid(
+          true,
+          `static style "${styleName}" does not define "${currentPath.join('/')}"`
+        )
+      }
+
+      target = child.target
+    }
+
+    if (!this.canWrite(target.kind, property)) {
+      return this.invalid(false, `cannot write property "${property}" on ${this.kindLabel(target.kind)}`)
+    }
+
+    return { valid: true }
+  }
+
+  private childTarget(
+    target: DynamicPatchTarget,
+    segment: string,
+    childKind: DynamicPatchTargetKind
+  ): { valid: true, target: DynamicPatchTarget } | { valid: false } {
+    if (target.unknown || isDynamicExpression(target.description)) {
+      return {
+        valid: true,
+        target: {
+          kind: childKind,
+          description: undefined,
+          unknown: true
+        }
+      }
+    }
+
+    if (!isPlainObject(target.description) || !(segment in target.description)) {
+      return { valid: false }
+    }
+
+    const description = target.description[segment]
+    if (description === null || description === false) {
+      return { valid: false }
+    }
+
+    return {
+      valid: true,
+      target: {
+        kind: this.inferKind(childKind, description),
+        description,
+        unknown: isDynamicExpression(description)
+      }
+    }
+  }
+
+  private childKind(kind: DynamicPatchTargetKind, property: string): DynamicPatchTargetKind | null {
+    if (kind === 'style') {
+      return this.styleChildKind(property)
+    }
+
+    if (kind === 'text') {
+      return this.textChildKind(property)
+    }
+
+    if (kind === 'circle' || kind === 'regularShape' || kind === 'image') {
+      return this.shapeChildKind(property)
+    }
+
+    return null
+  }
+
+  private styleChildKind(property: string): DynamicPatchTargetKind | null {
+    switch (property) {
+      case 'fill':
+        return 'fill'
+      case 'stroke':
+        return 'stroke'
+      case 'image':
+        return 'image'
+      case 'text':
+        return 'text'
+      default:
+        return null
+    }
+  }
+
+  private textChildKind(property: string): DynamicPatchTargetKind | null {
+    switch (property) {
+      case 'fill':
+      case 'backgroundFill':
+        return 'fill'
+      case 'stroke':
+      case 'backgroundStroke':
+        return 'stroke'
+      default:
+        return null
+    }
+  }
+
+  private shapeChildKind(property: string): DynamicPatchTargetKind | null {
+    switch (property) {
+      case 'fill':
+        return 'fill'
+      case 'stroke':
+        return 'stroke'
+      default:
+        return null
+    }
+  }
+
+  private inferKind(expectedKind: DynamicPatchTargetKind, description: unknown): DynamicPatchTargetKind {
+    if (expectedKind !== 'image' || !isPlainObject(description)) {
+      return expectedKind
+    }
+
+    if (description.type === 'Icon' || description.src != null || description.img != null) {
+      return 'icon'
+    }
+
+    if (description.type === 'RegularShape' || description.points != null) {
+      return 'regularShape'
+    }
+
+    if (description.type === 'Circle' || description.radius != null) {
+      return 'circle'
+    }
+
+    return 'image'
+  }
+
+  private canWrite(kind: DynamicPatchTargetKind, property: string): boolean {
+    switch (kind) {
+      case 'style':
+        return STYLE_WRITABLE_PROPERTIES.has(property)
+      case 'fill':
+        return FILL_WRITABLE_PROPERTIES.has(property)
+      case 'stroke':
+        return STROKE_WRITABLE_PROPERTIES.has(property)
+      case 'text':
+        return TEXT_WRITABLE_PROPERTIES.has(property)
+      case 'icon':
+        return ICON_WRITABLE_PROPERTIES.has(property)
+      case 'circle':
+      case 'regularShape':
+        return SHAPE_WRITABLE_PROPERTIES.has(property)
+      case 'image':
+        return IMAGE_WRITABLE_PROPERTIES.has(property)
+    }
+  }
+
+  private kindLabel(kind: DynamicPatchTargetKind): string {
+    switch (kind) {
+      case 'style':
+        return 'Style'
+      case 'fill':
+        return 'Fill'
+      case 'stroke':
+        return 'Stroke'
+      case 'text':
+        return 'Text'
+      case 'icon':
+        return 'Icon'
+      case 'circle':
+        return 'Circle'
+      case 'regularShape':
+        return 'RegularShape'
+      case 'image':
+        return 'Image'
+    }
+  }
+
+  private invalid(optional: boolean, reason: string): DynamicPatchValidationResult {
+    return {
+      valid: false,
+      optional,
+      reason
+    }
   }
 }
 

@@ -482,16 +482,23 @@ async function createStyle(
             }
 
         case 'dynamic': {
-            const json = dynamicStyleValidator.validate(resolve(baseDir, entry.path))
-            const style = await createDynamicStyleFn(name, json, {
-                units: entry.options?.units,
-                dotsPerInch: entry.options?.dotsPerInch
-            })
-            return {
-                name,
-                title: entry.title ?? json.title ?? titleFromId(name),
-                summary: entry.abstract,
-                style
+            const stylePath = resolve(baseDir, entry.path)
+
+            try {
+                const json = dynamicStyleValidator.validate(stylePath)
+                const style = await createDynamicStyleFn(name, json, {
+                    units: entry.options?.units,
+                    dotsPerInch: entry.options?.dotsPerInch
+                })
+                return {
+                    name,
+                    title: entry.title ?? json.title ?? titleFromId(name),
+                    summary: entry.abstract,
+                    style
+                }
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error)
+                throw new Error(`Invalid dynamic style "${name}" at ${stylePath}: ${message}`)
             }
         }
     }

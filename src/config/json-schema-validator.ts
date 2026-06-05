@@ -3,10 +3,6 @@ import  path from 'node:path'
 import { Ajv2020 } from 'ajv/dist/2020.js'
 import type { ErrorObject, ValidateFunction } from 'ajv'
 import process from 'node:process'
-const ajv = new Ajv2020({
-    allErrors: true,
-    strict: false
-})
 export class JsonSchemaValidator<T> {
     private schemaName: string
     private readonly validator: ValidateFunction
@@ -23,6 +19,10 @@ export class JsonSchemaValidator<T> {
             throw new Error(`Invalid JSON Schema in ${document.label}: expected an object`)
         }
 
+        const ajv = new Ajv2020({
+            allErrors: true,
+            strict: false
+        })
         this.validator = ajv.compile(document)
     }
 
