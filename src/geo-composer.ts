@@ -222,8 +222,9 @@ if (isMain()) {
     try {
         const geo = await GeoComposer.from(args)
         await geo.start()
-    } catch(e) {
-        console.error(`Unable to continue due to\n=> ${String(e)}`)
+    } catch (error) {
+        process.exitCode = 1
+        console.error(`Unable to continue due to\n=> ${String(error)}`)
     }
 }
 

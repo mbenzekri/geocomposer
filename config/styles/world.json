@@ -4,7 +4,7 @@
     "cacheKey": "world",
     "static": {
         "country": {
-            "toto": {
+            "stroke": {
                 "color": "#334155",
                 "width": 0.75
             },

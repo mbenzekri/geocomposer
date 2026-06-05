@@ -173,6 +173,7 @@
 <body>
   <main>
     <h1>GeoComposer OpenLayers</h1>
+    <p class="meta">Service courant: <code id="service-url">http://localhost:3000/wms</code></p>
 
     <div class="controls">
       <div class="toolbar">
@@ -501,17 +502,10 @@
       requestUrlElement.textContent = 'En attente...'
       currentFormatLabel = formatLabel || layerName
       currentWorldLayer = layerName
-      if (tilesetSelect.value == 'world') {
-        source.updateParams({
-            LAYERS: `world`,
-            STYLES: 'world'
-        })
-      } else {
-        source.updateParams({
-            LAYERS: `world,capitals`,
-            STYLES: 'world,capitals'
-        })
-      }
+      source.updateParams({
+        LAYERS: `${currentWorldLayer},capitals`,
+        STYLES: 'world,capitals'
+      })
       worldLayerSelect.value = layerName
 
       clearFeatureInfo()
