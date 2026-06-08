@@ -3,23 +3,66 @@ import type { Layer } from '../layer/layer.js'
 import { StyleFn } from '../style/style-fn.js'
 import { getTileMatrixSet, type TileMatrixSet } from './tile-matrix-set.js'
 
-const DEFAULT_FORMAT = 'image/png'
+export const RASTER_TILE_FORMAT = 'image/png'
+export const GEOJSON_TILE_FORMAT = 'application/geo+json'
+export const MVT_TILE_FORMAT = 'application/vnd.mapbox-vector-tile'
+
+export type TileOutput = {
+  format: string
+  extension: string
+  vector: boolean
+}
+
+const TILE_FORMATS = new Map<string, TileOutput>([
+  [RASTER_TILE_FORMAT, { format: RASTER_TILE_FORMAT, extension: 'png', vector: false }],
+  [GEOJSON_TILE_FORMAT, { format: GEOJSON_TILE_FORMAT, extension: 'geojson', vector: true }],
+  ['application/json', { format: GEOJSON_TILE_FORMAT, extension: 'geojson', vector: true }],
+  [MVT_TILE_FORMAT, { format: MVT_TILE_FORMAT, extension: 'pbf', vector: true }],
+  ['application/x-protobuf', { format: MVT_TILE_FORMAT, extension: 'pbf', vector: true }]
+])
 const DEFAULT_TILE_SIZE = 256
 const DEFAULT_MIN_ZOOM = 0
 const DEFAULT_MAX_ZOOM = 22
+const DEFAULT_VECTOR_EXTENT = 4096
+const DEFAULT_VECTOR_BUFFER = 64
+const DEFAULT_VECTOR_TOLERANCE = 0.5
+const DEFAULT_GEOJSON_PRECISION = 6
+
+export type VectorTileGeneralizationOptions = {
+  tolerance?: number
+}
+
+export type VectorTileOptions = {
+  extent?: number
+  buffer?: number
+  generalization?: VectorTileGeneralizationOptions
+  geojsonPrecision?: number
+  maxFeatures?: number
+}
+
+export type RequiredVectorTileOptions = {
+  extent: number
+  buffer: number
+  generalization: {
+    tolerance: number
+  }
+  geojsonPrecision: number
+  maxFeatures?: number
+}
 
 export type TilesetOptions = {
   name: string
   title?: string
   summary?: string
   tileMatrixSet?: string
-  format?: string
+  formats: string[]
   tileSize?: number
   minZoom?: number
   maxZoom?: number
   cacheControl?: string
+  vector?: VectorTileOptions
   layers: Layer[]
-  styles: string[]
+  styles: Array<string | undefined>
 }
 
 export class Tileset {
@@ -27,24 +70,28 @@ export class Tileset {
   readonly title?: string
   readonly summary?: string
   readonly tileMatrixSet: TileMatrixSet
-  readonly format: string
+  readonly formats: string[]
   readonly tileSize: number
   readonly minZoom: number
   readonly maxZoom: number
   readonly cacheControl?: string
+  readonly vector: RequiredVectorTileOptions
   readonly layers: Layer[]
   readonly styles: StyleFn[]
+  private readonly hasExplicitVectorOptions: boolean
 
   constructor(options: TilesetOptions) {
     this.name = options.name
     this.title = options.title
     this.summary = options.summary
     this.tileMatrixSet = getTileMatrixSet(options.tileMatrixSet)
-    this.format = options.format ?? DEFAULT_FORMAT
+    this.formats = normalizeTileFormats(options.formats)
     this.tileSize = options.tileSize ?? DEFAULT_TILE_SIZE
     this.minZoom = options.minZoom ?? DEFAULT_MIN_ZOOM
     this.maxZoom = options.maxZoom ?? DEFAULT_MAX_ZOOM
     this.cacheControl = options.cacheControl
+    this.hasExplicitVectorOptions = options.vector !== undefined
+    this.vector = normalizeVectorOptions(options.vector)
     this.layers = options.layers
     this.styles = options.styles.map((stylename,index) => this.layers[index].resolveStyle(stylename))
     this.validate()
@@ -74,13 +121,34 @@ export class Tileset {
     return this.tileMatrixSet.zoomFromMatrixId(value)
   }
 
+  get defaultFormat(): string {
+    return this.formats[0]
+  }
+
+  get outputs(): TileOutput[] {
+    return this.formats.map((format) => tileFormatInfo(format))
+  }
+
+  get hasVectorFormats(): boolean {
+    return this.outputs.some((output) => output.vector)
+  }
+
+  resolveOutput(format?: string): TileOutput {
+    const normalized = normalizeTileFormat(format ?? this.defaultFormat)
+    if (!this.formats.includes(normalized)) {
+      throw new Error(`Tileset "${this.name}" does not support format "${normalized}"`)
+    }
+
+    return tileFormatInfo(normalized)
+  }
+
+  supportsFormat(value: string): boolean {
+    return this.formats.includes(normalizeTileFormat(value))
+  }
+
   private validate(): void {
     if (!this.name) {
       throw new Error('Tileset name must not be empty')
-    }
-
-    if (this.format !== DEFAULT_FORMAT) {
-      throw new Error(`Tileset "${this.name}" format must be ${DEFAULT_FORMAT}`)
     }
 
     if (!Number.isInteger(this.tileSize) || this.tileSize <= 0) {
@@ -98,5 +166,92 @@ export class Tileset {
     if (this.layers.length === 0) {
       throw new Error(`Tileset "${this.name}" must reference at least one configured layer`)
     }
+
+    if (!this.hasVectorFormats) {
+      if (this.hasExplicitVectorOptions) {
+        throw new Error(`Tileset "${this.name}" vector options require at least one vector output format`)
+      }
+
+      return
+    }
+
+    if (!Number.isInteger(this.vector.extent) || this.vector.extent <= 0) {
+      throw new Error(`Tileset "${this.name}" vector.extent must be a positive integer`)
+    }
+
+    if (!Number.isFinite(this.vector.buffer) || this.vector.buffer < 0) {
+      throw new Error(`Tileset "${this.name}" vector.buffer must be a non-negative number`)
+    }
+
+    if (!Number.isFinite(this.vector.generalization.tolerance) || this.vector.generalization.tolerance < 0) {
+      throw new Error(`Tileset "${this.name}" vector.generalization.tolerance must be a non-negative number`)
+    }
+
+    if (!Number.isInteger(this.vector.geojsonPrecision) || this.vector.geojsonPrecision < 0) {
+      throw new Error(`Tileset "${this.name}" vector.geojsonPrecision must be a non-negative integer`)
+    }
+
+    if (this.vector.maxFeatures !== undefined && (!Number.isInteger(this.vector.maxFeatures) || this.vector.maxFeatures <= 0)) {
+      throw new Error(`Tileset "${this.name}" vector.maxFeatures must be a positive integer`)
+    }
+  }
+}
+
+export function normalizeTileFormat(format: string): string {
+  const info = TILE_FORMATS.get(format)
+  if (!info) {
+    throw new Error(`Unsupported tileset format "${format}"`)
+  }
+
+  return info.format
+}
+
+export function normalizeTileFormats(formats: string[]): string[] {
+  if (!Array.isArray(formats) || formats.length === 0) {
+    throw new Error('Tileset formats must define at least one output format')
+  }
+
+  const normalized = formats.map((format) => normalizeTileFormat(format))
+  const unique = [...new Set(normalized)]
+  if (unique.length !== normalized.length) {
+    throw new Error(`Tileset formats must not contain duplicates: ${normalized.join(', ')}`)
+  }
+
+  return unique
+}
+
+export function tileFormatFromExtension(extension: string): string {
+  switch (extension.toLowerCase()) {
+    case 'png':
+      return RASTER_TILE_FORMAT
+    case 'geojson':
+    case 'json':
+      return GEOJSON_TILE_FORMAT
+    case 'pbf':
+    case 'mvt':
+      return MVT_TILE_FORMAT
+    default:
+      return normalizeTileFormat(extension)
+  }
+}
+
+function tileFormatInfo(format: string): TileOutput {
+  const info = TILE_FORMATS.get(format)
+  if (!info) {
+    throw new Error(`Unsupported tileset format "${format}"`)
+  }
+
+  return info
+}
+
+function normalizeVectorOptions(options: VectorTileOptions | undefined): RequiredVectorTileOptions {
+  return {
+    extent: options?.extent ?? DEFAULT_VECTOR_EXTENT,
+    buffer: options?.buffer ?? DEFAULT_VECTOR_BUFFER,
+    generalization: {
+      tolerance: options?.generalization?.tolerance ?? DEFAULT_VECTOR_TOLERANCE
+    },
+    geojsonPrecision: options?.geojsonPrecision ?? DEFAULT_GEOJSON_PRECISION,
+    maxFeatures: options?.maxFeatures
   }
 }

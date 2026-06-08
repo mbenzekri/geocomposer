@@ -18,7 +18,15 @@
             "cache": "cache/xyz",
             "tilesets": [
                 "world",
-                "world-capitals"
+                "world-capitals",
+                "world-mem",
+                "world-mem-capitals",
+                "world-gml",
+                "world-gml-capitals",
+                "world-shp",
+                "world-shp-capitals",
+                "world-gpkg",
+                "world-gpkg-capitals"
             ]
         },
         "wmts": {
@@ -29,20 +37,36 @@
             "cache": "cache/wmts",
             "tilesets": [
                 "world",
-                "world-capitals"
+                "world-capitals",
+                "world-mem",
+                "world-mem-capitals",
+                "world-gml",
+                "world-gml-capitals",
+                "world-shp",
+                "world-shp-capitals",
+                "world-gpkg",
+                "world-gpkg-capitals"
             ]
         }
     },
     "tilesets": {
         "world": {
             "title": "World",
-            "abstract": "XYZ and WMTS tiles for the world country boundaries.",
+            "abstract": "Tiles for world country boundaries from the GeoJSON source.",
             "tileMatrixSet": "WebMercatorQuad",
-            "format": "image/png",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
             "tileSize": 256,
             "minZoom": 0,
             "maxZoom": 8,
             "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
             "layers": [
                 {
                     "layer": "world",
@@ -52,16 +76,232 @@
         },
         "world-capitals": {
             "title": "World and Capitals",
-            "abstract": "Tiles combining country boundaries and capital city labels.",
+            "abstract": "Tiles combining GeoJSON country boundaries and capital city labels.",
             "tileMatrixSet": "WebMercatorQuad",
-            "format": "image/png",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
             "tileSize": 256,
             "minZoom": 0,
             "maxZoom": 8,
             "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
             "layers": [
                 {
                     "layer": "world",
+                    "style": "world"
+                },
+                {
+                    "layer": "capitals",
+                    "style": "capitals"
+                }
+            ]
+        },
+        "world-mem": {
+            "title": "World Memory",
+            "abstract": "Tiles for world country boundaries from the memory source.",
+            "tileMatrixSet": "WebMercatorQuad",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
+            "tileSize": 256,
+            "minZoom": 0,
+            "maxZoom": 8,
+            "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
+            "layers": [
+                {
+                    "layer": "world-mem",
+                    "style": "world"
+                }
+            ]
+        },
+        "world-mem-capitals": {
+            "title": "World Memory and Capitals",
+            "abstract": "Tiles combining memory-backed country boundaries and capital city labels.",
+            "tileMatrixSet": "WebMercatorQuad",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
+            "tileSize": 256,
+            "minZoom": 0,
+            "maxZoom": 8,
+            "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
+            "layers": [
+                {
+                    "layer": "world-mem",
+                    "style": "world"
+                },
+                {
+                    "layer": "capitals",
+                    "style": "capitals"
+                }
+            ]
+        },
+        "world-gml": {
+            "title": "World GML",
+            "abstract": "Tiles for world country boundaries from the GML source.",
+            "tileMatrixSet": "WebMercatorQuad",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
+            "tileSize": 256,
+            "minZoom": 0,
+            "maxZoom": 8,
+            "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
+            "layers": [
+                {
+                    "layer": "world-gml",
+                    "style": "world"
+                }
+            ]
+        },
+        "world-gml-capitals": {
+            "title": "World GML and Capitals",
+            "abstract": "Tiles combining GML country boundaries and capital city labels.",
+            "tileMatrixSet": "WebMercatorQuad",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
+            "tileSize": 256,
+            "minZoom": 0,
+            "maxZoom": 8,
+            "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
+            "layers": [
+                {
+                    "layer": "world-gml",
+                    "style": "world"
+                },
+                {
+                    "layer": "capitals",
+                    "style": "capitals"
+                }
+            ]
+        },
+        "world-shp": {
+            "title": "World Shapefile",
+            "abstract": "Tiles for world country boundaries from the shapefile source.",
+            "tileMatrixSet": "WebMercatorQuad",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
+            "tileSize": 256,
+            "minZoom": 0,
+            "maxZoom": 8,
+            "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
+            "layers": [
+                {
+                    "layer": "world-shp",
+                    "style": "world"
+                }
+            ]
+        },
+        "world-shp-capitals": {
+            "title": "World Shapefile and Capitals",
+            "abstract": "Tiles combining shapefile country boundaries and capital city labels.",
+            "tileMatrixSet": "WebMercatorQuad",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
+            "tileSize": 256,
+            "minZoom": 0,
+            "maxZoom": 8,
+            "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
+            "layers": [
+                {
+                    "layer": "world-shp",
+                    "style": "world"
+                },
+                {
+                    "layer": "capitals",
+                    "style": "capitals"
+                }
+            ]
+        },
+        "world-gpkg": {
+            "title": "World GeoPackage",
+            "abstract": "Tiles for world country boundaries from the GeoPackage source.",
+            "tileMatrixSet": "WebMercatorQuad",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
+            "tileSize": 256,
+            "minZoom": 0,
+            "maxZoom": 8,
+            "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
+            "layers": [
+                {
+                    "layer": "world-gpkg",
+                    "style": "world"
+                }
+            ]
+        },
+        "world-gpkg-capitals": {
+            "title": "World GeoPackage and Capitals",
+            "abstract": "Tiles combining GeoPackage country boundaries and capital city labels.",
+            "tileMatrixSet": "WebMercatorQuad",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
+            "tileSize": 256,
+            "minZoom": 0,
+            "maxZoom": 8,
+            "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
+            "layers": [
+                {
+                    "layer": "world-gpkg",
                     "style": "world"
                 },
                 {

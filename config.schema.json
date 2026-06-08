@@ -155,7 +155,7 @@
     "tileset": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["layers"],
+      "required": ["formats", "layers"],
       "properties": {
         "title": {
           "type": "string"
@@ -166,8 +166,17 @@
         "tileMatrixSet": {
           "enum": ["WebMercatorQuad"]
         },
-        "format": {
-          "enum": ["image/png"]
+        "formats": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "image/png",
+              "application/geo+json",
+              "application/vnd.mapbox-vector-tile"
+            ]
+          }
         },
         "tileSize": {
           "type": "integer",
@@ -184,12 +193,47 @@
         "cacheControl": {
           "type": "string"
         },
+        "vector": {
+          "$ref": "#/$defs/vectorTileOptions"
+        },
         "layers": {
           "type": "array",
           "minItems": 1,
           "items": {
             "$ref": "#/$defs/tilesetLayer"
           }
+        }
+      }
+    },
+    "vectorTileOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extent": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "buffer": {
+          "type": "number",
+          "minimum": 0
+        },
+        "generalization": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tolerance": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "geojsonPrecision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxFeatures": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     },

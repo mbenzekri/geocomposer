@@ -14,6 +14,7 @@ import type { StyleFn } from '../style/style-fn.js'
 import { Xyz, type XyzOptions } from '../service/xyz.js'
 import { Wmts, type WmtsInfo, type WmtsOptions } from '../service/wmts.js'
 import { Tileset } from '../tileset/tileset.js'
+import type { VectorTileOptions } from '../tileset/tileset.js'
 import { Gt } from '../core/geotools.js'
 import { BBox, CrsCode } from '../core/geometry.js'
 import { JsonSchemaValidator } from './json-schema-validator.js'
@@ -133,11 +134,12 @@ export type TilesetJson = {
     title?: string
     abstract?: string
     tileMatrixSet?: string
-    format?: string
+    formats: string[]
     tileSize?: number
     minZoom?: number
     maxZoom?: number
     cacheControl?: string
+    vector?: VectorTileOptions
     layers: TilesetLayerJson[]
 }
 
@@ -591,11 +593,12 @@ function createTileset(
         title: entry.title,
         summary: entry.abstract,
         tileMatrixSet: entry.tileMatrixSet,
-        format: entry.format,
+        formats: entry.formats,
         tileSize: entry.tileSize,
         minZoom: entry.minZoom,
         maxZoom: entry.maxZoom,
         cacheControl: entry.cacheControl,
+        vector: entry.vector,
         layers: layerRefs.map((ref) => {
             const layer = layersByName.get(ref.layer)
             if (!layer) {
@@ -614,7 +617,7 @@ function createTileset(
 
             validateTilesetNamedStyle(layer, ref.style, name)
 
-            return ref.style ?? "default"
+            return ref.style
         })
     })
 }

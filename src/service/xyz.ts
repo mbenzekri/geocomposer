@@ -2,8 +2,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { BBox } from '../core/geometry.js'
 import { getMap } from '../ogc/get-map.js'
 import { TileCache } from '../tileset/tile-cache.js'
-import { getTileMatrixSet } from '../tileset/tile-matrix-set.js'
-import { Tileset } from '../tileset/tileset.js'
+import {
+    type TileOutput,
+    Tileset,
+    tileFormatFromExtension
+} from '../tileset/tileset.js'
+import { getVectorTile } from '../tileset/vector-tile.js'
 import { Service } from './service.js'
 import { nonNegativeInteger } from '../core/tools.js'
 
@@ -18,6 +22,7 @@ export type XyzOptions = {
 
 type TileRequest = {
     tileset: Tileset
+    output: TileOutput
     z: number
     x: number
     y: number
@@ -95,33 +100,25 @@ export class Xyz extends Service {
             })
             logTileParams(traceId, tileRequest)
 
-            const cachedImage = this.cache
+            const cachedTile = this.cache
                 ? await this.cache.read(tileCacheKey(tileRequest))
                 : null
-            const image = cachedImage ?? await getMap({
-                layers: tileRequest.tileset.layers,
-                styles: tileRequest.tileset.styles,
-                bbox: tileRequest.bbox,
-                width: tileRequest.width,
-                height: tileRequest.height,
-                crs: tileRequest.tileset.crs,
-                pixelRatio: tileRequest.scale
-            })
+            const tile = cachedTile ?? await renderTile(tileRequest)
 
-            if (!cachedImage && this.cache) {
-                await this.cache.write(tileCacheKey(tileRequest), image)
+            if (!cachedTile && this.cache) {
+                await this.cache.write(tileCacheKey(tileRequest), tile)
             }
 
             res.statusCode = 200
-            res.setHeader('Content-Type', 'image/png')
-            res.setHeader('Content-Length', image.byteLength)
+            res.setHeader('Content-Type', tileRequest.output.format)
+            res.setHeader('Content-Length', tile.byteLength)
             if (tileRequest.tileset.cacheControl) {
                 res.setHeader('Cache-Control', tileRequest.tileset.cacheControl)
             }
 
             if (req.method !== 'HEAD') {
-                res.end(image)
-                logTileDone(traceId, res.statusCode, startedAt, image.byteLength)
+                res.end(tile)
+                logTileDone(traceId, res.statusCode, startedAt, tile.byteLength)
                 return
             }
 
@@ -147,7 +144,7 @@ export class Xyz extends Service {
     ): TileRequest {
         const segments = pathSegmentsAfter(url.pathname, options.path)
         if (segments.length !== 4) {
-            throw new Error(`XYZ tile path must be ${options.path}/{tileset}/{z}/{x}/{y}.png`)
+            throw new Error(`XYZ tile path must be ${options.path}/{tileset}/{z}/{x}/{y}.{png|geojson|pbf}`)
         }
 
         const tilesetName = decodeURIComponent(segments[0])
@@ -159,8 +156,12 @@ export class Xyz extends Service {
         const z = nonNegativeInteger(segments[1], 'z')
         const x = nonNegativeInteger(segments[2], 'x')
         const parsedY = parseYSegment(segments[3])
+        const output = tileset.resolveOutput(parsedY.format)
         const y = parsedY.y
         const scale = parseScale(url.searchParams.get('scale'), parsedY.scale, options.maxScaleFactor)
+        if (output.vector && scale !== 1) {
+            throw new Error('Vector XYZ tiles do not support scale or @2x requests')
+        }
 
         tileset.validateCoord(z, x, y)
 
@@ -168,10 +169,11 @@ export class Xyz extends Service {
 
         return {
             tileset,
+            output,
             z,
             x,
             y,
-            bbox: getTileMatrixSet('WebMercatorQuad').bbox(z, x, y),
+            bbox: tileset.bbox(z, x, y),
             width: pixelSize,
             height: pixelSize,
             scale
@@ -181,15 +183,16 @@ export class Xyz extends Service {
 
 }
 
-function parseYSegment(segment: string): { y: number, scale?: number } {
-    const match = segment.match(/^(\d+)(?:@([1-9]\d*)x)?(?:\.png)?$/i)
+function parseYSegment(segment: string): { y: number, scale?: number, format?: string } {
+    const match = segment.match(/^(\d+)(?:@([1-9]\d*)x)?(?:\.(png|geojson|json|pbf|mvt))?$/i)
     if (!match) {
-        throw new Error('y must be an integer tile coordinate, optionally ending with .png or @2x.png')
+        throw new Error('y must be an integer tile coordinate, optionally ending with .png, .geojson, .json, .pbf or .mvt')
     }
 
     return {
         y: nonNegativeInteger(match[1], 'y'),
-        scale: match[2] ? nonNegativeInteger(match[2], 'scale') : undefined
+        scale: match[2] ? nonNegativeInteger(match[2], 'scale') : undefined,
+        format: match[3] ? tileFormatFromExtension(match[3]) : undefined
     }
 }
 
@@ -230,8 +233,32 @@ function tileCacheKey(request: TileRequest) {
         z: request.z,
         x: request.x,
         y: request.y,
-        scale: request.scale
+        scale: request.scale,
+        extension: request.output.extension
     }
+}
+
+async function renderTile(request: TileRequest): Promise<Buffer> {
+    if (!request.output.vector) {
+        return getMap({
+            layers: request.tileset.layers,
+            styles: request.tileset.styles,
+            bbox: request.bbox,
+            width: request.width,
+            height: request.height,
+            crs: request.tileset.crs,
+            pixelRatio: request.scale
+        })
+    }
+
+    return getVectorTile({
+        layers: request.tileset.layers,
+        bbox: request.bbox,
+        crs: request.tileset.crs,
+        tileSize: request.tileset.tileSize,
+        format: request.output.format,
+        vector: request.tileset.vector
+    })
 }
 
 function logTileStart(traceId: number, method: string, url: string): void {
@@ -244,7 +271,7 @@ function logTileDone(traceId: number, statusCode: number, startedAt: number, siz
 }
 
 function logTileParams(traceId: number, request: TileRequest): void {
-    console.log(`[XYZ ${traceId}] TILESET=${request.tileset.name} ZXY=${request.z}/${request.x}/${request.y} SIZE=${request.width}x${request.height} SCALE=${request.scale}`)
+    console.log(`[XYZ ${traceId}] TILESET=${request.tileset.name} FORMAT=${request.output.format} ZXY=${request.z}/${request.x}/${request.y} SIZE=${request.width}x${request.height} SCALE=${request.scale}`)
     console.log(`[XYZ ${traceId}] BBOX=${request.bbox.join(',')}`)
 }
 

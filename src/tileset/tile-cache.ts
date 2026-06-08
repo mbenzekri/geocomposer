@@ -7,6 +7,7 @@ export type TileCacheKey = {
   x: number
   y: number
   scale?: number
+  extension?: string
 }
 
 export class TileCache {
@@ -54,9 +55,10 @@ export class TileCache {
 
   private path(key: TileCacheKey): string {
     const scale = key.scale ?? 1
+    const extension = key.extension ?? 'png'
     const fileName = scale === 1
-      ? `${key.y}.png`
-      : `${key.y}@${encodeURIComponent(String(scale))}x.png`
+      ? `${key.y}.${extension}`
+      : `${key.y}@${encodeURIComponent(String(scale))}x.${extension}`
 
     return join(
       this.dir,

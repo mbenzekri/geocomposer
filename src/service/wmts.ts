@@ -4,7 +4,8 @@ import { MarkupTemplate } from '../core/template.js'
 import { getMap } from '../ogc/get-map.js'
 import { TileCache } from '../tileset/tile-cache.js'
 import type { TileMatrixSet } from '../tileset/tile-matrix-set.js'
-import type { Tileset } from '../tileset/tileset.js'
+import type { TileOutput, Tileset } from '../tileset/tileset.js'
+import { getVectorTile } from '../tileset/vector-tile.js'
 import { Service } from './service.js'
 
 const WMTS_VERSION = '1.0.0'
@@ -24,6 +25,7 @@ export type WmtsOptions = {
 
 type WmtsTileRequest = {
     tileset: Tileset
+    output: TileOutput
     z: number
     x: number
     y: number
@@ -69,7 +71,9 @@ const WMTS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
       <Style isDefault="true">
         <ows:Identifier>default</ows:Identifier>
       </Style>
-      <Format>{{format}}</Format>
+      {{#formats}}
+      <Format>{{.}}</Format>
+      {{/formats}}
       <TileMatrixSetLink>
         <TileMatrixSet>{{tileMatrixSet}}</TileMatrixSet>
         <TileMatrixSetLimits>
@@ -84,7 +88,9 @@ const WMTS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
           {{/limits}}
         </TileMatrixSetLimits>
       </TileMatrixSetLink>
-      <ResourceURL format="{{format}}" resourceType="tile" template="{{resourceTemplate}}"/>
+      {{#resourceTemplates}}
+      <ResourceURL format="{{format}}" resourceType="tile" template="{{template}}"/>
+      {{/resourceTemplates}}
     </Layer>
     {{/layers}}
     {{#matrixSets}}
@@ -183,33 +189,26 @@ export class Wmts extends Service {
                     tileset: tileRequest.tileset.name,
                     z: tileRequest.z,
                     x: tileRequest.x,
-                    y: tileRequest.y
+                    y: tileRequest.y,
+                    extension: tileRequest.output.extension
                 }
-                const cachedImage = this.cache ? await this.cache.read(cacheKey) : null
-                const image = cachedImage ?? await getMap({
-                    layers: tileRequest.tileset.layers,
-                    styles: tileRequest.tileset.styles,
-                    bbox: tileRequest.tileset.bbox(tileRequest.z, tileRequest.x, tileRequest.y),
-                    width: tileRequest.tileset.tileSize,
-                    height: tileRequest.tileset.tileSize,
-                    crs: tileRequest.tileset.crs,
-                    pixelRatio: 1
-                })
+                const cachedTile = this.cache ? await this.cache.read(cacheKey) : null
+                const tile = cachedTile ?? await renderTile(tileRequest)
 
-                if (!cachedImage && this.cache) {
-                    await this.cache.write(cacheKey, image)
+                if (!cachedTile && this.cache) {
+                    await this.cache.write(cacheKey, tile)
                 }
 
                 res.statusCode = 200
-                res.setHeader('Content-Type', tileRequest.tileset.format)
-                res.setHeader('Content-Length', image.byteLength)
+                res.setHeader('Content-Type', tileRequest.output.format)
+                res.setHeader('Content-Length', tile.byteLength)
                 if (tileRequest.tileset.cacheControl) {
                     res.setHeader('Cache-Control', tileRequest.tileset.cacheControl)
                 }
 
                 if (req.method !== 'HEAD') {
-                    res.end(image)
-                    logTileDone(traceId, res.statusCode, startedAt, image.byteLength)
+                    res.end(tile)
+                    logTileDone(traceId, res.statusCode, startedAt, tile.byteLength)
                     return
                 }
 
@@ -241,10 +240,7 @@ export class Wmts extends Service {
             throw new Error('STYLE must be default')
         }
 
-        const format = params.get('FORMAT') ?? tileset.format
-        if (format !== tileset.format) {
-            throw new Error(`FORMAT must be ${tileset.format}`)
-        }
+        const output = tileset.resolveOutput(params.get('FORMAT') ?? tileset.defaultFormat)
 
         const matrixSet = this.require(params, 'TILEMATRIXSET', 'Missing required parameter TILEMATRIXSET')
         if (matrixSet !== tileset.tileMatrixSet.id) {
@@ -258,12 +254,38 @@ export class Wmts extends Service {
 
         return {
             tileset,
+            output,
             z,
             x,
             y
         }
     }
 
+}
+
+async function renderTile(request: WmtsTileRequest): Promise<Buffer> {
+    const bbox = request.tileset.bbox(request.z, request.x, request.y)
+
+    if (!request.output.vector) {
+        return getMap({
+            layers: request.tileset.layers,
+            styles: request.tileset.styles,
+            bbox,
+            width: request.tileset.tileSize,
+            height: request.tileset.tileSize,
+            crs: request.tileset.crs,
+            pixelRatio: 1
+        })
+    }
+
+    return getVectorTile({
+        layers: request.tileset.layers,
+        bbox,
+        crs: request.tileset.crs,
+        tileSize: request.tileset.tileSize,
+        format: request.output.format,
+        vector: request.tileset.vector
+    })
 }
 
 
@@ -287,10 +309,13 @@ class WmtsCapabilitiesBuilder {
             title: tileset.title ?? tileset.name,
             summary: tileset.summary,
             name: tileset.name,
-            format: tileset.format,
+            formats: tileset.formats,
             tileMatrixSet: tileset.tileMatrixSet.id,
             limits: this.tileMatrixSetLimits(tileset),
-            resourceTemplate: tileTemplate(serviceUrl, tileset)
+            resourceTemplates: tileset.outputs.map((output) => ({
+                format: output.format,
+                template: tileTemplate(serviceUrl, tileset, output)
+            }))
         }
     }
 
@@ -336,7 +361,7 @@ class WmtsCapabilitiesBuilder {
     }
 }
 
-function tileTemplate(serviceUrl: string, tileset: Tileset): string {
+function tileTemplate(serviceUrl: string, tileset: Tileset, output: TileOutput): string {
     return [
         `${serviceUrl}?SERVICE=WMTS`,
         'REQUEST=GetTile',
@@ -347,7 +372,7 @@ function tileTemplate(serviceUrl: string, tileset: Tileset): string {
         'TILEMATRIX={TileMatrix}',
         'TILEROW={TileRow}',
         'TILECOL={TileCol}',
-        `FORMAT=${encodeURIComponent(tileset.format)}`
+        `FORMAT=${encodeURIComponent(output.format)}`
     ].join('&')
 }
 
@@ -397,7 +422,7 @@ function logTileDone(traceId: number, statusCode: number, startedAt: number, siz
 }
 
 function logTileParams(traceId: number, request: WmtsTileRequest): void {
-    console.log(`[WMTS ${traceId}] LAYER=${request.tileset.name} TILEMATRIX=${request.z} ROWCOL=${request.y}/${request.x}`)
+    console.log(`[WMTS ${traceId}] LAYER=${request.tileset.name} FORMAT=${request.output.format} TILEMATRIX=${request.z} ROWCOL=${request.y}/${request.x}`)
 }
 
 function logTileError(traceId: number | undefined, url: string, startedAt: number | undefined, error: unknown): void {
