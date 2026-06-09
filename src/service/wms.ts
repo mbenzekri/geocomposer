@@ -8,24 +8,18 @@ import {
     type GetInfoOptions
 } from '../ogc/get-feature-info.js'
 import { getMap } from '../ogc/get-map.js'
-import { escape, paramsFromUrl } from '../core/tools.js'
+import { escape, paramsFromUrl, Props } from '../core/tools.js'
 import type { Layer } from '../layer/layer.js'
 import { Service } from './service.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { Gt } from '../core/geotools.js'
+import { DescInfo, ServiceInfo } from '../core/feature.js'
 
 const WMS_VERSION = '1.3.0'
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
 
-export type WmsInfo = {
-    title: string
-    abstract?: string
-    onlineResource?: string
-}
 
-export type WmsOptions = {
-    path?: string
-    info: WmsInfo
+export type WmsOptions = DescInfo & ServiceInfo & {
     crs?: CrsCode[]
     layers: Layer[]
     maxWidth?: number
@@ -38,10 +32,12 @@ export class Wms extends Service {
     private readonly layerByName: Map<string, Layer>
     private readonly crs: CrsCode[]
     private nextTraceId = 1
+    private get layers() {
+        return [...this.layerByName.values()]
+    }
 
-    constructor(private readonly options: WmsOptions) {
-        super('wms', options.path ?? '/wms')
-
+    constructor(options: WmsOptions) {
+        super('wms', options.title, options.abstract, options.path ?? '/wms', options.onlineResource, options.cache)
         this.maxWidth = options.maxWidth ?? 4096
         this.maxHeight = options.maxHeight ?? 4096
         this.layerByName = new Map(options.layers.map((layer) => [layer.name, layer]))
@@ -85,7 +81,7 @@ export class Wms extends Service {
             }
 
             if (request === 'GETCAPABILITIES') {
-                const xml = await WmsCapabilitiesBuilder.build(this.options.info, this.options.layers, this.path, this.crs)
+                const xml = await WmsCapabilitiesBuilder.build(this, this.layers, this.path, this.crs)
                 Service.sendText(res, 200, xml, 'text/xml; charset=utf-8')
                 return
             }
@@ -337,7 +333,7 @@ const WMS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
 
 
 class WmsCapabilitiesBuilder {
-    static async build(service: WmsInfo, layers: Layer[], path: string, crs: CrsCode[]): Promise<string> {
+    static async build(service: Wms, layers: Layer[], path: string, crs: CrsCode[]): Promise<string> {
         const supportedCrs = unique(crs)
         const layerViews = []
 
@@ -355,7 +351,7 @@ class WmsCapabilitiesBuilder {
         })
     }
 
-    private static async layerView(layer: Layer, supportedCrs: CrsCode[]): Promise<Record<string, unknown>> {
+    private static async layerView(layer: Layer, supportedCrs: CrsCode[]): Promise<Props> {
         const extent = await layer.getExtent()
 
         return {
@@ -366,13 +362,13 @@ class WmsCapabilitiesBuilder {
             styles: layer.styles.map((style) => ({
                 name: style.name,
                 title: style.title ?? style.name,
-                summary: style.summary
+                summary: style.abstract
             })),
             extent: extent ? this.extentView(extent, layer.sourceCrs, supportedCrs) : undefined
         }
     }
 
-    private static extentView(bbox: BBox, sourceCrs: CrsCode, crs: CrsCode[]): Record<string, unknown> {
+    private static extentView(bbox: BBox, sourceCrs: CrsCode, crs: CrsCode[]): Props {
         const geographicBbox = sourceCrs === 'EPSG:4326'
             ? bbox
             : transformBBox(bbox, sourceCrs, 'EPSG:4326') ?? bbox
@@ -595,9 +591,9 @@ function logGetMapDone(traceId: number, statusCode: number, startedAt: number, s
 }
 
 function logGetMapParams(traceId: number, request: MapRequest): void {
-    console.log(`[GetMap ${traceId}] BBOX raw  = ${request.rawBbox}`)
-    console.log(`[GetMap ${traceId}] BBOX used = ${request.bbox.join(',')}`)
-    console.log(`[GetMap ${traceId}] CRS=${request.crs} VERSION=${request.version} ORDER=${request.bboxOrder} SIZE=${request.width}x${request.height} PIXEL_RATIO=${request.pixelRatio}`)
+    console.debug(`[GetMap ${traceId}] BBOX raw  = ${request.rawBbox}`)
+    console.debug(`[GetMap ${traceId}] BBOX used = ${request.bbox.join(',')}`)
+    console.debug(`[GetMap ${traceId}] CRS=${request.crs} VERSION=${request.version} ORDER=${request.bboxOrder} SIZE=${request.width}x${request.height} PIXEL_RATIO=${request.pixelRatio}`)
 }
 
 function logGetMapError(traceId: number | undefined, url: string, startedAt: number | undefined, error: unknown): void {

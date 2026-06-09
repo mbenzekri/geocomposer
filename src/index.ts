@@ -1,3 +1,4 @@
+import './core/log-level.js'
 export * from './core/feature.js'
 export * from './core/geometry.js'
 export * from './core/tools.js'

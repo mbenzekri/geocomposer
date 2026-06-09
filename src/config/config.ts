@@ -1,7 +1,6 @@
 import { dirname, resolve } from 'node:path'
 import { Layer, type NamedStyle } from '../layer/layer.js'
-import type { Service } from '../service/service.js'
-import { Wms, type WmsInfo, type WmsOptions } from '../service/wms.js'
+import { Service } from '../service/service.js'
 import { GeoJsonSource } from '../source/geojson-source.js'
 import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
 import { GpkgSource } from '../source/gpkg-source.js'
@@ -12,33 +11,31 @@ import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-st
 import { defaultStyleFn } from '../style/default-style.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { Xyz, type XyzOptions } from '../service/xyz.js'
-import { Wmts, type WmtsInfo, type WmtsOptions } from '../service/wmts.js'
+import { Wmts, type WmtsOptions } from '../service/wmts.js'
+import { Wms, WmsOptions } from '../service/wms.js'
 import { Tileset } from '../tileset/tileset.js'
 import type { VectorTileOptions } from '../tileset/tileset.js'
 import { Gt } from '../core/geotools.js'
+import { Dict, Registry, Singleton } from '../core/tools.js'
 import { BBox, CrsCode } from '../core/geometry.js'
 import { JsonSchemaValidator } from './json-schema-validator.js'
+import { DescInfo, ServiceInfo } from '../core/feature.js'
 
-export type NamedConfig<T> = Record<string, T>
 
 export type ProjectionJson = {
     title: string
 }
 
-export type GeoJsonSourceJson = {
+export type GeoJsonSourceJson = DescInfo & {
     type: 'geojson'
-    title?: string
-    abstract?: string
-    crs?: string
     path: string
+    crs?: string
     encoding?: BufferEncoding
     highWaterMark?: number
 }
 
-export type GmlSourceJson = {
+export type GmlSourceJson = DescInfo &  {
     type: 'gml'
-    title?: string
-    abstract?: string
     crs?: string
     path: string
     encoding?: BufferEncoding
@@ -48,10 +45,8 @@ export type GmlSourceJson = {
     axisOrder?: GmlAxisOrder
 }
 
-export type ShpSourceJson = {
+export type ShpSourceJson = DescInfo & {
     type: 'shp'
-    title?: string
-    abstract?: string
     crs?: string
     shpPath: string
     dbfPath: string
@@ -59,10 +54,8 @@ export type ShpSourceJson = {
     highWaterMark?: number
 }
 
-export type GpkgSourceJson = {
+export type GpkgSourceJson = DescInfo & {
     type: 'gpkg'
-    title?: string
-    abstract?: string
     crs?: string
     path: string
     tableName?: string
@@ -70,10 +63,8 @@ export type GpkgSourceJson = {
     primaryKey?: string
 }
 
-export type MemSourceJson = {
+export type MemSourceJson = DescInfo & {
     type: 'mem'
-    title?: string
-    abstract?: string
     source: string
 }
 
@@ -84,10 +75,8 @@ export type SourceJson =
     | GpkgSourceJson
     | MemSourceJson
 
-export type BuiltinStyleJson = {
+export type BuiltinStyleJson = DescInfo & {
     type: 'builtin'
-    title?: string
-    abstract?: string
 }
 
 export type DynamicStyleOptionsJson = {
@@ -95,10 +84,8 @@ export type DynamicStyleOptionsJson = {
     dotsPerInch?: number
 }
 
-export type DynamicStyleFileJson = {
+export type DynamicStyleFileJson = DescInfo & {
     type: 'dynamic'
-    title?: string
-    abstract?: string
     path: string
     options?: DynamicStyleOptionsJson
 }
@@ -110,9 +97,7 @@ export type PointPropertiesJson = {
     y: string,
     crs?: string
 }
-export type LayerJson = {
-    title?: string
-    abstract?: string
+export type LayerJson = DescInfo & {
     source: string
     sourceCrs?: string
     extent?: BBox
@@ -130,9 +115,7 @@ export type TilesetLayerJson = {
     style?: string
 }
 
-export type TilesetJson = {
-    title?: string
-    abstract?: string
+export type TilesetJson = DescInfo & {
     tileMatrixSet?: string
     formats: string[]
     tileSize?: number
@@ -143,22 +126,20 @@ export type TilesetJson = {
     layers: TilesetLayerJson[]
 }
 
-export type XyzJson = {
-    path?: string
+export type XyzJson = DescInfo & ServiceInfo & {
     maxScaleFactor?: number
     cache?: string
     tilesets?: string[]
 }
 
-export type WmsJson = WmsInfo & {
-    path?: string
+
+export type WmsJson = DescInfo & ServiceInfo & {
     maxWidth?: number
     maxHeight?: number
     layers?: string[]
 }
 
-export type WmtsJson = WmtsInfo & {
-    path?: string
+export type WmtsJson = DescInfo & ServiceInfo & {
     cache?: string
     tilesets?: string[]
 }
@@ -173,73 +154,51 @@ export type GeoComposerJson = {
     $schema?: string
     server?: ServerJson
     services: ServicesJson
-    projections?: NamedConfig<ProjectionJson>
-    sources: NamedConfig<SourceJson>
-    styles?: NamedConfig<StyleJson>
-    layers: NamedConfig<LayerJson>
-    tilesets?: NamedConfig<TilesetJson>
+    projections?: Dict<ProjectionJson>
+    sources: Dict<SourceJson>
+    styles?: Dict<StyleJson>
+    layers: Dict<LayerJson>
+    tilesets?: Dict<TilesetJson>
 }
 
-export type ConfigRegistry = {
-    sources: readonly Source[]
-    styles: readonly NamedStyle[]
-    layers: readonly Layer[]
-    tilesets: readonly Tileset[]
-    services: readonly Service[]
-}
-
-const BUILTIN_STYLES: Record<string, StyleFn> = {
+const BUILTIN_STYLES: Dict<StyleFn> = {
     default: defaultStyleFn
 }
 const CONFIG_SCHEMA_FILE = 'config.schema.json'
 const DYNAMIC_STYLE_SCHEMA_FILE = 'dynamic-style.schema.json'
 
-export class Config {
-    private static shared: Config | null = null
+export class Config extends Singleton {
 
     readonly path: string
     readonly dir: string
-    registry!: ConfigRegistry
-    server!: Required<ServerJson>
-    wms!: WmsOptions
-    xyz?: XyzOptions
-    wmts?: WmtsOptions
-    wmsService!: Wms
-    xyzService?: Xyz
-    wmtsService?: Wmts
-    services!: readonly Service[]
+    private _port?: number
+    get port(): number {  return this._port ?? 3000}
     private loaded = false
-    private opened = false
+    
+    readonly serviceReg = new Registry<Service>('Service')
+    readonly sourceReg = new Registry<Source>('Source')
+    readonly layerReg = new Registry<Layer>('Layer')
+    readonly styleReg = new Registry<NamedStyle>('Style')
+    readonly crsReg = new Registry<CrsCode>('CRS')
+    readonly tilesetReg = new Registry<Tileset>('Tileset')
 
-    constructor(configPath: string) {
+    constructor(configPath: string, port?:number) {
+        super()
         this.path = resolve(configPath)
         this.dir = dirname(this.path)
+        this._port = port 
     }
 
-    static get current(): Config {
-        if (!this.shared) {
-            throw new Error('Config has not been loaded')
-        }
 
-        return this.shared
-    }
-
-    static async load(configPath: string): Promise<Config> {
+    static async load(configPath: string, port?:number): Promise<Config> {
         const path = resolve(configPath)
-        if (this.shared) {
-            if (this.shared.path !== path) {
-                throw new Error(`Config singleton already loaded from ${this.shared.path}`)
-            }
-
-            return this.shared
-        }
-
-        return new Config(path).load()
+        return new Config(path,port).load()
     }
 
     async load(): Promise<this> {
-        if (Config.shared && Config.shared !== this) {
-            throw new Error(`Config singleton already loaded from ${Config.shared.path}`)
+        const config = Config.instance()
+        if (config && config !== this) {
+            throw new Error(`Config singleton already loaded from ${config.path}`)
         }
 
         if (this.loaded) return this
@@ -257,101 +216,23 @@ export class Config {
         const wmts = json.services.wmts ? createWmtsOptions(json.services.wmts, tilesets, this.dir) : undefined
         const wmsLayers = selectLayers(json.services.wms.layers, layers, 'WMS')
         const wmsCrs = crs.codes()
+        const wms = createWmsOptions(json.services.wms, wmsCrs,wmsLayers)
+        this._port ??=  json.server?.port ?? 3000
 
-        this.server = {
-            port: json.server?.port ?? 3000
-        }
-        this.wms = {
-            path: json.services.wms.path ?? '/wms',
-            maxWidth: json.services.wms.maxWidth ?? 4096,
-            maxHeight: json.services.wms.maxHeight ?? 4096,
-            info: {
-                title: json.services.wms.title,
-                abstract: json.services.wms.abstract,
-                onlineResource: json.services.wms.onlineResource
-            },
-            ...(wmsCrs.length > 0 ? { crs: wmsCrs } : {}),
-            layers: wmsLayers
-        }
-        this.xyz = xyz
-        this.wmts = wmts
-        this.wmsService = new Wms(this.wms)
-        this.xyzService = this.xyz ? new Xyz(this.xyz) : undefined
-        this.wmtsService = this.wmts ? new Wmts(this.wmts) : undefined
-        this.services = [
-            this.wmsService,
-            ...(this.xyzService ? [this.xyzService] : []),
-            ...(this.wmtsService ? [this.wmtsService] : [])
-        ]
-        this.registry = {
-            sources: [...sources.values()],
-            styles: [...styles.values()],
-            layers,
-            tilesets,
-            services: this.services
-        }
+        wms && this.serviceReg.set('wms', new Wms(wms))
+        xyz && this.serviceReg.set('xyz', new Xyz(xyz))
+        wmts && this.serviceReg.set('wmts', new Wmts(wmts))
         this.loaded = true
-        Config.shared = this
+
+        console.log(`Config[${this.path}]: loaded`)
+
         return this
     }
-
-    async open(): Promise<void> {
-        this.ensureLoaded()
-        if (this.opened) return
-
-        const openedSources: Source[] = []
-
-        try {
-            for (const source of this.registry.sources) {
-                await source.open()
-                openedSources.push(source)
-            }
-
-            this.opened = true
-        } catch (error) {
-            try {
-                await closeSources([...openedSources].reverse())
-            } catch {
-                // Preserve the startup error; cleanup errors are secondary here.
-            }
-            throw error
-        }
-    }
-
-    async close(): Promise<void> {
-        this.ensureLoaded()
-        if (!this.opened) return
-
-        try {
-            await closeSources([...this.registry.sources].reverse())
-        } finally {
-            this.opened = false
-        }
-    }
-
-    private ensureLoaded(): void {
-        if (!this.loaded) {
-            throw new Error('Config must be loaded before use')
-        }
-    }
 }
 
-async function closeSources(sources: Iterable<Source>): Promise<void> {
-    let firstError: unknown
-
-    for (const source of sources) {
-        try {
-            await source.close()
-        } catch (error) {
-            firstError ??= error
-        }
-    }
-
-    if (firstError) throw firstError
-}
 
 function createSources(
-    sourceEntries: NamedConfig<SourceJson>,
+    sourceEntries: Dict<SourceJson>,
     baseDir: string,
     crs: CrsRegistry
 ): Map<string, Source> {
@@ -440,7 +321,7 @@ function createSource(
 }
 
 async function createStyles(
-    styleEntries: NamedConfig<StyleJson>,
+    styleEntries: Dict<StyleJson>,
     baseDir: string
 ): Promise<Map<string, NamedStyle>> {
     const styles = new Map<string, NamedStyle>([
@@ -479,7 +360,7 @@ async function createStyle(
             return {
                 name,
                 title: entry.title ?? titleFromId(name),
-                summary: entry.abstract,
+                abstract: entry.abstract,
                 style: BUILTIN_STYLES[name]
             }
 
@@ -495,7 +376,7 @@ async function createStyle(
                 return {
                     name,
                     title: entry.title ?? json.title ?? titleFromId(name),
-                    summary: entry.abstract,
+                    abstract: entry.abstract,
                     style
                 }
             } catch (error) {
@@ -507,7 +388,7 @@ async function createStyle(
 }
 
 function createLayers(
-    layerEntries: NamedConfig<LayerJson>,
+    layerEntries: Dict<LayerJson>,
     sources: Map<string, Source>,
     styles: Map<string, NamedStyle>,
     crsReg: CrsRegistry
@@ -551,6 +432,21 @@ function createLayers(
     })
 }
 
+
+function createWmsOptions(wms: WmsJson, crs: string[],layers: Layer[]): WmsOptions {
+    return {
+            title: wms.title,
+            abstract: wms.abstract,
+            path: wms.path ?? '/wms',
+            maxWidth: wms.maxWidth ?? 4096,
+            maxHeight: wms.maxHeight ?? 4096,
+            onlineResource: wms.onlineResource,
+            crs,
+            layers
+        }
+}
+
+
 function createXyzOptions(xyz: XyzJson, tilesets: Tileset[], baseDir: string): XyzOptions {
     return {
         path: xyz.path,
@@ -563,17 +459,15 @@ function createXyzOptions(xyz: XyzJson, tilesets: Tileset[], baseDir: string): X
 function createWmtsOptions(wmts: WmtsJson, tilesets: Tileset[], baseDir: string): WmtsOptions {
     return {
         path: wmts.path,
-        info: {
-            title: wmts.title,
-            abstract: wmts.abstract,
-            onlineResource: wmts.onlineResource
-        },
+        title: wmts.title,
+        abstract: wmts.abstract,
+        onlineResource: wmts.onlineResource,
         cache: wmts.cache ? resolve(baseDir, wmts.cache) : undefined,
         tilesets: selectTilesets(wmts.tilesets, tilesets, 'WMTS')
     }
 }
 
-function createTilesets(tilesetEntries: NamedConfig<TilesetJson>, layers: Layer[]): Tileset[] {
+function createTilesets(tilesetEntries: Dict<TilesetJson>, layers: Layer[]): Tileset[] {
     const layersByName = new Map(layers.map((layer) => [layer.name, layer]))
     return Object.entries(tilesetEntries).map(([name, entry]) => createTileset(name, entry, layersByName))
 }
@@ -712,7 +606,7 @@ function unique<T>(items: T[]): T[] {
 class CrsRegistry {
     private readonly refs = new Map<string, CrsCode>()
 
-    constructor(entries: NamedConfig<ProjectionJson> = {}) {
+    constructor(entries: Dict<ProjectionJson> = {}) {
         for (const name of Object.keys(entries)) {
             this.refs.set(name, name)
         }

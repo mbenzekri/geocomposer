@@ -1,11 +1,12 @@
 import { createReadStream, type PathLike } from 'node:fs'
 import { open } from 'node:fs/promises'
-import type { Feature, FileRef, SourceRef, Props } from '../core/feature.js'
+import type { Feature, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position, CrsCode } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { FileSource, type FeatureTransform } from './source.js'
 import type { StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
+import { Props } from '../core/tools.js'
 
 export type GmlAxisOrder = 'xy' | 'yx' | 'auto'
 

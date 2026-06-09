@@ -6,10 +6,10 @@ import { BboxFilter } from '../stream/bbox-filter.js'
 import { Reproject } from '../stream/reproject.js'
 
 export type NamedStyle = {
-  name: string
-  title?: string
-  summary?: string
-  style: StyleFn
+  readonly name: string
+  readonly title?: string
+  readonly abstract?: string
+  readonly style: StyleFn
 }
 export type PointProperties = {
   x: string

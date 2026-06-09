@@ -1,24 +1,16 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { escape, nonNegativeInteger, paramsFromUrl } from '../core/tools.js'
+import { escape, nonNegativeInteger, paramsFromUrl , Props} from '../core/tools.js'
 import { MarkupTemplate } from '../core/template.js'
 import { getMap } from '../ogc/get-map.js'
-import { TileCache } from '../tileset/tile-cache.js'
 import type { TileMatrixSet } from '../tileset/tile-matrix-set.js'
 import type { TileOutput, Tileset } from '../tileset/tileset.js'
 import { getVectorTile } from '../tileset/vector-tile.js'
 import { Service } from './service.js'
+import { DescInfo, ServiceInfo } from '../core/feature.js'
 
 const WMTS_VERSION = '1.0.0'
 
-export type WmtsInfo = {
-    title: string
-    abstract?: string
-    onlineResource?: string
-}
-
-export type WmtsOptions = {
-    path?: string
-    info: WmtsInfo
+export type WmtsOptions = DescInfo & ServiceInfo & {
     tilesets: Tileset[]
     cache?: string
 }
@@ -117,24 +109,17 @@ const WMTS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
 
 export class Wmts extends Service {
     private readonly tilesetByName: Map<string, Tileset>
-    private readonly cache?: TileCache
     private nextTraceId = 1
 
-    constructor(private readonly options: WmtsOptions) {
-        super('wmts', options.path ?? '/wmts')
+    constructor(private readonly opts: WmtsOptions) {
+        super('wmts', opts.title, opts.abstract, opts.path ?? '/wmts', opts.onlineResource, opts.cache)
 
-        this.tilesetByName = new Map(options.tilesets.map((tileset) => [tileset.name, tileset]))
-        this.cache = options.cache ? new TileCache(options.cache) : undefined
-        validateWmtsTilesets(options.tilesets)
+        this.tilesetByName = new Map(opts.tilesets.map((tileset) => [tileset.name, tileset]))
+        validateWmtsTilesets(opts.tilesets)
     }
 
-    async clearCache(): Promise<void> {
-        if (!this.cache) {
-            return
-        }
-
-        await this.cache.clear()
-        console.log(`Cleared tile cache: ${this.options.cache}`)
+    get tilesets(): Tileset[] {
+        return [...this.tilesetByName.values()]
     }
 
     async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -170,7 +155,7 @@ export class Wmts extends Service {
 
             const request = (params.get('REQUEST') ?? 'GetCapabilities').toUpperCase()
             if (request === 'GETCAPABILITIES') {
-                const xml = WmtsCapabilitiesBuilder.build(this.options.info, this.options.tilesets, Service.serviceUrl(req, this.path))
+                const xml = WmtsCapabilitiesBuilder.build(this, this.opts.tilesets, Service.serviceUrl(req, this.path))
                 Service.sendText(res, 200, xml, 'text/xml; charset=utf-8', req.method === 'HEAD')
                 return
             }
@@ -290,11 +275,11 @@ async function renderTile(request: WmtsTileRequest): Promise<Buffer> {
 
 
 class WmtsCapabilitiesBuilder {
-    static build(info: WmtsInfo, tilesets: Tileset[], serviceUrl: string): string {
+    static build(wmts: Wmts, tilesets: Tileset[], serviceUrl: string): string {
         return MarkupTemplate.render(WMTS_CAPABILITIES_TEMPLATE, {
             version: WMTS_VERSION,
-            info,
-            onlineResource: info.onlineResource ?? serviceUrl,
+            info: wmts,
+            onlineResource: wmts.onlineResource ?? serviceUrl,
             operations: [
                 { name: 'GetCapabilities', serviceUrl },
                 { name: 'GetTile', serviceUrl }
@@ -304,7 +289,7 @@ class WmtsCapabilitiesBuilder {
         })
     }
 
-    private static layerView(tileset: Tileset, serviceUrl: string): Record<string, unknown> {
+    private static layerView(tileset: Tileset, serviceUrl: string): Props {
         return {
             title: tileset.title ?? tileset.name,
             summary: tileset.summary,
@@ -319,8 +304,8 @@ class WmtsCapabilitiesBuilder {
         }
     }
 
-    private static tileMatrixSetLimits(tileset: Tileset): Array<Record<string, unknown>> {
-        const limits: Array<Record<string, unknown>> = []
+    private static tileMatrixSetLimits(tileset: Tileset): Array<Props> {
+        const limits = []
 
         for (let z = tileset.minZoom; z <= tileset.maxZoom; z += 1) {
             const max = 2 ** z - 1
@@ -336,7 +321,7 @@ class WmtsCapabilitiesBuilder {
         return limits
     }
 
-    private static matrixSetView(use: MatrixSetUse): Record<string, unknown> {
+    private static matrixSetView(use: MatrixSetUse): Props {
         const matrices = []
 
         for (let z = use.minZoom; z <= use.maxZoom; z += 1) {

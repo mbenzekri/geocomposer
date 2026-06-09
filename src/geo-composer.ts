@@ -1,52 +1,98 @@
+import './core/log-level.js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createServer,type Server, type IncomingMessage, type ServerResponse } from 'node:http'
+import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
+import { Args, parseArgs, parsePort, Registry } from './core/tools.js'
 import { Config } from './config/config.js'
 import { Service } from './service/service.js'
-import { parsePort } from './core/tools.js'
+import { Wms } from './service/wms.js'
+import { Xyz } from './service/xyz.js'
+import { Wmts } from './service/wmts.js'
+import { Source } from './source/source.js'
+import { Layer, NamedStyle } from './layer/layer.js'
+import { CrsCode } from './core/geometry.js'
+import { Tileset } from './tileset/tileset.js'
 
-type Args = {
-    configPath: string
-    clearTileCache: boolean
-    port?: number
-}
 
 export class GeoComposer {
+    readonly port: number
     readonly server: Server
-
+    readonly serviceReg: Registry<Service>
+    readonly sourceReg: Registry<Source>
+    readonly layerReg: Registry<Layer>
+    readonly styleReg: Registry<NamedStyle>
+    readonly crsReg: Registry<CrsCode>
+    readonly tilesetReg: Registry<Tileset>
     private shuttingDown = false
+    private opened = false
 
-    private constructor(
-        private readonly config: Config,
-        private readonly port = config.server.port
-    ) {
+    private constructor(config: Config) {
+        this.port = config.port
+        this.serviceReg = config.serviceReg
+        this.sourceReg = config.sourceReg
+        this.layerReg = config.layerReg
+        this.styleReg = config.styleReg
+        this.crsReg = config.crsReg
+        this.tilesetReg = config.tilesetReg
+
         this.server = createServer((req, res) => {
-            void this.handle(req, res).catch((error) => {
+            this.handle(req, res).catch((error) => {
                 const message = error instanceof Error ? error.message : String(error)
                 Service.sendText(res, 500, message, 'text/plain; charset=utf-8', req.method === 'HEAD')
             })
         })
+
     }
 
     static async from(args: Partial<Args> = {}): Promise<GeoComposer> {
         const configPath = path.resolve(process.cwd(), args.configPath ?? process.env.CONFIG ?? 'config.json')
-        const config = await Config.load(configPath)
-        const port = args.port ?? parsePort(process.env.PORT, config.server.port) ?? config.server.port
+        const port = parsePort(process.env.PORT, args.port)
+        const config = await Config.load(configPath,port)
 
         if (args.clearTileCache) {
-            await config.xyzService?.clearCache()
-            await config.wmtsService?.clearCache()
+            await Promise.all(config.serviceReg.all.map(service => service.clearCache()))
         }
 
-        return new GeoComposer(config, port)
+        return new GeoComposer(config)
     }
 
-    async start(): Promise<void> {
-        process.once('SIGINT', () =>  this.shutdown('SIGINT'))
-        process.once('SIGTERM', () =>  this.shutdown('SIGTERM'))
+    async open(): Promise<void> {
+        if (this.opened) return
+
+        const openedSources: Source[] = []
 
         try {
-            await this.config.open()
+            for (const source of this.sourceReg.all) {
+                await source.open()
+                openedSources.push(source)
+            }
+
+            this.opened = true
+        } catch (error) {
+            try {
+                await this.closeSources([...openedSources].reverse())
+            } catch {
+                // Preserve the startup error; cleanup errors are secondary here.
+            }
+            throw error
+        }
+    }
+
+    async close(): Promise<void> {
+        if (!this.opened) return
+
+        try {
+            await this.closeSources(this.sourceReg.all.reverse())
+        } finally {
+            this.opened = false
+        }
+    }
+    async run(): Promise<void> {
+        process.once('SIGINT', () => this.shutdown('SIGINT'))
+        process.once('SIGTERM', () => this.shutdown('SIGTERM'))
+
+        try {
+            await this.open()
             await new Promise<void>((resolve, reject) => {
                 const onError = (error: Error) => {
                     this.server.off('listening', onListening)
@@ -65,7 +111,7 @@ export class GeoComposer {
             })
         } catch (error) {
             try {
-                await this.config.close()
+                await this.close()
             } catch {
                 // Preserve the startup error; cleanup errors are secondary here.
             }
@@ -74,12 +120,12 @@ export class GeoComposer {
     }
 
     async stop(signal = 'manual'): Promise<void> {
-        if (this.shuttingDown)  return
+        if (this.shuttingDown) return
 
         this.shuttingDown = true
         console.log(`Stopping GeoComposer server (${signal})...`)
 
-        const forceClose = setTimeout(() =>  this.server.closeAllConnections?.(), 10_000)
+        const forceClose = setTimeout(() => this.server.closeAllConnections?.(), 10_000)
 
         try {
             await new Promise<void>((resolve, reject) => {
@@ -89,7 +135,7 @@ export class GeoComposer {
                 this.server.closeIdleConnections?.()
             })
 
-            await this.config.close()
+            await this.close()
         } finally {
             clearTimeout(forceClose)
             this.shuttingDown = false
@@ -98,7 +144,7 @@ export class GeoComposer {
 
     private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const url = new URL(req.url ?? '/', 'http://localhost')
-        const service = this.config.services.find((entry) => entry.matches(url.pathname))
+        const service = this.serviceReg.all.find((entry) => entry.matches(url.pathname))
 
         if (service) {
             await service.handle(req, res)
@@ -118,30 +164,31 @@ export class GeoComposer {
 
     private logListening(): void {
         const baseUrl = `http://localhost:${this.port}`
-        const wmsPath = this.config.wmsService.path
-        console.log(`Config: ${this.config.path}`)
-        console.log(`WMS listening on ${baseUrl}${wmsPath}`)
-        console.log(`GetCapabilities: ${baseUrl}${wmsPath}?SERVICE=WMS&REQUEST=GetCapabilities`)
+        const wms = this.serviceReg.get('wms') as Wms
+        if (wms) {
+            console.log(`WMS listening on ${baseUrl}${wms.path}`)
+            console.log(`GetCapabilities: ${baseUrl}${wms.path}?SERVICE=WMS&REQUEST=GetCapabilities`)
+        }
 
-        if (this.config.xyzService && this.config.xyz) {
-            const xyzPath = this.config.xyzService.path
-            console.log(`XYZ listening on ${baseUrl}${xyzPath}`)
+        const xyz = this.serviceReg.get('xyz') as Xyz
+        if (xyz) {
+            console.log(`XYZ listening on ${baseUrl}${xyz.path}`)
 
-            const sampleTileset = this.config.xyz.tilesets[0]?.name
+            const sampleTileset = xyz.tilesets[0]?.name
             if (sampleTileset) {
-                console.log(`Sample tile: ${baseUrl}${xyzPath}/${encodeURIComponent(sampleTileset)}/1/1/1.png`)
-                console.log(`Retina sample: ${baseUrl}${xyzPath}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`)
+                console.log(`Sample tile: ${baseUrl}${xyz.path}/${encodeURIComponent(sampleTileset)}/1/1/1.png`)
+                console.log(`Retina sample: ${baseUrl}${xyz.path}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`)
             }
         }
 
-        if (this.config.wmtsService && this.config.wmts) {
-            const wmtsPath = this.config.wmtsService.path
-            console.log(`WMTS listening on ${baseUrl}${wmtsPath}`)
-            console.log(`WMTS GetCapabilities: ${baseUrl}${wmtsPath}?SERVICE=WMTS&REQUEST=GetCapabilities`)
+        const wmts = this.serviceReg.get('wmts') as Wmts
+        if (wmts) {
+            console.log(`WMTS listening on ${baseUrl}${wmts.path}`)
+            console.log(`WMTS GetCapabilities: ${baseUrl}${wmts.path}?SERVICE=WMTS&REQUEST=GetCapabilities`)
 
-            const sampleTileset = this.config.wmts.tilesets[0]?.name
+            const sampleTileset = wmts.tilesets[0]?.name
             if (sampleTileset) {
-                console.log(`WMTS sample tile: ${baseUrl}${wmtsPath}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(sampleTileset)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=1&TILEROW=1&TILECOL=1&FORMAT=image%2Fpng`)
+                console.log(`WMTS sample tile: ${baseUrl}${wmts.path}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(sampleTileset)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=1&TILEROW=1&TILECOL=1&FORMAT=image%2Fpng`)
             }
         }
     }
@@ -153,7 +200,7 @@ export class GeoComposer {
         }
 
         this.stop(signal).then(
-            () => process.exit(0) ,
+            () => process.exit(0),
             (error: unknown) => {
                 console.error(error)
                 process.exit(1)
@@ -161,71 +208,45 @@ export class GeoComposer {
         )
     }
 
-}
+    async closeSources(sources: Iterable<Source>): Promise<void> {
+        let firstError: unknown
 
-function parseArgs(): Args {
-    const args = process.argv.slice(2)
-    const options: Args = {
-        configPath: path.resolve(process.cwd(), process.env.CONFIG ?? 'config.json'),
-        clearTileCache: false
+        for (const source of sources) {
+            try {
+                await source.close()
+            } catch (error) {
+                firstError ??= error
+            }
+        }
+
+        if (firstError) throw firstError
     }
 
-    for (let index = 0; index < args.length; index += 1) {
-        const arg = args[index]
-
-        if (arg === '--clear-tile-cache' || arg === '-cc') {
-            options.clearTileCache = true
-            continue
-        }
-
-        if (arg === '--port' || arg === '-p') {
-            const value = args[index + 1]
-            if (!value || value.startsWith('-')) {
-                throw new Error(`${arg} requires a port number`)
-            }
-
-            options.port = parsePort(value,undefined)
-            index += 1
-            continue
-        }
-
-        if (arg === '--config' || arg === '-c') {
-            const value = args[index + 1]
-            if (!value || value.startsWith('-')) {
-                throw new Error(`${arg} requires a config path`)
-            }
-
-            options.configPath = path.resolve(process.cwd(), value)
-            index += 1
-            continue
-        }
-
-        if (arg.startsWith('--config=')) {
-            const value = arg.slice('--config='.length)
-            if (!value) {
-                throw new Error('--config requires a config path')
-            }
-
-            options.configPath = path.resolve(process.cwd(), value)
-            continue
-        }
-
-        throw new Error(`Unknown argument: ${arg}`)
-    }
-
-    return options
 }
+
 
 
 if (isMain()) {
     const args = parseArgs()
+    let geoc: GeoComposer
     try {
-        const geo = await GeoComposer.from(args)
-        await geo.start()
+        // Init GeoComposer from Conf
+        geoc = await GeoComposer.from(args)
+        try {
+            // Run server and handle requests
+            await geoc.run()
+        } catch (error) {
+            // runtime error caught
+            console.error(`[GeoComposer] Runtime failure`)
+            console.error(String(error))
+        }
     } catch (error) {
+        // Initialisation error caught
         process.exitCode = 1
-        console.error(`Unable to continue due to\n=> ${String(error)}`)
+        console.error(`[GeoComposer] Initialisation failure`)
+        console.error(String(error))
     }
+    process.exitCode = 0
 }
 
 function isMain(): boolean {

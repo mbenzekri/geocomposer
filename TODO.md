@@ -1,11 +1,525 @@
-## Todo liste du projet
+# Todo liste du projet
 
+
+Aujourd'hui, les architectures les plus appréciées sont proches de :
+
+* Planetiler
+* Martin
+* Tegola
+* pg_featureserv
+* titiler
+* ArcGIS Feature Service
+* Mapbox Tiles API
+
+avec PostgreSQL/PostGIS comme backend principal.
+
+---
+
+## MVP (Minimum Viable Product)
+
+Le minimum pour être crédible aujourd'hui :
+
+### 1. Publication de couches
+
+Publier une table PostGIS :
+
+```sql
+communes
+routes
+batiments
+```
+
+en exposant :
+
+```http
+GET /layers
+GET /layers/routes
+```
+
+---
+
+### 2. API GeoJSON
+
+Lecture des objets :
+
+```http
+GET /layers/routes/items
+GET /layers/routes/items/123
+```
+
+avec pagination.
+
+Exemple :
+
+```json
+{
+  "type": "FeatureCollection",
+  "features": [...]
+}
+```
+
+---
+
+### 3. Filtrage
+
+Très important.
+
+```http
+GET /layers/routes/items?type=autoroute
+```
+
+ou
+
+```http
+GET /layers/routes/items?filter=vitesse>90
+```
+
+---
+
+### 4. Filtre spatial
+
+```http
+GET /layers/routes/items?bbox=...
+```
+
+C'est probablement la fonctionnalité la plus utilisée.
+
+---
+
+### 5. Projection EPSG:4326 et 3857
+
+Minimum absolu.
+
+---
+
+### 6. Métadonnées
+
+```http
+GET /layers
+GET /layers/routes/schema
+```
+
+avec :
+
+* géométrie
+* SRID
+* attributs
+
+---
+
+## Must Have
+
+Ce qui manque souvent dans les projets amateurs.
+
+### 1. Vector Tiles (MVT)
+
+Support :
+
+```http
+/tiles/{z}/{x}/{y}.mvt
+```
+
+Aujourd'hui c'est indispensable.
+
+Sans cela :
+
+* MapLibre
+* OpenLayers
+* Deck.gl
+
+ne seront pas performants.
+
+---
+
+### 2. Support XYZ
+
+```http
+/{layer}/{z}/{x}/{y}.mvt
+```
+
+Plus important que WMTS.
+
+---
+
+### 3. Requêtes CQL
+
+Equivalent OGC API Features.
+
+Exemple :
+
+```http
+?filter=population > 10000
+```
+
+ou
+
+```http
+?filter=intersects(...)
+```
+
+---
+
+### 4. Pagination robuste
+
+```http
+?limit=100
+&offset=200
+```
+
+ou
+
+```http
+?cursor=...
+```
+
+---
+
+### 5. OpenAPI
+
+Documentation automatique.
+
+```http
+/openapi.json
+/swagger
+```
+
+---
+
+### 6. Authentification
+
+Minimum :
+
+* JWT
+* API Key
+
+---
+
+### 7. Permissions
+
+Par couche :
+
+```text
+routes : lecture
+cadastre : interdit
+```
+
+---
+
+### 8. OGC API Features
+
+Aujourd'hui c'est plus pertinent que WFS.
+
+Endpoints :
+
+```http
+/collections
+/collections/{id}
+/collections/{id}/items
+```
+
+---
+
+## Should Have
+
+Fonctionnalités qui font passer du "projet personnel" à "plateforme".
+
+### 1. Styles
+
+Publication de styles :
+
+```json
+Mapbox Style
+```
+
+---
+
+### 2. Génération de tuiles à la volée
+
+MVT depuis PostGIS.
+
+---
+
+### 3. Cache intégré
+
+Compatible :
+
+```text
+Cloudflare
+CDN
+Nginx
+```
+
+---
+
+### 4. Support PMTiles
+
+Très demandé.
+
+```text
+planet.pmtiles
+```
+
+sert des milliards d'entités efficacement.
+
+---
+
+### 5. Import automatique
+
+Importer :
+
+```text
+Shapefile
+GeoPackage
+GeoJSON
+Parquet
+FlatGeobuf
+```
+
+---
+
+### 6. Edition des données
+
+```http
+POST
+PATCH
+DELETE
+```
+
+---
+
+### 7. Transactions
+
+Edition multi-utilisateurs.
+
+---
+
+### 8. Webhooks
+
+```text
+feature created
+feature updated
+```
+
+---
+
+## May Have
+
+Intéressant mais non indispensable.
+
+### 1. Raster
+
+COG :
+
+```text
+Cloud Optimized GeoTIFF
+```
+
+---
+
+### 2. WMS
+
+Encore utilisé.
+
+Mais moins stratégique.
+
+---
+
+### 3. WMTS
+
+Utile pour les administrations.
+
+---
+
+### 4. WFS Legacy
+
+Compatibilité.
+
+---
+
+### 5. CSW Catalogue
+
+Très niche.
+
+---
+
+### 6. Temps
+
+Données temporelles :
+
+```http
+?datetime=2025-01-01
+```
+
+---
+
+### 7. Versioning
+
+Historique des objets.
+
+---
+
+## Shining Features
+
+Ce qui différencierait réellement votre produit.
+
+### 1. JSONSchema natif
+
+Connaissant votre travail sur Formulizer, c'est probablement l'opportunité la plus intéressante.
+
+Chaque couche expose :
+
+```json
+{
+  "type": "object",
+  "properties": ...
+}
+```
+
+Le client peut générer automatiquement :
+
+* formulaires
+* validation
+* filtres
+
+---
+
+### 2. API unique Data + Tiles
+
+Même couche :
+
+```http
+/items
+/tiles
+/schema
+```
+
+sans configuration supplémentaire.
+
+---
+
+### 3. FlatGeobuf natif
+
+```http
+/items.fgb
+```
+
+Très performant.
+
+---
+
+### 4. Parquet natif
+
+```http
+/items.parquet
+```
+
+De plus en plus demandé.
+
+---
+
+### 5. SQL sécurisé
+
+Exposer :
+
+```http
+/query
+```
+
+avec SQL limité :
+
+```sql
+SELECT *
+FROM routes
+WHERE vitesse > 90
+```
+
+Beaucoup d'utilisateurs avancés le réclament.
+
+---
+
+### 6. Streaming
+
+```http
+/items/stream
+```
+
+SSE ou WebSocket.
+
+---
+
+### 7. Multi-tenant
+
+Une seule instance :
+
+```text
+tenant A
+tenant B
+tenant C
+```
+
+---
+
+### 8. Full cloud-native
+
+Stockage :
+
+* PostGIS
+* S3
+* PMTiles
+* Parquet
+
+sans dépendance à un système de fichiers local.
+
+---
+
+## Ce que je construirais aujourd'hui
+
+Ordre de développement :
+
+### Phase 1
+
+* PostGIS
+* OGC API Features
+* GeoJSON
+* bbox
+* filtres
+* OpenAPI
+
+### Phase 2
+
+* MVT
+* XYZ
+* cache
+* authentification
+
+### Phase 3
+
+* styles
+* PMTiles
+* FlatGeobuf
+* édition
+
+### Phase 4
+
+* raster
+* COG
+* WMS/WMTS
+
+### Différenciation
+
+* JSONSchema natif
+* intégration Formulizer
+* génération automatique d'UI
+* API Data + Tiles + Schema unifiée
+
+C'est probablement l'angle le plus original aujourd'hui : la plupart des serveurs SIG savent publier des données, très peu savent publier simultanément les **données, le schéma métier et l'interface de saisie**.
+
+
+
+## Techniques List
 ### Fait
 
 - [x] Revoir les tests de style pour utiliser des styles dynamic.
-
-### A decider - bugs probables / incoherences
-
 - [x] Corriger la prise en compte du port dans `src/geo-composer.ts`: `--port` est parse, `PORT` est lu, mais `server.listen()` utilise encore `config.server.port`; rendre le port effectif et les logs coherents.
 - [x] Corriger les scripts `serve:wms` et `serve:xyz` dans `package.json` ou recreer les fichiers cibles absents (`src/example/run-world-wms-server.ts`, `src/example/run-world-xyz-server.ts`).
 - [x] Corriger la reference README vers `src/example/world-services-openlayers.html`, qui n'existe pas dans le depot actuel; pointer vers le viewer existant ou ajouter le fichier.

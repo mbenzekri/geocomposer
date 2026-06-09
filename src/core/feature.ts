@@ -1,8 +1,17 @@
 import type { Layer } from '../layer/layer.js'
 import type { BBox, CrsCode } from './geometry.js'
 import type { Geometry } from './geometry.js'
+import { Dict, Props } from './tools.js'
 
-export type Props = Record<string, unknown>
+export type DescInfo = {
+    title?: string
+    abstract?: string
+}
+export type ServiceInfo = {
+    path?: string
+    onlineResource?: string,
+    cache?: string
+}
 
 export type FileRef = {
     storage?: 'file'
@@ -32,7 +41,7 @@ export type SourceLoc = FileRef | DbRef | MemRef
 
 export type SourceRef = SourceLoc & {
     recordIndex?: number
-    related?: Record<string, SourceLoc>
+    related?: Dict<SourceLoc>
 }
 
 export type Feature = {

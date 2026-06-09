@@ -1,7 +1,7 @@
-import type { Feature, Props } from '../core/feature.js'
+import type { Feature } from '../core/feature.js'
 import { createHitContext, pixelToCoordinate, type BBox, type CrsCode, type Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
-import { escape } from '../core/tools.js'
+import { escape, Props } from '../core/tools.js'
 import { HitFilter } from '../stream/hit-filter.js'
 
 export const INFO_FORMATS = ['application/geo+json', 'application/json', 'text/xml', 'application/xml'] as const
@@ -205,8 +205,8 @@ class GeoJsonFormatter extends InfoFormatter {
             features: result.hits.map((feature) => this.toGeoJsonFeature(feature))
         })
     }
-    private toGeoJsonFeature(source: Feature): Record<string, unknown> {
-        const feature: Record<string, unknown> = {
+    private toGeoJsonFeature(source: Feature): Props {
+        const feature: Props = {
             type: 'Feature',
             layer: source.layer.name,
             properties: this.normalizeJsonValue(source.properties ?? {}),
@@ -225,7 +225,7 @@ class GeoJsonFormatter extends InfoFormatter {
 
         if (typeof value === 'object' && value !== null) {
             return Object.fromEntries(
-                Object.entries(value as Record<string, unknown>)
+                Object.entries(value)
                     .map(([key, entry]) => [key, this.normalizeJsonValue(entry)])
             )
         }

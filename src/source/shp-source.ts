@@ -1,11 +1,12 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open, readFile, type FileHandle } from 'node:fs/promises'
-import type { Feature, Props, ByteRange, FileRef, SourceRef } from '../core/feature.js'
+import type { Feature, ByteRange, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position, CrsCode} from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { FileSource, type FeatureTransform } from './source.js'
 import type { StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
+import { Props } from '../core/tools.js'
 
 export type ShpSourceOptions = {
   crs?: CrsCode

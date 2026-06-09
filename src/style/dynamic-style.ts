@@ -12,8 +12,9 @@ import {
   setTextDeclutterRank,
   setTextRenderStep
 } from './text-render-step.js'
+import { Props } from '../core/tools.js'
 
-type JsonObject = Record<string, unknown>
+type JsonObject = Props
 type DynamicExpression = string | string[]
 type DynamicExpressionGetter = () => unknown
 type StyleOptions = ConstructorParameters<typeof Style>[0]
@@ -383,7 +384,7 @@ export class DynamicStyle {
         throw new Error(`Invalid dynamic style pointer: ${pointer}`)
       }
 
-      base = (base as Record<string, unknown>)[part]
+      base = (base as Props)[part]
     }
 
     if (!isPlainObject(base) && !Array.isArray(base)) {
@@ -1086,13 +1087,13 @@ function readStyleProperty(target: unknown, property: string): unknown {
   if (!isObject(target)) return null
 
   const getter = `get${capitalize(property)}`
-  const candidate = (target as Record<string, unknown>)[getter]
+  const candidate = (target as Props)[getter]
 
   if (typeof candidate === 'function') {
     return candidate.call(target)
   }
 
-  return (target as Record<string, unknown>)[property]
+  return (target as Props)[property]
 }
 
 function writeStyleProperty(target: unknown, property: string, value: unknown): void {
@@ -1114,14 +1115,14 @@ function writeStyleProperty(target: unknown, property: string, value: unknown): 
   }
 
   const setter = `set${capitalize(property)}`
-  const candidate = (target as Record<string, unknown>)[setter]
+  const candidate = (target as Props)[setter]
 
   if (typeof candidate === 'function') {
     candidate.call(target, value)
     return
   }
 
-  ;(target as Record<string, unknown>)[property] = value
+  ;(target as Props)[property] = value
 }
 
 function createLinearGradient(description: JsonObject): CanvasGradient {

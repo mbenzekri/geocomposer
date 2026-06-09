@@ -1,11 +1,12 @@
 import { constants, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
-import type { DbRef, Feature, SourceRef, Props} from '../core/feature.js'
+import type { DbRef, Feature, SourceRef} from '../core/feature.js'
 import type { Geometry, Position, BBox, CrsCode} from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { DbSource, type FeatureTransform } from './source.js'
 import type { StreamOptions } from './source.js'
 import { AbortSignalGuard } from './source-utils.js'
+import { Props } from '../core/tools.js'
 
 export type GpkgSourceOptions = {
   crs?: CrsCode
@@ -17,8 +18,8 @@ export type GpkgSourceOptions = {
 
 type SqliteDatabase = {
   prepare: (sql: string) => {
-    get: (...params: unknown[]) => Record<string, unknown> | undefined
-    all: (...params: unknown[]) => Record<string, unknown>[]
+    get: (...params: unknown[]) => Props | undefined
+    all: (...params: unknown[]) => Props[]
   }
   close: () => void
 }
@@ -174,7 +175,7 @@ class GpkgReader {
     }
   }
 
-  private toFeature(meta: GeoPackageTableMeta, row: Record<string, unknown>, index: number, layer: Layer): Feature {
+  private toFeature(meta: GeoPackageTableMeta, row: Props, index: number, layer: Layer): Feature {
     const idValue = row.__id__
     const rowId = toFeatureRowId(idValue, index)
     const sourceRef: SourceRef = {
@@ -269,11 +270,11 @@ async function openGeoPackageDatabase(path: PathLike): Promise<SqliteDatabase> {
     throw new Error('GeoPackage source requires a string file path')
   }
 
-  let module: { DatabaseSync: new (location: string, options?: Record<string, unknown>) => SqliteDatabase }
+  let module: { DatabaseSync: new (location: string, options?: Props) => SqliteDatabase }
 
   try {
     module = await import('node:sqlite') as {
-      DatabaseSync: new (location: string, options?: Record<string, unknown>) => SqliteDatabase
+      DatabaseSync: new (location: string, options?: Props) => SqliteDatabase
     }
   } catch {
     throw new Error('GeoPackage source requires Node.js with built-in node:sqlite support (Node.js 22.5+).')

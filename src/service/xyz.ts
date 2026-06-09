@@ -10,14 +10,13 @@ import {
 import { getVectorTile } from '../tileset/vector-tile.js'
 import { Service } from './service.js'
 import { nonNegativeInteger } from '../core/tools.js'
+import { DescInfo, ServiceInfo } from '../core/feature.js'
 
 const DEFAULT_MAX_SCALE_FACTOR = 4
 
-export type XyzOptions = {
-    path?: string
+export type XyzOptions = DescInfo & ServiceInfo & {
     tilesets: Tileset[]
     maxScaleFactor?: number
-    cache?: string
 }
 
 type TileRequest = {
@@ -34,33 +33,22 @@ type TileRequest = {
 
 export class Xyz extends Service {
     private readonly maxScaleFactor: number
-    private readonly tilesets: Tileset[]
+    readonly tilesets: Tileset[]
     private readonly tilesetByName: Map<string, Tileset>
-    private readonly cache?: TileCache
     private nextTraceId = 1
 
     constructor(private readonly options: XyzOptions) {
-        super('xyz', options.path ?? '/tiles')
+        super('xyz', options.title, options.abstract, options.path ?? '/xyz',options.onlineResource,options.cache)
 
         this.maxScaleFactor = options.maxScaleFactor ?? DEFAULT_MAX_SCALE_FACTOR
         validateXyzOptions(this.maxScaleFactor)
 
         this.tilesets = options.tilesets
         this.tilesetByName = new Map(this.tilesets.map((tileset) => [tileset.name, tileset]))
-        this.cache = options.cache ? new TileCache(options.cache) : undefined
     }
 
     matches(pathname: string): boolean {
         return pathname === this.path || pathname.startsWith(`${this.path}/`)
-    }
-
-    async clearCache(): Promise<void> {
-        if (!this.cache) {
-            return
-        }
-
-        await this.cache.clear()
-        console.log(`Cleared tile cache: ${this.options.cache}`)
     }
 
     async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
