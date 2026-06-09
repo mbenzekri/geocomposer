@@ -224,7 +224,7 @@ export class Config extends Singleton {
         wmts && this.serviceReg.set('wmts', new Wmts(wmts))
         this.loaded = true
 
-        console.log(`Config[${this.path}]: loaded`)
+        console.log(`[Config]: ${this.path} loaded`)
 
         return this
     }

@@ -1,4 +1,5 @@
 import path from "node:path"
+import { LogLevel } from "./log-level.js"
 export type Constructor<T> = abstract new (...args: any[]) => T
 export type Props = Record<string, unknown>
 export type Dict<T> = Record<string, T>
@@ -16,11 +17,12 @@ export function parseArgs(): Args {
         configPath: path.resolve(process.cwd(), process.env.CONFIG ?? 'config.json'),
         clearTileCache: false
     }
+    console.setLevel(LogLevel.LOG)
 
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index]
 
-        if (arg === '--clear-tile-cache' || arg === '-cc') {
+        if (arg === '--clear-cache' || arg === '-cc') {
             options.clearTileCache = true
             continue
         }
@@ -44,7 +46,7 @@ export function parseArgs(): Args {
             const level = levels.indexOf(value)
             if (level >= 0) {
                 console.setLevel(level)
-                console.log(`Logging: level ${value}`)
+                console.log(`[Logging] - level ${value}`)
             }
             index += 1
             continue

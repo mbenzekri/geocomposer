@@ -5,9 +5,6 @@ import { createServer, type Server, type IncomingMessage, type ServerResponse } 
 import { Args, parseArgs, parsePort, Registry } from './core/tools.js'
 import { Config } from './config/config.js'
 import { Service } from './service/service.js'
-import { Wms } from './service/wms.js'
-import { Xyz } from './service/xyz.js'
-import { Wmts } from './service/wmts.js'
 import { Source } from './source/source.js'
 import { Layer, NamedStyle } from './layer/layer.js'
 import { CrsCode } from './core/geometry.js'
@@ -123,7 +120,7 @@ export class GeoComposer {
         if (this.shuttingDown) return
 
         this.shuttingDown = true
-        console.log(`Stopping GeoComposer server (${signal})...`)
+        console.log(`[GeoComposer] Stopping  server (${signal})...`)
 
         const forceClose = setTimeout(() => this.server.closeAllConnections?.(), 10_000)
 
@@ -164,33 +161,9 @@ export class GeoComposer {
 
     private logListening(): void {
         const baseUrl = `http://localhost:${this.port}`
-        const wms = this.serviceReg.get('wms') as Wms
-        if (wms) {
-            console.log(`WMS listening on ${baseUrl}${wms.path}`)
-            console.log(`GetCapabilities: ${baseUrl}${wms.path}?SERVICE=WMS&REQUEST=GetCapabilities`)
-        }
-
-        const xyz = this.serviceReg.get('xyz') as Xyz
-        if (xyz) {
-            console.log(`XYZ listening on ${baseUrl}${xyz.path}`)
-
-            const sampleTileset = xyz.tilesets[0]?.name
-            if (sampleTileset) {
-                console.log(`Sample tile: ${baseUrl}${xyz.path}/${encodeURIComponent(sampleTileset)}/1/1/1.png`)
-                console.log(`Retina sample: ${baseUrl}${xyz.path}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`)
-            }
-        }
-
-        const wmts = this.serviceReg.get('wmts') as Wmts
-        if (wmts) {
-            console.log(`WMTS listening on ${baseUrl}${wmts.path}`)
-            console.log(`WMTS GetCapabilities: ${baseUrl}${wmts.path}?SERVICE=WMTS&REQUEST=GetCapabilities`)
-
-            const sampleTileset = wmts.tilesets[0]?.name
-            if (sampleTileset) {
-                console.log(`WMTS sample tile: ${baseUrl}${wmts.path}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(sampleTileset)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=1&TILEROW=1&TILECOL=1&FORMAT=image%2Fpng`)
-            }
-        }
+        this.serviceReg.all.forEach(
+            service => service.logListening(baseUrl)
+        )
     }
 
     private shutdown(signal: string): void {

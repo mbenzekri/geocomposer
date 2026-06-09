@@ -27,12 +27,12 @@ export abstract class Service {
 
     }
     async clearCache() {
-        return this.cache?.clear().finally(() => console.log(`Service[${this.name}]: Cache cleared`))
+        return this.cache?.clear().finally(() => console.log(`[${this.name.toUpperCase()}]: Cache cleared`))
     }
     matches(pathname: string): boolean {
         return pathname === this.path
     }
-
+    abstract logListening(baseUrl:string): void
     abstract handle(req: IncomingMessage, res: ServerResponse): Promise<void>
 
     static setCorsHeaders(res: ServerResponse): void {

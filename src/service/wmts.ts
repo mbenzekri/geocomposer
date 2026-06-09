@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { escape, nonNegativeInteger, paramsFromUrl , Props} from '../core/tools.js'
+import { escape, nonNegativeInteger, paramsFromUrl, Props } from '../core/tools.js'
 import { MarkupTemplate } from '../core/template.js'
 import { getMap } from '../ogc/get-map.js'
 import type { TileMatrixSet } from '../tileset/tile-matrix-set.js'
@@ -243,6 +243,14 @@ export class Wmts extends Service {
             z,
             x,
             y
+        }
+    }
+    logListening(baseUrl: string): void {
+        console.log(`[WMTS] listening on: ${baseUrl}${this.path}`)
+        console.log(`[WMTS] GetCapabilities: ${baseUrl}${this.path}?SERVICE=WMTS&REQUEST=GetCapabilities`)
+        const sampleTileset = this.tilesets[0]?.name
+        if (sampleTileset) {
+            console.log(`[WMTS] Get Tile: ${baseUrl}${this.path}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(sampleTileset)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=1&TILEROW=1&TILECOL=1&FORMAT=image%2Fpng`)
         }
     }
 

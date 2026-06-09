@@ -252,6 +252,10 @@ export class Wms extends Service {
             formatted: true
         }
     }
+    logListening(baseUrl:string): void {
+        console.log(`[WMS] GetMap : ${baseUrl}${this.path}?SERVICE=WMS&REQUEST=GetMap`)
+        console.log(`[WMS] GetCapabilities: ${baseUrl}${this.path}?SERVICE=WMS&REQUEST=GetCapabilities`)
+    }
 
 }
 
@@ -582,26 +586,24 @@ function isGetMapRequest(urlText: string | undefined): boolean {
 }
 
 function logGetMapStart(traceId: number, method: string, url: string): void {
-    console.log(`[GetMap ${traceId}] IN  ${method} ${url}`)
+    console.log(`[WMS] GetMap ${traceId}:  ${method} ${url}`)
 }
 
 function logGetMapDone(traceId: number, statusCode: number, startedAt: number, size: number): void {
     const durationMs = Date.now() - startedAt
-    console.log(`[GetMap ${traceId}] OUT ${statusCode} ${durationMs}ms ${size}B`)
+    console.log(`[WMS] GetMap ${traceId}:  OUT ${statusCode} ${durationMs}ms ${size}B`)
 }
 
 function logGetMapParams(traceId: number, request: MapRequest): void {
-    console.debug(`[GetMap ${traceId}] BBOX raw  = ${request.rawBbox}`)
-    console.debug(`[GetMap ${traceId}] BBOX used = ${request.bbox.join(',')}`)
-    console.debug(`[GetMap ${traceId}] CRS=${request.crs} VERSION=${request.version} ORDER=${request.bboxOrder} SIZE=${request.width}x${request.height} PIXEL_RATIO=${request.pixelRatio}`)
+    console.debug(`[WMS] GetMap ${traceId}: BBOX raw  = ${request.rawBbox}`)
+    console.debug(`[WMS] GetMap ${traceId}: BBOX used = ${request.bbox.join(',')}`)
+    console.debug(`[WMS] GetMap ${traceId}: CRS=${request.crs} VERSION=${request.version} ORDER=${request.bboxOrder} SIZE=${request.width}x${request.height} PIXEL_RATIO=${request.pixelRatio}`)
 }
 
 function logGetMapError(traceId: number | undefined, url: string, startedAt: number | undefined, error: unknown): void {
     const message = error instanceof Error ? error.message : String(error)
     const duration = startedAt === undefined ? '' : ` ${Date.now() - startedAt}ms`
-    const prefix = traceId === undefined ? '[GetMap]' : `[GetMap ${traceId}]`
-    console.error(`${prefix} ERR${duration} ${url}`)
-    console.error(`${prefix} ERR ${message}`)
+    console.error(`[WMS] GetMap ${traceId}: ERROR ${message} ${duration}ms ${url}`)
 }
 
 function sendWmsError(res: ServerResponse, code: string, message: string): void {

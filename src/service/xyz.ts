@@ -168,7 +168,14 @@ export class Xyz extends Service {
         }
     }
 
-
+    logListening(baseUrl: string): void {
+        console.log(`[XYZ] listening on: ${baseUrl}${this.path}`)
+        const sampleTileset = this.tilesets[0]?.name
+        if (sampleTileset) {
+            console.log(`[XYZ] Get Tile: ${baseUrl}${this.path}/${encodeURIComponent(sampleTileset)}/1/1/1.png`)
+            console.log(`[XYZ] Get Tile (Retina): ${baseUrl}${this.path}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`)
+        }
+    }
 }
 
 function parseYSegment(segment: string): { y: number, scale?: number, format?: string } {
