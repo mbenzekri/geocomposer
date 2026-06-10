@@ -1,12 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { BBox } from '../core/geometry.js'
 import { getMap } from '../ogc/get-map.js'
-import { TileCache } from '../tileset/tile-cache.js'
-import {
-    type TileOutput,
-    Tileset,
-    tileFormatFromExtension
-} from '../tileset/tileset.js'
+import { type TileOutput, Tileset, tileFormatFromExtension } from '../tileset/tileset.js'
 import { getVectorTile } from '../tileset/vector-tile.js'
 import { Service } from './service.js'
 import { nonNegativeInteger } from '../core/tools.js'
@@ -55,6 +50,7 @@ export class Xyz extends Service {
         const fullUrl = Service.requestUrl(req)
         let tileTrace: { id: number, startedAt: number } | null = null
 
+        const traceId = this.nextTraceId
         try {
             Service.setCorsHeaders(res)
 
@@ -75,18 +71,17 @@ export class Xyz extends Service {
                 return
             }
 
-            const traceId = this.nextTraceId
             this.nextTraceId += 1
             const startedAt = Date.now()
             tileTrace = { id: traceId, startedAt }
-            logTileStart(traceId, req.method ?? 'GET', fullUrl)
+            this.logHandleStart(traceId, req.method ?? 'GET', fullUrl)
 
             const tileRequest = this.parseTileRequest(url, {
                 path: this.path,
                 tilesetByName: this.tilesetByName,
                 maxScaleFactor: this.maxScaleFactor
             })
-            logTileParams(traceId, tileRequest)
+            this.logHandleParams(traceId, tileRequest)
 
             const cachedTile = this.cache
                 ? await this.cache.read(tileCacheKey(tileRequest))
@@ -106,14 +101,15 @@ export class Xyz extends Service {
 
             if (req.method !== 'HEAD') {
                 res.end(tile)
-                logTileDone(traceId, res.statusCode, startedAt, tile.byteLength)
+                this.logHandleDone(traceId, res.statusCode, startedAt, tile.byteLength)
                 return
+            } else {
+                res.end()
+                this.logHandleDone(traceId, res.statusCode, startedAt, 0)
             }
 
-            res.end()
-            logTileDone(traceId, res.statusCode, startedAt, 0)
         } catch (error) {
-            logTileError(tileTrace?.id, fullUrl, tileTrace?.startedAt, error)
+            this.logHandleError(traceId, fullUrl, tileTrace?.startedAt, error)
             Service.sendText(
                 res,
                 400,
@@ -176,6 +172,11 @@ export class Xyz extends Service {
             console.log(`[XYZ] Get Tile (Retina): ${baseUrl}${this.path}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`)
         }
     }
+
+    protected logHandleParams(traceId: number, request: TileRequest): void {
+        console.debug(`[XYZ ${traceId}] TILESET=${request.tileset.name} FORMAT=${request.output.format} ZXY=${request.z}/${request.x}/${request.y} SIZE=${request.width}x${request.height} SCALE=${request.scale} BBOX=${request.bbox.join(',')}`)
+    }
+
 }
 
 function parseYSegment(segment: string): { y: number, scale?: number, format?: string } {
@@ -256,24 +257,3 @@ async function renderTile(request: TileRequest): Promise<Buffer> {
     })
 }
 
-function logTileStart(traceId: number, method: string, url: string): void {
-    console.log(`[XYZ ${traceId}] IN  ${method} ${url}`)
-}
-
-function logTileDone(traceId: number, statusCode: number, startedAt: number, size: number): void {
-    const durationMs = Date.now() - startedAt
-    console.log(`[XYZ ${traceId}] OUT ${statusCode} ${durationMs}ms ${size}B`)
-}
-
-function logTileParams(traceId: number, request: TileRequest): void {
-    console.log(`[XYZ ${traceId}] TILESET=${request.tileset.name} FORMAT=${request.output.format} ZXY=${request.z}/${request.x}/${request.y} SIZE=${request.width}x${request.height} SCALE=${request.scale}`)
-    console.log(`[XYZ ${traceId}] BBOX=${request.bbox.join(',')}`)
-}
-
-function logTileError(traceId: number | undefined, url: string, startedAt: number | undefined, error: unknown): void {
-    const message = error instanceof Error ? error.message : String(error)
-    const duration = startedAt === undefined ? '' : ` ${Date.now() - startedAt}ms`
-    const prefix = traceId === undefined ? '[XYZ]' : `[XYZ ${traceId}]`
-    console.error(`${prefix} ERR${duration} ${url}`)
-    console.error(`${prefix} ERR ${message}`)
-}

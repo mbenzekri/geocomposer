@@ -12,13 +12,13 @@ export abstract class Service {
 
     protected constructor(
         name: string,
-        title = `${name} WMS`,
-        abstract = `OGC ${name} WMS service`,
+        title = `${name.toUpperCase()} service`,
+        abstract = `${name.toUpperCase()} map service`,
         path: string,
         onlineResource?: string,
         cache?: string
     ) {
-        this.name = name
+        this.name = name.toUpperCase()
         this.path = this.normalize(path)
         this.title = title
         this.abstract = abstract
@@ -32,8 +32,23 @@ export abstract class Service {
     matches(pathname: string): boolean {
         return pathname === this.path
     }
-    abstract logListening(baseUrl:string): void
     abstract handle(req: IncomingMessage, res: ServerResponse): Promise<void>
+    abstract logListening(baseUrl:string): void
+    protected abstract logHandleParams(traceId: number, request: any ): void 
+
+    protected logHandleStart(traceId: number, method: string, url: string): void {
+        console.log(`[${this.name} ${traceId}] IN  ${method} ${url}`)
+    }
+    protected logHandleError(traceId: number, url: string, startedAt: number | undefined, error: unknown): void {
+        const message = error instanceof Error ? error.message : String(error)
+        const duration = startedAt == null ? '' : ` ${Date.now() - startedAt}ms`
+        const prefix = traceId == null ? `[${this.name}]` : `[${this.name} ${traceId}]`
+        console.error(`${prefix} ERROR ${duration} ${url} ${message}`)
+    }
+    protected logHandleDone(traceId: number, statusCode: number, startedAt: number, size: number): void {
+        const durationMs = Date.now() - startedAt
+        console.log(`[XYZ ${traceId}] OUT ${statusCode} ${durationMs}ms ${size}B`)
+    }
 
     static setCorsHeaders(res: ServerResponse): void {
         res.setHeader('Access-Control-Allow-Origin', '*')

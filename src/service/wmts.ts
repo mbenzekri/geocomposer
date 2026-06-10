@@ -124,7 +124,8 @@ export class Wmts extends Service {
 
     async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const fullUrl = Service.requestUrl(req)
-        let tileTrace: { id: number, startedAt: number } | null = null
+        const startedAt = Date.now()
+        const traceId = this.nextTraceId
 
         try {
             Service.setCorsHeaders(res)
@@ -161,14 +162,11 @@ export class Wmts extends Service {
             }
 
             if (request === 'GETTILE') {
-                const traceId = this.nextTraceId
                 this.nextTraceId += 1
-                const startedAt = Date.now()
-                tileTrace = { id: traceId, startedAt }
-                logTileStart(traceId, req.method ?? 'GET', fullUrl)
+                this.logHandleStart(traceId, req.method ?? 'GET', fullUrl)
 
                 const tileRequest = this.parseGetTile(params, this.tilesetByName)
-                logTileParams(traceId, tileRequest)
+                this.logHandleParams(traceId, tileRequest)
 
                 const cacheKey = {
                     tileset: tileRequest.tileset.name,
@@ -193,18 +191,18 @@ export class Wmts extends Service {
 
                 if (req.method !== 'HEAD') {
                     res.end(tile)
-                    logTileDone(traceId, res.statusCode, startedAt, tile.byteLength)
-                    return
+                    this.logHandleDone(traceId, res.statusCode, startedAt, tile.byteLength)
+                } else {
+                    res.end()
+                    this.logHandleDone(traceId, res.statusCode, startedAt, 0)
                 }
 
-                res.end()
-                logTileDone(traceId, res.statusCode, startedAt, 0)
                 return
             }
 
             sendWmtsError(res, 'OperationNotSupported', `Unsupported REQUEST: ${params.get('REQUEST') ?? ''}`)
         } catch (error) {
-            logTileError(tileTrace?.id, fullUrl, tileTrace?.startedAt, error)
+            this.logHandleError(traceId, fullUrl, startedAt, error)
             sendWmtsError(res, 'InvalidParameterValue', error instanceof Error ? error.message : String(error))
         }
     }
@@ -254,6 +252,9 @@ export class Wmts extends Service {
         }
     }
 
+    protected logHandleParams(traceId: number, request: WmtsTileRequest): void {
+        console.log(`[WMTS ${traceId}] LAYER=${request.tileset.name} FORMAT=${request.output.format} TILEMATRIX=${request.z} ROWCOL=${request.y}/${request.x}`)
+    }
 }
 
 async function renderTile(request: WmtsTileRequest): Promise<Buffer> {
@@ -405,26 +406,7 @@ function validateWmtsTilesets(tilesets: Tileset[]): void {
     }
 }
 
-function logTileStart(traceId: number, method: string, url: string): void {
-    console.log(`[WMTS ${traceId}] IN  ${method} ${url}`)
-}
 
-function logTileDone(traceId: number, statusCode: number, startedAt: number, size: number): void {
-    const durationMs = Date.now() - startedAt
-    console.log(`[WMTS ${traceId}] OUT ${statusCode} ${durationMs}ms ${size}B`)
-}
-
-function logTileParams(traceId: number, request: WmtsTileRequest): void {
-    console.log(`[WMTS ${traceId}] LAYER=${request.tileset.name} FORMAT=${request.output.format} TILEMATRIX=${request.z} ROWCOL=${request.y}/${request.x}`)
-}
-
-function logTileError(traceId: number | undefined, url: string, startedAt: number | undefined, error: unknown): void {
-    const message = error instanceof Error ? error.message : String(error)
-    const duration = startedAt === undefined ? '' : ` ${Date.now() - startedAt}ms`
-    const prefix = traceId === undefined ? '[WMTS]' : `[WMTS ${traceId}]`
-    console.error(`${prefix} ERR${duration} ${url}`)
-    console.error(`${prefix} ERR ${message}`)
-}
 
 function sendWmtsError(res: ServerResponse, code: string, message: string): void {
     const body = [

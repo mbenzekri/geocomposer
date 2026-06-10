@@ -45,13 +45,13 @@ export type SourceRef = SourceLoc & {
 }
 
 export type Feature = {
-    layer: Layer
     type: 'Feature'
     id?: string | number
     properties: Props | null
     geometry: Geometry | null
     bbox?: BBox
     crs?: CrsCode
+    layer: Layer
     sourceRef?: SourceRef
 }
 

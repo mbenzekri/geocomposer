@@ -49,7 +49,8 @@ export class Wms extends Service {
 
     async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const fullUrl = Service.requestUrl(req)
-        let mapTrace: { id: number, startedAt: number } | null = null
+        const traceId = this.nextTraceId
+        const startedAt = Date.now()
 
         try {
             Service.setCorsHeaders(res)
@@ -87,14 +88,11 @@ export class Wms extends Service {
             }
 
             if (request === 'GETMAP') {
-                const traceId = this.nextTraceId
                 this.nextTraceId += 1
-                const startedAt = Date.now()
-                mapTrace = { id: traceId, startedAt }
-                logGetMapStart(traceId, req.method ?? 'GET', fullUrl)
+                this.logHandleStart(traceId, req.method ?? 'GET', fullUrl)
 
                 const mapRequest = this.parseGetMap(params, this.layerByName, this.crs, this.maxWidth, this.maxHeight)
-                logGetMapParams(traceId, mapRequest)
+                this.logHandleParams(traceId, mapRequest)
                 const image = await getMap({
                     layers: mapRequest.layers,
                     styles: mapRequest.styles,
@@ -110,12 +108,14 @@ export class Wms extends Service {
                 res.setHeader('Content-Length', image.byteLength)
                 if (req.method !== 'HEAD') {
                     res.end(image)
-                    logGetMapDone(traceId, res.statusCode, startedAt, image.byteLength)
+                    this.logHandleDone(traceId, res.statusCode, startedAt, image.byteLength)
                     return
+                } else {
+                    res.end()
+                    this.logHandleDone(traceId, res.statusCode, startedAt, 0)
+
                 }
 
-                res.end()
-                logGetMapDone(traceId, res.statusCode, startedAt, 0)
                 return
             }
 
@@ -128,9 +128,7 @@ export class Wms extends Service {
 
             sendWmsError(res, 'OperationNotSupported', `Unsupported REQUEST: ${params.get('REQUEST') ?? ''}`)
         } catch (error) {
-            if (mapTrace || isGetMapRequest(req.url)) {
-                logGetMapError(mapTrace?.id, fullUrl, mapTrace?.startedAt, error)
-            }
+            this.logHandleError(traceId, fullUrl, startedAt, error)
             sendWmsError(res, 'InvalidParameterValue', error instanceof Error ? error.message : String(error))
         }
     }
@@ -255,6 +253,12 @@ export class Wms extends Service {
     logListening(baseUrl:string): void {
         console.log(`[WMS] GetMap : ${baseUrl}${this.path}?SERVICE=WMS&REQUEST=GetMap`)
         console.log(`[WMS] GetCapabilities: ${baseUrl}${this.path}?SERVICE=WMS&REQUEST=GetCapabilities`)
+    }
+
+    protected logHandleParams(traceId: number, request: MapRequest): void {
+        console.debug(`[WMS] GetMap ${traceId}: BBOX raw  = ${request.rawBbox}`)
+        console.debug(`[WMS] GetMap ${traceId}: BBOX used = ${request.bbox.join(',')}`)
+        console.debug(`[WMS] GetMap ${traceId}: CRS=${request.crs} VERSION=${request.version} ORDER=${request.bboxOrder} SIZE=${request.width}x${request.height} PIXEL_RATIO=${request.pixelRatio}`)
     }
 
 }
@@ -585,26 +589,6 @@ function isGetMapRequest(urlText: string | undefined): boolean {
     }
 }
 
-function logGetMapStart(traceId: number, method: string, url: string): void {
-    console.log(`[WMS] GetMap ${traceId}:  ${method} ${url}`)
-}
-
-function logGetMapDone(traceId: number, statusCode: number, startedAt: number, size: number): void {
-    const durationMs = Date.now() - startedAt
-    console.log(`[WMS] GetMap ${traceId}:  OUT ${statusCode} ${durationMs}ms ${size}B`)
-}
-
-function logGetMapParams(traceId: number, request: MapRequest): void {
-    console.debug(`[WMS] GetMap ${traceId}: BBOX raw  = ${request.rawBbox}`)
-    console.debug(`[WMS] GetMap ${traceId}: BBOX used = ${request.bbox.join(',')}`)
-    console.debug(`[WMS] GetMap ${traceId}: CRS=${request.crs} VERSION=${request.version} ORDER=${request.bboxOrder} SIZE=${request.width}x${request.height} PIXEL_RATIO=${request.pixelRatio}`)
-}
-
-function logGetMapError(traceId: number | undefined, url: string, startedAt: number | undefined, error: unknown): void {
-    const message = error instanceof Error ? error.message : String(error)
-    const duration = startedAt === undefined ? '' : ` ${Date.now() - startedAt}ms`
-    console.error(`[WMS] GetMap ${traceId}: ERROR ${message} ${duration}ms ${url}`)
-}
 
 function sendWmsError(res: ServerResponse, code: string, message: string): void {
     const body = [
