@@ -3,3 +3,4 @@ dist/
 map.png
 style-smoke/
 cache/
+db/data/**
