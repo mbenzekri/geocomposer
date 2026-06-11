@@ -16,6 +16,13 @@ const ENV_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
 const INTEGER_PATTERN = /^[+-]?\d+$/
 const FLOAT_PATTERN = /^[+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:[eE][+-]?\d+)?$/
 
+type ConfigEnvPlaceholderParts = {
+    name: string
+    defaultValue?: string
+}
+
+type ConfigEnvValueSource = 'environment variable' | 'default value'
+
 export class ConfigEnvResolver {
     constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
 
@@ -87,13 +94,13 @@ export class ConfigEnvResolver {
                 )
             }
 
-            const name = value.slice(index + 3, closingBrace)
             const token = value.slice(index, closingBrace + 1)
-            if (!ENV_NAME_PATTERN.test(name)) {
-                throw new Error(
-                    `Invalid environment placeholder "${token}" at ${this.formatLocation(path, label)}: variable name must match ${ENV_NAME_PATTERN}`
-                )
-            }
+            const { name, defaultValue } = this.parsePlaceholderParts(
+                value.slice(index + 3, closingBrace),
+                token,
+                path,
+                label
+            )
 
             placeholders.push({
                 start: index,
@@ -101,7 +108,7 @@ export class ConfigEnvResolver {
                 token,
                 code,
                 name,
-                value: this.resolvePlaceholder(code, name, token, path, label)
+                value: this.resolvePlaceholder(code, name, defaultValue, token, path, label)
             })
             index = closingBrace
         }
@@ -109,69 +116,113 @@ export class ConfigEnvResolver {
         return placeholders
     }
 
+    private parsePlaceholderParts(
+        content: string,
+        token: string,
+        path: string[],
+        label: string
+    ): ConfigEnvPlaceholderParts {
+        const separator = content.indexOf('|')
+        const name = separator < 0 ? content : content.slice(0, separator)
+        const defaultValue = separator < 0 ? undefined : content.slice(separator + 1)
+
+        if (!ENV_NAME_PATTERN.test(name)) {
+            throw new Error(
+                `Invalid environment placeholder "${token}" at ${this.formatLocation(path, label)}: variable name must match ${ENV_NAME_PATTERN}`
+            )
+        }
+
+        return { name, defaultValue }
+    }
+
     private resolvePlaceholder(
         code: ConfigEnvCode,
         name: string,
+        defaultValue: string | undefined,
         token: string,
         path: string[],
         label: string
     ): ConfigEnvValue {
         const rawValue = this.env[name]
-        if (rawValue === undefined) {
+        const value = rawValue ?? defaultValue
+        if (value === undefined) {
             throw new Error(
                 `Missing environment variable "${name}" for ${token} at ${this.formatLocation(path, label)}`
             )
         }
 
+        const source: ConfigEnvValueSource = rawValue === undefined ? 'default value' : 'environment variable'
+
         switch (code) {
             case 's':
-                return rawValue
+                return value
 
             case 'i':
-                return this.toInteger(rawValue, name, token, path, label)
+                return this.toInteger(value, name, token, path, label, source)
 
             case 'f':
-                return this.toFloat(rawValue, name, token, path, label)
+                return this.toFloat(value, name, token, path, label, source)
 
             case 'b':
-                return this.toBoolean(rawValue, name, token, path, label)
+                return this.toBoolean(value, name, token, path, label, source)
         }
     }
 
-    private toInteger(value: string, name: string, token: string, path: string[], label: string): number {
+    private toInteger(
+        value: string,
+        name: string,
+        token: string,
+        path: string[],
+        label: string,
+        source: ConfigEnvValueSource
+    ): number {
         const normalized = value.trim()
         if (!INTEGER_PATTERN.test(normalized)) {
-            this.throwConversionError(name, token, path, label, 'integer', value)
+            this.throwConversionError(name, token, path, label, 'integer', value, source)
         }
 
         const parsed = Number(normalized)
         if (!Number.isSafeInteger(parsed)) {
-            this.throwConversionError(name, token, path, label, 'safe integer', value)
+            this.throwConversionError(name, token, path, label, 'safe integer', value, source)
         }
 
         return parsed
     }
 
-    private toFloat(value: string, name: string, token: string, path: string[], label: string): number {
+    private toFloat(
+        value: string,
+        name: string,
+        token: string,
+        path: string[],
+        label: string,
+        source: ConfigEnvValueSource
+    ): number {
         const normalized = value.trim()
         if (!FLOAT_PATTERN.test(normalized)) {
-            this.throwConversionError(name, token, path, label, 'finite number', value)
+            this.throwConversionError(name, token, path, label, 'finite number', value, source)
         }
 
         const parsed = Number(normalized)
         if (!Number.isFinite(parsed)) {
-            this.throwConversionError(name, token, path, label, 'finite number', value)
+            this.throwConversionError(name, token, path, label, 'finite number', value, source)
         }
 
         return parsed
     }
 
-    private toBoolean(value: string, name: string, token: string, path: string[], label: string): boolean {
+    private toBoolean(
+        value: string,
+        name: string,
+        token: string,
+        path: string[],
+        label: string,
+        source: ConfigEnvValueSource
+    ): boolean {
         const normalized = value.trim().toLowerCase()
         if (normalized === 'true') return true
         if (normalized === 'false') return false
 
-        this.throwConversionError(name, token, path, label, 'boolean true or false', value)
+        this.throwConversionError(name, token, path, label, 'boolean true or false', value, source)
     }
 
     private throwConversionError(
@@ -180,10 +231,14 @@ export class ConfigEnvResolver {
         path: string[],
         label: string,
         expected: string,
-        value: string
+        value: string,
+        source: ConfigEnvValueSource
     ): never {
+        const valueSource = source === 'default value'
+            ? `default value for ${token}`
+            : `environment variable "${name}" for ${token}`
         throw new Error(
-            `Invalid environment variable "${name}" for ${token} at ${this.formatLocation(path, label)}: expected ${expected}, got "${value}"`
+            `Invalid ${valueSource} at ${this.formatLocation(path, label)}: expected ${expected}, got "${value}"`
         )
     }
 
