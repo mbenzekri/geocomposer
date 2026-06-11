@@ -363,7 +363,28 @@
             "path": "data/world.gpkg",
             "tableName": "world",
             "geometryColumn": "geom"
-        }
+        },
+        "world-postgis": {
+            "type": "postgis",
+            "title": "World PostGIS",
+            "abstract": "World country boundaries PostGIS demo source.",
+            "crs": "EPSG:4326",
+            "connection": {
+                "connectionStringEnv": "GEOCOMPOSER_POSTGIS_URL",
+                "max": 4,
+                "connectionTimeoutMillis": 5000,
+                "idleTimeoutMillis": 30000,
+                "statementTimeoutMillis": 30000,
+                "applicationName": "geocomposer"
+            },
+            "schema": "public",
+            "tableName": "world",
+            "geometryColumn": "geom",
+            "primaryKey": "id",
+            "srid": 4326,
+            "batchSize": 500,
+            "extentStrategy": "estimated"        }
+
     },
     "styles": {
         "world": {
@@ -490,6 +511,22 @@
                     "crs": "EPSG:4326"
                 }
             ]
+        },
+        "world-postgis": {
+            "title": "World PostGIS",
+            "abstract": "World country boundaries from the PostGIS demo dataset.",
+            "source": "world-postgis",
+            "sourceCrs": "EPSG:4326",
+            "extent": [-180, -90, 180, 90],
+            "style": "world",
+            "pointProperties": [
+                {
+                    "x": "label_x",
+                    "y": "label_y",
+                    "crs": "EPSG:4326"
+                }
+            ]
         }
+
     }
 }
