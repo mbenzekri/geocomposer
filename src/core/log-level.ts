@@ -1,3 +1,5 @@
+import { Console } from "node:console"
+
 export enum LogLevel {
   DEBUG = 0,
   LOG = 1,

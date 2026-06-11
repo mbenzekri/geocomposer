@@ -37,20 +37,6 @@ export function parseArgs(): Args {
             index += 1
             continue
         }
-        if (arg === '--loglevel' || arg === '-l') {
-            const value = args[index + 1]
-            if (!value || value.startsWith('-')) {
-                throw new Error(`${arg} requires a level `)
-            }
-            const levels = ["DEBUG" ,"LOG","WARN","ERROR","NONE"]
-            const level = levels.indexOf(value)
-            if (level >= 0) {
-                console.setLevel(level)
-                console.log(`[Logging] - level ${value}`)
-            }
-            index += 1
-            continue
-        }
 
         if (arg === '--config' || arg === '-c') {
             const value = args[index + 1]

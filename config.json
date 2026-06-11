@@ -39,10 +39,25 @@
                 },
                 "geojsonPrecision": 3
             }
-        }
+        },
+        "tilesetList": [
+                "world",
+                "world-capitals",
+                "world-mem",
+                "world-mem-capitals",
+                "world-gml",
+                "world-gml-capitals",
+                "world-shp",
+                "world-shp-capitals",
+                "world-gpkg",
+                "world-gpkg-capitals",
+                "world-postgis",
+                "world-postgis-capitals"
+            ]
     },
     "server": {
-        "port": 3000
+        "port": "$i{GEOC_PORT}",
+        "logLevel": "$s{GEOC_LOGLEVEL}"
     },
     "services": {
         "wms": {
@@ -57,20 +72,7 @@
             "path": "/tiles",
             "maxScaleFactor": 4,
             "cache": "cache/xyz",
-            "tilesets": [
-                "world",
-                "world-capitals",
-                "world-mem",
-                "world-mem-capitals",
-                "world-gml",
-                "world-gml-capitals",
-                "world-shp",
-                "world-shp-capitals",
-                "world-gpkg",
-                "world-gpkg-capitals",
-                "world-postgis",
-                "world-postgis-capitals"
-            ]
+            "tilesets": "#/$defs/tilesetList" 
         },
         "wmts": {
             "path": "/wmts",
@@ -78,20 +80,7 @@
             "abstract": "WMTS service backed by GeoComposer tilesets.",
             "onlineResource": "http://localhost:3000/wmts",
             "cache": "cache/wmts",
-            "tilesets": [
-                "world",
-                "world-capitals",
-                "world-mem",
-                "world-mem-capitals",
-                "world-gml",
-                "world-gml-capitals",
-                "world-shp",
-                "world-shp-capitals",
-                "world-gpkg",
-                "world-gpkg-capitals",
-                "world-postgis",
-                "world-postgis-capitals"
-            ]
+            "tilesets": "#/$defs/tilesetList" 
         }
     },
     "tilesets": {

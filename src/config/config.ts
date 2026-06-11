@@ -23,6 +23,7 @@ import { JsonSchemaValidator } from './json-schema-validator.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
 import { ConfigEnvResolver } from './config-env-resolver.js'
 import { ConfigDefinitionResolver } from './config-definition-resolver.js'
+import { LogLevel} from "../core/log-level.js"
 
 
 export type ProjectionJson = {
@@ -37,7 +38,7 @@ export type GeoJsonSourceJson = DescInfo & {
     highWaterMark?: number
 }
 
-export type GmlSourceJson = DescInfo &  {
+export type GmlSourceJson = DescInfo & {
     type: 'gml'
     crs?: string
     path: string
@@ -126,6 +127,7 @@ export type LayerJson = DescInfo & {
 
 export type ServerJson = {
     port?: number
+    logLevel?: "DEBUG" | "LOG" | "WARN" | "ERROR" | "NONE"
 }
 
 export type TilesetLayerJson = {
@@ -171,7 +173,6 @@ export type ServicesJson = {
 export type GeoComposerJson = {
     $schema?: string
     $defs?: Dict<unknown>
-    $def?: Dict<unknown>
     server?: ServerJson
     services: ServicesJson
     projections?: Dict<ProjectionJson>
@@ -192,9 +193,9 @@ export class Config extends Singleton {
     readonly path: string
     readonly dir: string
     private _port?: number
-    get port(): number {  return this._port ?? 3000}
+    get port(): number { return this._port ?? 3000 }
     private loaded = false
-    
+
     readonly serviceReg = new Registry<Service>('Service')
     readonly sourceReg = new Registry<Source>('Source')
     readonly layerReg = new Registry<Layer>('Layer')
@@ -202,17 +203,17 @@ export class Config extends Singleton {
     readonly crsReg = new Registry<CrsCode>('CRS')
     readonly tilesetReg = new Registry<Tileset>('Tileset')
 
-    constructor(configPath: string, port?:number) {
+    constructor(configPath: string, port?: number) {
         super()
         this.path = resolve(configPath)
         this.dir = dirname(this.path)
-        this._port = port 
+        this._port = port
     }
 
 
-    static async load(configPath: string, port?:number): Promise<Config> {
+    static async load(configPath: string, port?: number): Promise<Config> {
         const path = resolve(configPath)
-        return new Config(path,port).load()
+        return new Config(path, port).load()
     }
 
     async load(): Promise<this> {
@@ -225,11 +226,11 @@ export class Config extends Singleton {
 
         const configValidator = new JsonSchemaValidator<GeoComposerJson>(
             resolve(this.dir, CONFIG_SCHEMA_FILE), "Configuration Schema", {
-                transform: (document) => {
-                    const withEnv = new ConfigEnvResolver().resolve(document, this.path)
-                    return new ConfigDefinitionResolver().resolve(withEnv, this.path)
-                }
+            transform: (document) => {
+                const withEnv = new ConfigEnvResolver().resolve(document, this.path)
+                return new ConfigDefinitionResolver().resolve(withEnv, this.path)
             }
+        }
         )
         const json = configValidator.validate(this.path)
         const crs = new CrsRegistry(json.projections)
@@ -241,8 +242,11 @@ export class Config extends Singleton {
         const wmts = json.services.wmts ? createWmtsOptions(json.services.wmts, tilesets, this.dir) : undefined
         const wmsLayers = selectLayers(json.services.wms.layers, layers, 'WMS')
         const wmsCrs = crs.codes()
-        const wms = createWmsOptions(json.services.wms, wmsCrs,wmsLayers)
-        this._port ??=  json.server?.port ?? 3000
+        const wms = createWmsOptions(json.services.wms, wmsCrs, wmsLayers)
+        this._port ??= json.server?.port ?? 3000
+        const logLevel = LogLevel[json.server?.logLevel ?? "LOG"]
+        console.log(`[CONFIG]: LogLevel set to ${json.server?.logLevel ?? "LOG"}`)
+        console.setLevel(logLevel)
 
         wms && this.serviceReg.set('wms', new Wms(wms))
         xyz && this.serviceReg.set('xyz', new Xyz(xyz))
@@ -472,17 +476,17 @@ function createLayers(
 }
 
 
-function createWmsOptions(wms: WmsJson, crs: string[],layers: Layer[]): WmsOptions {
+function createWmsOptions(wms: WmsJson, crs: string[], layers: Layer[]): WmsOptions {
     return {
-            title: wms.title,
-            abstract: wms.abstract,
-            path: wms.path ?? '/wms',
-            maxWidth: wms.maxWidth ?? 4096,
-            maxHeight: wms.maxHeight ?? 4096,
-            onlineResource: wms.onlineResource,
-            crs,
-            layers
-        }
+        title: wms.title,
+        abstract: wms.abstract,
+        path: wms.path ?? '/wms',
+        maxWidth: wms.maxWidth ?? 4096,
+        maxHeight: wms.maxHeight ?? 4096,
+        onlineResource: wms.onlineResource,
+        crs,
+        layers
+    }
 }
 
 

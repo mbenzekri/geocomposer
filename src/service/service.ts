@@ -47,7 +47,7 @@ export abstract class Service {
     }
     protected logHandleDone(traceId: number, statusCode: number, startedAt: number, size: number): void {
         const durationMs = Date.now() - startedAt
-        console.log(`[XYZ ${traceId}] OUT ${statusCode} ${durationMs}ms ${size}B`)
+        console.log(`[${this.name}  ${traceId}] OUT ${statusCode} ${durationMs}ms ${size}B`)
     }
 
     static setCorsHeaders(res: ServerResponse): void {
