@@ -70,6 +70,43 @@ La configuration est décrite par `config.schema.json`. Les sections
 nommés : la clé porte l'identifiant, ce qui évite les doublons de nom dans les
 objets eux-mêmes.
 
+`config.json` peut déclarer des valeurs réutilisables dans un objet racine
+`$defs`. Une valeur peut ensuite référencer une définition avec un JSON Pointer
+local `#/$defs/nom`. La forme chaîne remplace la valeur complète ; la forme
+objet avec `"$ref"` fusionne l'objet référencé avec les propriétés locales, et
+les propriétés locales prennent priorité.
+
+```json
+{
+  "$defs": {
+    "worldExtent": [-180, -90, 180, 90],
+    "defaultTileset": {
+      "tileMatrixSet": "WebMercatorQuad",
+      "formats": ["image/png", "application/geo+json"],
+      "tileSize": 256,
+      "minZoom": 0,
+      "maxZoom": 8
+    }
+  },
+  "tilesets": {
+    "world": {
+      "$ref": "#/$defs/defaultTileset",
+      "title": "World",
+      "layers": [{ "layer": "world", "style": "world" }]
+    }
+  },
+  "layers": {
+    "world": {
+      "source": "world",
+      "extent": "#/$defs/worldExtent"
+    }
+  }
+}
+```
+
+Les alias `#/$def/...`, `#/defs/...` et `#/def/...` sont acceptés pour les
+références, mais `$defs` et `#/$defs/...` restent la forme canonique.
+
 `config.json` peut référencer des variables d'environnement dans ses chaînes :
 `$s{NOM}` pour une chaîne, `$i{NOM}` pour un entier, `$f{NOM}` pour un nombre
 réel et `$b{NOM}` pour un booléen `true` ou `false` sans tenir compte de la

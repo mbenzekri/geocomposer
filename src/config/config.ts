@@ -22,6 +22,7 @@ import { BBox, CrsCode } from '../core/geometry.js'
 import { JsonSchemaValidator } from './json-schema-validator.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
 import { ConfigEnvResolver } from './config-env-resolver.js'
+import { ConfigDefinitionResolver } from './config-definition-resolver.js'
 
 
 export type ProjectionJson = {
@@ -169,6 +170,8 @@ export type ServicesJson = {
 
 export type GeoComposerJson = {
     $schema?: string
+    $defs?: Dict<unknown>
+    $def?: Dict<unknown>
     server?: ServerJson
     services: ServicesJson
     projections?: Dict<ProjectionJson>
@@ -222,7 +225,10 @@ export class Config extends Singleton {
 
         const configValidator = new JsonSchemaValidator<GeoComposerJson>(
             resolve(this.dir, CONFIG_SCHEMA_FILE), "Configuration Schema", {
-                transform: (document) => new ConfigEnvResolver().resolve(document, this.path)
+                transform: (document) => {
+                    const withEnv = new ConfigEnvResolver().resolve(document, this.path)
+                    return new ConfigDefinitionResolver().resolve(withEnv, this.path)
+                }
             }
         )
         const json = configValidator.validate(this.path)

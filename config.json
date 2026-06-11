@@ -1,5 +1,46 @@
 {
     "$schema": "./config.schema.json",
+    "$defs": {
+        "connection": "postgres://postgres:postgres@localhost:5432/postgres",
+        "worldExtent": [
+            -180,
+            -90,
+            180,
+            90
+        ],
+        "defaultLayer": {
+            "sourceCrs": "EPSG:4326",
+            "extent": "#/$defs/worldExtent",
+            "style": "world",
+            "pointProperties": [
+                {
+                    "x": "label_x",
+                    "y": "label_y",
+                    "crs": "EPSG:4326"
+                }
+            ]
+        },
+        "defaultTileset": {
+            "tileMatrixSet": "WebMercatorQuad",
+            "formats": [
+                "image/png",
+                "application/geo+json",
+                "application/vnd.mapbox-vector-tile"
+            ],
+            "tileSize": 256,
+            "minZoom": 0,
+            "maxZoom": 8,
+            "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            }
+        }
+    },
     "server": {
         "port": 3000
     },
@@ -55,22 +96,9 @@
     },
     "tilesets": {
         "world": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World",
             "abstract": "Tiles for world country boundaries from the GeoJSON source.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world",
@@ -79,22 +107,9 @@
             ]
         },
         "world-capitals": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World and Capitals",
             "abstract": "Tiles combining GeoJSON country boundaries and capital city labels.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world",
@@ -107,22 +122,9 @@
             ]
         },
         "world-mem": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World Memory",
             "abstract": "Tiles for world country boundaries from the memory source.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world-mem",
@@ -131,22 +133,9 @@
             ]
         },
         "world-mem-capitals": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World Memory and Capitals",
             "abstract": "Tiles combining memory-backed country boundaries and capital city labels.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world-mem",
@@ -159,22 +148,9 @@
             ]
         },
         "world-gml": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World GML",
             "abstract": "Tiles for world country boundaries from the GML source.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world-gml",
@@ -183,22 +159,9 @@
             ]
         },
         "world-gml-capitals": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World GML and Capitals",
             "abstract": "Tiles combining GML country boundaries and capital city labels.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world-gml",
@@ -211,22 +174,9 @@
             ]
         },
         "world-shp": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World Shapefile",
             "abstract": "Tiles for world country boundaries from the shapefile source.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world-shp",
@@ -235,22 +185,9 @@
             ]
         },
         "world-shp-capitals": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World Shapefile and Capitals",
             "abstract": "Tiles combining shapefile country boundaries and capital city labels.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world-shp",
@@ -263,22 +200,9 @@
             ]
         },
         "world-gpkg": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World GeoPackage",
             "abstract": "Tiles for world country boundaries from the GeoPackage source.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world-gpkg",
@@ -287,22 +211,9 @@
             ]
         },
         "world-gpkg-capitals": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World GeoPackage and Capitals",
             "abstract": "Tiles combining GeoPackage country boundaries and capital city labels.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world-gpkg",
@@ -315,22 +226,9 @@
             ]
         },
         "world-postgis": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World PostGIS",
             "abstract": "Tiles for world country boundaries from the PostGIS source.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world-postgis",
@@ -339,22 +237,9 @@
             ]
         },
         "world-postgis-capitals": {
+            "$ref": "#/$defs/defaultTileset",
             "title": "World PostGIS and Capitals",
             "abstract": "Tiles combining PostGIS country boundaries and capital city labels.",
-            "tileMatrixSet": "WebMercatorQuad",
-            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
-            "tileSize": 256,
-            "minZoom": 0,
-            "maxZoom": 8,
-            "cacheControl": "public, max-age=3600",
-            "vector": {
-                "extent": 4096,
-                "buffer": 64,
-                "generalization": {
-                    "tolerance": 0.75
-                },
-                "geojsonPrecision": 3
-            },
             "layers": [
                 {
                     "layer": "world-postgis",
@@ -426,7 +311,7 @@
             "abstract": "World country boundaries PostGIS demo source.",
             "crs": "EPSG:4326",
             "connection": {
-                "connectionString": "$s{GEOCOMPOSER_POSTGIS_URL}",
+                "connectionString": "#/$defs/connection",
                 "max": 4,
                 "connectionTimeoutMillis": 5000,
                 "idleTimeoutMillis": 30000,
@@ -441,7 +326,6 @@
             "batchSize": 500,
             "extentStrategy": "estimated"
         }
-
     },
     "styles": {
         "world": {
@@ -461,129 +345,49 @@
         }
     },
     "layers": {
-        "world": {
-            "title": "World GeoJSON",
-            "abstract": "World country boundaries from the GeoJSON demo dataset.",
-            "source": "world",
-            "sourceCrs": "EPSG:4326",
-            "extent": [ -180, -90, 180, 90 ],
-            "style": "world",
-            "pointProperties": [
-                {
-                    "x": "label_x",
-                    "y": "label_y",
-                    "crs": "EPSG:4326"
-                }
-            ]
-        },
         "capitals": {
             "title": "Capitals GeoJSON",
             "abstract": "World capitals from the GeoJSON demo dataset.",
             "source": "capitals",
             "sourceCrs": "EPSG:4326",
-            "extent": [
-                -180,
-                -90,
-                180,
-                90
-            ],
+            "extent": "#/$defs/worldExtent",
             "style": "capitals"
         },
+        "world": {
+            "$ref": "#/$defs/defaultLayer",
+            "title": "World GeoJSON",
+            "abstract": "World country boundaries from the GeoJSON demo dataset.",
+            "source": "world"
+        },
         "world-mem": {
+            "$ref": "#/$defs/defaultLayer",
             "title": "World Memory",
             "abstract": "World country boundaries loaded in memory from the GeoJSON demo dataset.",
-            "source": "world-mem",
-            "sourceCrs": "EPSG:4326",
-            "extent": [
-                -180,
-                -90,
-                180,
-                90
-            ],
-            "style": "world",
-            "pointProperties": [
-                {
-                    "x": "label_x",
-                    "y": "label_y",
-                    "crs": "EPSG:4326"
-                }
-            ]
+            "source": "world-mem"
         },
         "world-gml": {
+            "$ref": "#/$defs/defaultLayer",
             "title": "World GML",
             "abstract": "World country boundaries from the GML demo dataset.",
-            "source": "world-gml",
-            "sourceCrs": "EPSG:4326",
-            "extent": [
-                -180,
-                -90,
-                180,
-                90
-            ],
-            "style": "world",
-            "pointProperties": [
-                {
-                    "x": "label_x",
-                    "y": "label_y",
-                    "crs": "EPSG:4326"
-                }
-            ]
+            "source": "world-gml"
         },
         "world-shp": {
+            "$ref": "#/$defs/defaultLayer",
             "title": "World Shapefile",
             "abstract": "World country boundaries from the shapefile demo dataset.",
-            "source": "world-shp",
-            "sourceCrs": "EPSG:4326",
-            "extent": [
-                -180,
-                -90,
-                180,
-                90
-            ],
-            "style": "world",
-            "pointProperties": [
-                {
-                    "x": "LABEL_X",
-                    "y": "LABEL_Y",
-                    "crs": "EPSG:4326"
-                }
-            ]
+            "source": "world-shp"
         },
         "world-gpkg": {
+            "$ref": "#/$defs/defaultLayer",
             "title": "World GeoPackage",
             "abstract": "World country boundaries from the GeoPackage demo dataset.",
-            "source": "world-gpkg",
-            "sourceCrs": "EPSG:4326",
-            "extent": [
-                -180,
-                -90,
-                180,
-                90
-            ],
-            "style": "world",
-            "pointProperties": [
-                {
-                    "x": "label_x",
-                    "y": "label_y",
-                    "crs": "EPSG:4326"
-                }
-            ]
+            "source": "world-gpkg"
         },
         "world-postgis": {
+            "$ref": "#/$defs/defaultLayer",
             "title": "World PostGIS",
             "abstract": "World country boundaries from the PostGIS demo dataset.",
-            "source": "world-postgis",
-            "sourceCrs": "EPSG:4326",
-            "extent": [-180, -90, 180, 90],
-            "style": "world",
-            "pointProperties": [
-                {
-                    "x": "label_x",
-                    "y": "label_y",
-                    "crs": "EPSG:4326"
-                }
-            ]
+            "source": "world-postgis"
         }
-
     }
 }

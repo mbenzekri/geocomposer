@@ -1,5 +1,13 @@
 {
     "$schema": "./config.schema.json",
+    "$defs": {
+        "worldExtent": [
+            -180,
+            -90,
+            180,
+            90
+        ]
+    },
     "server": {
         "port": 3000
     },
@@ -13,9 +21,7 @@
             "maxHeight": 4096
         }
     },
-    "tilesets": {
-
-    },
+    "tilesets": {},
     "projections": {
         "EPSG:4326": {
             "title": "WGS84"
@@ -56,7 +62,6 @@
                 "units": "dd"
             }
         }
-
     },
     "layers": {
         "world": {
@@ -64,7 +69,7 @@
             "abstract": "World country boundaries from the GeoJSON demo dataset.",
             "source": "world",
             "sourceCrs": "EPSG:4326",
-            "extent": [ -180, -90, 180, 90 ],
+            "extent": "#/$defs/worldExtent",
             "style": "world",
             "pointProperties": [
                 {
@@ -79,12 +84,7 @@
             "abstract": "World capitals from the GeoJSON demo dataset.",
             "source": "capitals",
             "sourceCrs": "EPSG:4326",
-            "extent": [
-                -180,
-                -90,
-                180,
-                90
-            ],
+            "extent": "#/$defs/worldExtent",
             "style": "capitals"
         }
     }

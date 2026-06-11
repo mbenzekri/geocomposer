@@ -9,6 +9,12 @@
     "$schema": {
       "type": "string"
     },
+    "$defs": {
+      "$ref": "#/$defs/configDefinitions"
+    },
+    "$def": {
+      "$ref": "#/$defs/configDefinitions"
+    },
     "server": {
       "$ref": "#/$defs/server"
     },
@@ -32,6 +38,14 @@
     }
   },
   "$defs": {
+    "configDefinitions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "configDefinitionPointer": {
+      "type": "string",
+      "pattern": "^#/(\\$defs|\\$def|defs|def)/.+"
+    },
     "server": {
       "type": "object",
       "additionalProperties": false,
@@ -155,8 +169,18 @@
     "tileset": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["formats", "layers"],
+      "anyOf": [
+        {
+          "required": ["$ref"]
+        },
+        {
+          "required": ["formats", "layers"]
+        }
+      ],
       "properties": {
+        "$ref": {
+          "$ref": "#/$defs/configDefinitionPointer"
+        },
         "title": {
           "type": "string"
         },
@@ -710,24 +734,31 @@
       }
     },
     "bbox": {
-      "type": "array",
-      "prefixItems": [
+      "oneOf": [
         {
-          "type": "number"
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
         },
         {
-          "type": "number"
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "number"
+          "$ref": "#/$defs/configDefinitionPointer"
         }
-      ],
-      "items": false,
-      "minItems": 4,
-      "maxItems": 4
+      ]
     },
     "path": {
       "type": "string",
