@@ -21,6 +21,7 @@ import { Dict, Registry, Singleton } from '../core/tools.js'
 import { BBox, CrsCode } from '../core/geometry.js'
 import { JsonSchemaValidator } from './json-schema-validator.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
+import { ConfigEnvResolver } from './config-env-resolver.js'
 
 
 export type ProjectionJson = {
@@ -220,7 +221,9 @@ export class Config extends Singleton {
         if (this.loaded) return this
 
         const configValidator = new JsonSchemaValidator<GeoComposerJson>(
-            resolve(this.dir, CONFIG_SCHEMA_FILE), "Configuration Schema"
+            resolve(this.dir, CONFIG_SCHEMA_FILE), "Configuration Schema", {
+                transform: (document) => new ConfigEnvResolver().resolve(document, this.path)
+            }
         )
         const json = configValidator.validate(this.path)
         const crs = new CrsRegistry(json.projections)

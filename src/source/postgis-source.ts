@@ -13,16 +13,11 @@ export type PostgisExtentStrategy = 'estimated' | 'exact' | 'none'
 
 export type PostgisConnectionOptions = {
   connectionString?: string
-  connectionStringEnv?: string
   host?: string
-  hostEnv?: string
   port?: number
   database?: string
-  databaseEnv?: string
   user?: string
-  userEnv?: string
   password?: string
-  passwordEnv?: string
   ssl?: boolean
   max?: number
   connectionTimeoutMillis?: number
@@ -644,12 +639,12 @@ async function readSrid(
 
 function createPoolConfig(options: PostgisConnectionOptions): PoolConfig {
   return {
-    connectionString: resolveConfiguredString(options.connectionString, options.connectionStringEnv, 'connectionString'),
-    host: resolveConfiguredString(options.host, options.hostEnv, 'host'),
+    connectionString: options.connectionString,
+    host: options.host,
     port: options.port,
-    database: resolveConfiguredString(options.database, options.databaseEnv, 'database'),
-    user: resolveConfiguredString(options.user, options.userEnv, 'user'),
-    password: resolveConfiguredString(options.password, options.passwordEnv, 'password'),
+    database: options.database,
+    user: options.user,
+    password: options.password,
     ssl: options.ssl,
     max: options.max,
     connectionTimeoutMillis: options.connectionTimeoutMillis,
@@ -658,23 +653,6 @@ function createPoolConfig(options: PostgisConnectionOptions): PoolConfig {
     query_timeout: options.queryTimeoutMillis,
     application_name: options.applicationName
   }
-}
-
-function resolveConfiguredString(value: string | undefined, envName: string | undefined, label: string): string | undefined {
-  if (value !== undefined && envName !== undefined) {
-    throw new Error(`PostGIS connection ${label} must not define both a value and an env reference`)
-  }
-
-  if (envName === undefined) {
-    return value
-  }
-
-  const envValue = process.env[envName]
-  if (envValue === undefined) {
-    throw new Error(`PostGIS connection ${label} references missing environment variable ${envName}`)
-  }
-
-  return envValue
 }
 
 function parsePostgisGeometry(value: unknown): Geometry | null {

@@ -3,18 +3,26 @@ import  path from 'node:path'
 import { Ajv2020 } from 'ajv/dist/2020.js'
 import type { ErrorObject, ValidateFunction } from 'ajv'
 import process from 'node:process'
+
+export type JsonSchemaDocumentTransform = (document: unknown) => unknown
+
+export type JsonSchemaValidatorOptions = {
+    transform?: JsonSchemaDocumentTransform
+}
+
 export class JsonSchemaValidator<T> {
     private schemaName: string
     private readonly validator: ValidateFunction
+    private readonly transform?: JsonSchemaDocumentTransform
     private validatedValue?: T
     get value(): T | undefined {
         return this.validatedValue
     }
 
-    constructor(schema: unknown, name: string) {
+    constructor(schema: unknown, name: string, options: JsonSchemaValidatorOptions = {}) {
         this.schemaName = name
+        this.transform = options.transform
         const document = this.load(schema)
-        path.resolve()
         if (!this.isObject(document)) {
             throw new Error(`Invalid JSON Schema in ${document.label}: expected an object`)
         }
@@ -27,7 +35,8 @@ export class JsonSchemaValidator<T> {
     }
 
     validate(value: unknown): T {
-        const document = this.load(value)
+        const loadedDocument = this.load(value)
+        const document = this.transform ? this.transform(loadedDocument) : loadedDocument
 
         if (this.validator(document)) {
             this.validatedValue = document as T

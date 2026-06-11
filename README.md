@@ -69,3 +69,36 @@ La configuration est décrite par `config.schema.json`. Les sections
 `projections`, `sources`, `styles`, `layers` et `tilesets` sont des objets
 nommés : la clé porte l'identifiant, ce qui évite les doublons de nom dans les
 objets eux-mêmes.
+
+`config.json` peut référencer des variables d'environnement dans ses chaînes :
+`$s{NOM}` pour une chaîne, `$i{NOM}` pour un entier, `$f{NOM}` pour un nombre
+réel et `$b{NOM}` pour un booléen `true` ou `false` sans tenir compte de la
+casse. Quand la chaîne contient uniquement la référence, la valeur injectée
+garde son type cible avant la validation JSON Schema ; dans une chaîne
+composée, la valeur est convertie en texte. Une même chaîne peut contenir
+plusieurs références.
+
+```json
+{
+  "server": {
+    "port": "$i{GEOCOMPOSER_PORT}"
+  },
+  "services": {
+    "wms": {
+      "onlineResource": "https://$s{PUBLIC_HOST}:$i{PUBLIC_PORT}/wms"
+    }
+  },
+  "sources": {
+    "world-postgis": {
+      "connection": {
+        "connectionString": "$s{GEOCOMPOSER_POSTGIS_URL}",
+        "ssl": "$b{GEOCOMPOSER_POSTGIS_SSL}"
+      }
+    }
+  }
+}
+```
+
+Le chargement échoue si une variable référencée est absente ou si sa valeur ne
+peut pas être convertie vers le type demandé. Le message d'erreur indique la
+variable, la référence et le chemin JSON concerné.

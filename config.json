@@ -426,7 +426,7 @@
             "abstract": "World country boundaries PostGIS demo source.",
             "crs": "EPSG:4326",
             "connection": {
-                "connectionStringEnv": "GEOCOMPOSER_POSTGIS_URL",
+                "connectionString": "$s{GEOCOMPOSER_POSTGIS_URL}",
                 "max": 4,
                 "connectionTimeoutMillis": 5000,
                 "idleTimeoutMillis": 30000,

@@ -523,16 +523,8 @@
         "connectionString": {
           "type": "string"
         },
-        "connectionStringEnv": {
-          "type": "string",
-          "minLength": 1
-        },
         "host": {
           "type": "string"
-        },
-        "hostEnv": {
-          "type": "string",
-          "minLength": 1
         },
         "port": {
           "type": "integer",
@@ -542,23 +534,11 @@
         "database": {
           "type": "string"
         },
-        "databaseEnv": {
-          "type": "string",
-          "minLength": 1
-        },
         "user": {
           "type": "string"
         },
-        "userEnv": {
-          "type": "string",
-          "minLength": 1
-        },
         "password": {
           "type": "string"
-        },
-        "passwordEnv": {
-          "type": "string",
-          "minLength": 1
         },
         "ssl": {
           "type": "boolean"
