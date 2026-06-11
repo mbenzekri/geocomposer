@@ -1,7 +1,7 @@
 {
     "$schema": "./config.schema.json",
     "$defs": {
-        "connection": "postgres://postgres:postgres@localhost:5432/postgres",
+        "connection": "postgres://postgres:$s{GEOC_PGPWD|postgres}@localhost:5432/postgres",
         "worldExtent": [
             -180,
             -90,
@@ -56,8 +56,8 @@
             ]
     },
     "server": {
-        "port": "$i{GEOC_PORT}",
-        "logLevel": "$s{GEOC_LOGLEVEL}"
+        "port": "$i{GEOC_PORT|3000}",
+        "logLevel": "$s{GEOC_LOGLEVEL|LOG}"
     },
     "services": {
         "wms": {

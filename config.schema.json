@@ -54,14 +54,33 @@
             "type": "string",
             "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(\\|[^}]*)?\\}"
         },
+        "envInteger": {
+            "type": "string",
+            "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(\\|[^}]*)?\\}$"
+        },
+        "envNumber": {
+            "type": "string",
+            "pattern": "^\\$[if]\\{[A-Za-z_][A-Za-z0-9_]*(\\|[^}]*)?\\}$"
+        },
+        "envBoolean": {
+            "type": "string",
+            "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(\\|[^}]*)?\\}$"
+        },
         "server": {
             "type": "object",
             "additionalProperties": false,
             "properties": {
                 "port": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 65535
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "logLevel": {
                     "anyOf": [
@@ -120,12 +139,26 @@
                     "type": "string"
                 },
                 "maxWidth": {
-                    "type": "integer",
-                    "minimum": 1
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "maxHeight": {
-                    "type": "integer",
-                    "minimum": 1
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "layers": {
                     "type": "array",
@@ -144,8 +177,15 @@
                     "$ref": "#/$defs/path"
                 },
                 "maxScaleFactor": {
-                    "type": "number",
-                    "exclusiveMinimum": 0
+                    "anyOf": [
+                        {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envNumber"
+                        }
+                    ]
                 },
                 "cache": {
                     "type": "string"
@@ -262,16 +302,37 @@
                     }
                 },
                 "tileSize": {
-                    "type": "integer",
-                    "minimum": 1
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "minZoom": {
-                    "type": "integer",
-                    "minimum": 0
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "maxZoom": {
-                    "type": "integer",
-                    "minimum": 0
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "cacheControl": {
                     "type": "string"
@@ -293,30 +354,65 @@
             "additionalProperties": false,
             "properties": {
                 "extent": {
-                    "type": "integer",
-                    "minimum": 1
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "buffer": {
-                    "type": "number",
-                    "minimum": 0
+                    "anyOf": [
+                        {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envNumber"
+                        }
+                    ]
                 },
                 "generalization": {
                     "type": "object",
                     "additionalProperties": false,
                     "properties": {
                         "tolerance": {
-                            "type": "number",
-                            "minimum": 0
+                            "anyOf": [
+                                {
+                                    "type": "number",
+                                    "minimum": 0
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
                         }
                     }
                 },
                 "geojsonPrecision": {
-                    "type": "integer",
-                    "minimum": 0
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "maxFeatures": {
-                    "type": "integer",
-                    "minimum": 1
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 }
             }
         },
@@ -428,8 +524,15 @@
                             "type": "string"
                         },
                         "highWaterMark": {
-                            "type": "integer",
-                            "minimum": 1
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
                         }
                     }
                 }
@@ -467,8 +570,15 @@
                             "type": "string"
                         },
                         "highWaterMark": {
-                            "type": "integer",
-                            "minimum": 1
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
                         },
                         "featureElementNames": {
                             "type": "array",
@@ -531,8 +641,15 @@
                     "type": "string"
                 },
                 "highWaterMark": {
-                    "type": "integer",
-                    "minimum": 1
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 }
             }
         },
@@ -611,8 +728,15 @@
                     "minLength": 1
                 },
                 "srid": {
-                    "type": "integer",
-                    "minimum": 1
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "properties": {
                     "type": "array",
@@ -623,8 +747,15 @@
                     "uniqueItems": true
                 },
                 "batchSize": {
-                    "type": "integer",
-                    "minimum": 1
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "extentStrategy": {
                     "anyOf": [
@@ -653,9 +784,16 @@
                     "type": "string"
                 },
                 "port": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 65535
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "database": {
                     "type": "string"
@@ -667,27 +805,69 @@
                     "type": "string"
                 },
                 "ssl": {
-                    "type": "boolean"
+                    "anyOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "$ref": "#/$defs/envBoolean"
+                        }
+                    ]
                 },
                 "max": {
-                    "type": "integer",
-                    "minimum": 1
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "connectionTimeoutMillis": {
-                    "type": "integer",
-                    "minimum": 0
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "idleTimeoutMillis": {
-                    "type": "integer",
-                    "minimum": 0
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "statementTimeoutMillis": {
-                    "type": "integer",
-                    "minimum": 0
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "queryTimeoutMillis": {
-                    "type": "integer",
-                    "minimum": 0
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
                 },
                 "applicationName": {
                     "type": "string"
@@ -788,8 +968,15 @@
                             ]
                         },
                         "dotsPerInch": {
-                            "type": "number",
-                            "exclusiveMinimum": 0
+                            "anyOf": [
+                                {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
                         }
                     }
                 }
@@ -880,16 +1067,44 @@
                     "type": "array",
                     "prefixItems": [
                         {
-                            "type": "number"
+                            "anyOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
                         },
                         {
-                            "type": "number"
+                            "anyOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
                         },
                         {
-                            "type": "number"
+                            "anyOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
                         },
                         {
-                            "type": "number"
+                            "anyOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
                         }
                     ],
                     "items": false,
