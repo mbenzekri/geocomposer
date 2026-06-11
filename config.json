@@ -26,7 +26,9 @@
                 "world-shp",
                 "world-shp-capitals",
                 "world-gpkg",
-                "world-gpkg-capitals"
+                "world-gpkg-capitals",
+                "world-postgis",
+                "world-postgis-capitals"
             ]
         },
         "wmts": {
@@ -45,7 +47,9 @@
                 "world-shp",
                 "world-shp-capitals",
                 "world-gpkg",
-                "world-gpkg-capitals"
+                "world-gpkg-capitals",
+                "world-postgis",
+                "world-postgis-capitals"
             ]
         }
     },
@@ -309,6 +313,58 @@
                     "style": "capitals"
                 }
             ]
+        },
+        "world-postgis": {
+            "title": "World PostGIS",
+            "abstract": "Tiles for world country boundaries from the PostGIS source.",
+            "tileMatrixSet": "WebMercatorQuad",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
+            "tileSize": 256,
+            "minZoom": 0,
+            "maxZoom": 8,
+            "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
+            "layers": [
+                {
+                    "layer": "world-postgis",
+                    "style": "world"
+                }
+            ]
+        },
+        "world-postgis-capitals": {
+            "title": "World PostGIS and Capitals",
+            "abstract": "Tiles combining PostGIS country boundaries and capital city labels.",
+            "tileMatrixSet": "WebMercatorQuad",
+            "formats": ["image/png", "application/geo+json", "application/vnd.mapbox-vector-tile"],
+            "tileSize": 256,
+            "minZoom": 0,
+            "maxZoom": 8,
+            "cacheControl": "public, max-age=3600",
+            "vector": {
+                "extent": 4096,
+                "buffer": 64,
+                "generalization": {
+                    "tolerance": 0.75
+                },
+                "geojsonPrecision": 3
+            },
+            "layers": [
+                {
+                    "layer": "world-postgis",
+                    "style": "world"
+                },
+                {
+                    "layer": "capitals",
+                    "style": "capitals"
+                }
+            ]
         }
     },
     "projections": {
@@ -383,7 +439,8 @@
             "primaryKey": "id",
             "srid": 4326,
             "batchSize": 500,
-            "extentStrategy": "estimated"        }
+            "extentStrategy": "estimated"
+        }
 
     },
     "styles": {

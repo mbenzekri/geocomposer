@@ -1,8 +1,12 @@
 import proj4 from 'proj4'
+import { get as getProjection } from 'ol/proj.js'
 import type { BBox, Geometry, HitContext, Position } from './geometry.js'
 import { Feature } from './feature.js'
 
-const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
+type ProjectionDomain = {
+    extent: BBox
+    wrapsX: boolean
+}
 
 export abstract class Gt {
     static intersects(a: BBox, b: BBox): boolean {
@@ -112,21 +116,9 @@ export abstract class Gt {
     }
 
     static transformBBox(bbox: BBox, sourceCrs: string, targetCrs: string): BBox {
-        const positions = [
-            Gt.transformPosition([bbox[0], bbox[1]], sourceCrs, targetCrs),
-            Gt.transformPosition([bbox[0], bbox[3]], sourceCrs, targetCrs),
-            Gt.transformPosition([bbox[2], bbox[1]], sourceCrs, targetCrs),
-            Gt.transformPosition([bbox[2], bbox[3]], sourceCrs, targetCrs)
-        ]
-        const xs = positions.map((position) => position[0])
-        const ys = positions.map((position) => position[1])
-
-        return [
-            Math.min(...xs),
-            Math.min(...ys),
-            Math.max(...xs),
-            Math.max(...ys)
-        ]
+        const sourceConstrained = Gt.constrainBBoxToProjectionDomain(bbox, sourceCrs)
+        const targetConstrained = Gt.constrainBBoxToTargetDomain(sourceConstrained, sourceCrs, targetCrs)
+        return Gt.transformBBoxRaw(targetConstrained, sourceCrs, targetCrs)
     }
 
     private static ofMany(items: Position[][]): BBox | null {
@@ -281,21 +273,127 @@ export abstract class Gt {
     }
 
     static transformPosition(position: Position, sourceCrs: string, targetCrs: string): Position {
-        const x = position[0]
-        const y = position[1]
-        const [fromX, fromY] = sourceCrs === 'EPSG:4326' && targetCrs === 'EPSG:3857'
-            ? [x, Gt.clamp(y, -WEB_MERCATOR_LATITUDE_LIMIT, WEB_MERCATOR_LATITUDE_LIMIT)]
-            : [x, y]
+        const [fromX, fromY] = Gt.constrainPositionToTargetDomain(position, sourceCrs, targetCrs)
+        const projected = Gt.transformPositionRaw([fromX, fromY], sourceCrs, targetCrs)
 
-        let projected: [number, number]
+        return position.length > 2 ? [projected[0], projected[1], ...position.slice(2)] : projected
+    }
 
+    private static transformBBoxRaw(bbox: BBox, sourceCrs: string, targetCrs: string): BBox {
+        const positions = [
+            Gt.transformPositionRaw([bbox[0], bbox[1]], sourceCrs, targetCrs),
+            Gt.transformPositionRaw([bbox[0], bbox[3]], sourceCrs, targetCrs),
+            Gt.transformPositionRaw([bbox[2], bbox[1]], sourceCrs, targetCrs),
+            Gt.transformPositionRaw([bbox[2], bbox[3]], sourceCrs, targetCrs)
+        ]
+        const xs = positions.map((position) => position[0])
+        const ys = positions.map((position) => position[1])
+
+        return [
+            Math.min(...xs),
+            Math.min(...ys),
+            Math.max(...xs),
+            Math.max(...ys)
+        ]
+    }
+
+    private static transformPositionRaw(position: [number, number], sourceCrs: string, targetCrs: string): [number, number] {
         try {
-            projected = proj4(sourceCrs, targetCrs, [fromX, fromY]) as [number, number]
+            return proj4(sourceCrs, targetCrs, position) as [number, number]
         } catch (error) {
             throw new Error(`Unable to transform coordinates from ${sourceCrs} to ${targetCrs}: ${String(error)}`)
         }
+    }
 
-        return position.length > 2 ? [projected[0], projected[1], ...position.slice(2)] : projected
+    private static constrainBBoxToProjectionDomain(bbox: BBox, crs: string): BBox {
+        const domain = Gt.projectionDomain(crs)
+        if (!domain) return bbox
+
+        const [minX, maxX] = domain.wrapsX
+            ? Gt.constrainWrappedRange(bbox[0], bbox[2], domain.extent[0], domain.extent[2])
+            : [
+                Gt.clamp(bbox[0], domain.extent[0], domain.extent[2]),
+                Gt.clamp(bbox[2], domain.extent[0], domain.extent[2])
+            ]
+
+        return [
+            minX,
+            Gt.clamp(bbox[1], domain.extent[1], domain.extent[3]),
+            maxX,
+            Gt.clamp(bbox[3], domain.extent[1], domain.extent[3])
+        ]
+    }
+
+    private static constrainBBoxToTargetDomain(bbox: BBox, sourceCrs: string, targetCrs: string): BBox {
+        const sourceDomain = Gt.projectionDomain(sourceCrs)
+        const targetDomain = Gt.targetDomainInSourceCrs(sourceCrs, targetCrs)
+        if (!sourceDomain || !targetDomain) return bbox
+
+        const sourceWidth = sourceDomain.extent[2] - sourceDomain.extent[0]
+        const sourceHeight = sourceDomain.extent[3] - sourceDomain.extent[1]
+        const targetWidth = targetDomain[2] - targetDomain[0]
+        const targetHeight = targetDomain[3] - targetDomain[1]
+
+        return [
+            targetWidth < sourceWidth ? Gt.clamp(bbox[0], targetDomain[0], targetDomain[2]) : bbox[0],
+            targetHeight < sourceHeight ? Gt.clamp(bbox[1], targetDomain[1], targetDomain[3]) : bbox[1],
+            targetWidth < sourceWidth ? Gt.clamp(bbox[2], targetDomain[0], targetDomain[2]) : bbox[2],
+            targetHeight < sourceHeight ? Gt.clamp(bbox[3], targetDomain[1], targetDomain[3]) : bbox[3]
+        ]
+    }
+
+    private static constrainPositionToTargetDomain(position: Position, sourceCrs: string, targetCrs: string): [number, number] {
+        const sourceDomain = Gt.projectionDomain(sourceCrs)
+        const targetDomain = Gt.targetDomainInSourceCrs(sourceCrs, targetCrs)
+        if (!sourceDomain || !targetDomain) return [position[0], position[1]]
+
+        const sourceWidth = sourceDomain.extent[2] - sourceDomain.extent[0]
+        const sourceHeight = sourceDomain.extent[3] - sourceDomain.extent[1]
+        const targetWidth = targetDomain[2] - targetDomain[0]
+        const targetHeight = targetDomain[3] - targetDomain[1]
+
+        return [
+            targetWidth < sourceWidth ? Gt.clamp(position[0], targetDomain[0], targetDomain[2]) : position[0],
+            targetHeight < sourceHeight ? Gt.clamp(position[1], targetDomain[1], targetDomain[3]) : position[1]
+        ]
+    }
+
+    private static constrainWrappedRange(min: number, max: number, domainMin: number, domainMax: number): [number, number] {
+        const width = domainMax - domainMin
+        const rangeWidth = max - min
+        if (!Number.isFinite(width) || width <= 0 || rangeWidth >= width) {
+            return [domainMin, domainMax]
+        }
+
+        const normalizedMin = Gt.wrapValue(min, domainMin, width)
+        const normalizedMax = normalizedMin + rangeWidth
+        return normalizedMax <= domainMax
+            ? [normalizedMin, normalizedMax]
+            : [domainMin, domainMax]
+    }
+
+    private static wrapValue(value: number, min: number, width: number): number {
+        return ((((value - min) % width) + width) % width) + min
+    }
+
+    private static targetDomainInSourceCrs(sourceCrs: string, targetCrs: string): BBox | null {
+        const targetDomain = Gt.projectionDomain(targetCrs)
+        if (!targetDomain) return null
+
+        return Gt.transformBBoxRaw(targetDomain.extent, targetCrs, sourceCrs)
+    }
+
+    private static projectionDomain(crs: string): ProjectionDomain | null {
+        const projection = getProjection(crs)
+        const extent = projection?.getExtent()
+        if (!extent || extent.length !== 4 || extent.some((value) => !Number.isFinite(value))) {
+            return null
+        }
+
+        return {
+            extent: [extent[0], extent[1], extent[2], extent[3]],
+            wrapsX: Boolean(projection?.canWrapX?.())
+        }
     }
     static transformLabelPosition(
         properties: Feature['properties'],
