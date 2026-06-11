@@ -435,8 +435,8 @@
             },
             "schema": "public",
             "tableName": "world",
-            "geometryColumn": "geom",
-            "primaryKey": "id",
+            "geometryColumn": "wkb_geometry",
+            "primaryKey": "ogc_fid",
             "srid": 4326,
             "batchSize": 500,
             "extentStrategy": "estimated"
