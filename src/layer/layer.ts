@@ -4,6 +4,7 @@ import type { QueryOptions, Source, StreamOptions } from '../source/source.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
 import { Reproject } from '../stream/reproject.js'
+import { Gt } from '../core/geotools.js'
 
 export type NamedStyle = {
   readonly name: string
@@ -80,7 +81,11 @@ export class Layer {
       })
     }
 
+    const sourceBbox = options.bbox
+      ? Gt.transformBBox(options.bbox, crs, this.sourceCrs)
+      : undefined
     const input = this.source.query({
+      bbox: sourceBbox,
       signal: options.signal,
       properties: options.properties,
       layer: this

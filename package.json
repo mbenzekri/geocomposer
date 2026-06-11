@@ -19,10 +19,14 @@
     "ajv": "^8.20.0",
     "canvas": "^3.2.0",
     "ol": "^10.6.1",
+    "pg": "^8.21.0",
+    "pg-cursor": "^2.20.0",
     "proj4": "^2.19.10"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "@types/pg": "^8.20.0",
+    "@types/pg-cursor": "^2.7.2",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }

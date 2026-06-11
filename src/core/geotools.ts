@@ -111,6 +111,24 @@ export abstract class Gt {
         }
     }
 
+    static transformBBox(bbox: BBox, sourceCrs: string, targetCrs: string): BBox {
+        const positions = [
+            Gt.transformPosition([bbox[0], bbox[1]], sourceCrs, targetCrs),
+            Gt.transformPosition([bbox[0], bbox[3]], sourceCrs, targetCrs),
+            Gt.transformPosition([bbox[2], bbox[1]], sourceCrs, targetCrs),
+            Gt.transformPosition([bbox[2], bbox[3]], sourceCrs, targetCrs)
+        ]
+        const xs = positions.map((position) => position[0])
+        const ys = positions.map((position) => position[1])
+
+        return [
+            Math.min(...xs),
+            Math.min(...ys),
+            Math.max(...xs),
+            Math.max(...ys)
+        ]
+    }
+
     private static ofMany(items: Position[][]): BBox | null {
         let bbox: BBox | null = null
 

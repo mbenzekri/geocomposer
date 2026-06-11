@@ -5,6 +5,7 @@ import { GeoJsonSource } from '../source/geojson-source.js'
 import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
 import { GpkgSource } from '../source/gpkg-source.js'
 import { MemSource } from '../source/mem-source.js'
+import { PostgisSource, type PostgisConnectionOptions, type PostgisExtentStrategy } from '../source/postgis-source.js'
 import { ShpSource } from '../source/shp-source.js'
 import type { Source } from '../source/source.js'
 import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-style.js'
@@ -63,6 +64,20 @@ export type GpkgSourceJson = DescInfo & {
     primaryKey?: string
 }
 
+export type PostgisSourceJson = DescInfo & {
+    type: 'postgis'
+    crs?: string
+    connection: PostgisConnectionOptions
+    schema?: string
+    tableName: string
+    geometryColumn?: string
+    primaryKey?: string
+    srid?: number
+    properties?: string[]
+    batchSize?: number
+    extentStrategy?: PostgisExtentStrategy
+}
+
 export type MemSourceJson = DescInfo & {
     type: 'mem'
     source: string
@@ -73,6 +88,7 @@ export type SourceJson =
     | GmlSourceJson
     | ShpSourceJson
     | GpkgSourceJson
+    | PostgisSourceJson
     | MemSourceJson
 
 export type BuiltinStyleJson = DescInfo & {
@@ -313,6 +329,20 @@ function createSource(
                 tableName: entry.tableName,
                 geometryColumn: entry.geometryColumn,
                 primaryKey: entry.primaryKey
+            })
+
+        case 'postgis':
+            return new PostgisSource(name, {
+                crs: crs.resolve(entry.crs),
+                connection: entry.connection,
+                schema: entry.schema,
+                tableName: entry.tableName,
+                geometryColumn: entry.geometryColumn,
+                primaryKey: entry.primaryKey,
+                srid: entry.srid,
+                properties: entry.properties,
+                batchSize: entry.batchSize,
+                extentStrategy: entry.extentStrategy
             })
 
         case 'mem':

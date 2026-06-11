@@ -25,6 +25,7 @@ export type ByteRange = FileRef
 export type DbRef = {
     storage: 'database'
     sourceId: string
+    schemaName?: string
     tableName: string
     rowId: string | number
     primaryKey?: string

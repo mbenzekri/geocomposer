@@ -1,0 +1,55 @@
+{
+    "$schema": "./config.schema.json",
+    "server": {
+        "port": 3000
+    },
+    "services": {
+        "wms": {
+            "path": "/wms",
+            "title": "GeoComposer PostGIS WMS",
+            "abstract": "Minimal WMS server backed by a PostGIS source.",
+            "layers": ["roads"]
+        }
+    },
+    "projections": {
+        "EPSG:4326": {
+            "title": "WGS84"
+        },
+        "EPSG:3857": {
+            "title": "Web Mercator"
+        }
+    },
+    "sources": {
+        "roads-postgis": {
+            "type": "postgis",
+            "title": "Roads PostGIS",
+            "abstract": "Road network from a PostGIS table.",
+            "crs": "EPSG:4326",
+            "connection": {
+                "connectionStringEnv": "GEOCOMPOSER_POSTGIS_URL",
+                "max": 4,
+                "connectionTimeoutMillis": 5000,
+                "idleTimeoutMillis": 30000,
+                "statementTimeoutMillis": 30000,
+                "applicationName": "geocomposer"
+            },
+            "schema": "public",
+            "tableName": "roads",
+            "geometryColumn": "geom",
+            "primaryKey": "id",
+            "srid": 4326,
+            "batchSize": 500,
+            "extentStrategy": "estimated"
+        }
+    },
+    "layers": {
+        "roads": {
+            "title": "Roads",
+            "abstract": "Roads from PostGIS.",
+            "source": "roads-postgis",
+            "sourceCrs": "EPSG:4326",
+            "extent": [-180, -90, 180, 90],
+            "style": "default"
+        }
+    }
+}

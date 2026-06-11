@@ -1,13 +1,11 @@
-# OGC OpenLayers Renderer POC
+# GeoComposer is a GIS Server 
 
-Prototype TypeScript pour serveur OGC Node.js utilisant :
 
-- Web Streams standard
-- features POJO
-- géométries maison
-- Proj4 réservé aux CRS
-- OpenLayers réservé aux styles et au rendu Canvas
-- node-canvas comme backend Canvas serveur
+- utilise node-canvas comme backend Canvas serveur
+- les features en interne sont des POJO Geojson
+- Utilise OpenLayers + Style Ol + canvas pour le rendu
+- Utilise Proj4 pour les transformation de coordonnées
+- Orientation Web Streams pour le pipeline de rendu (Source -> filtre -> projection -> Rendu) 
 
 ## Installation Ubuntu
 

@@ -288,6 +288,9 @@
           "$ref": "#/$defs/gpkgSource"
         },
         {
+          "$ref": "#/$defs/postgisSource"
+        },
+        {
           "$ref": "#/$defs/memSource"
         }
       ]
@@ -452,6 +455,135 @@
           "type": "string"
         },
         "primaryKey": {
+          "type": "string"
+        }
+      }
+    },
+    "postgisSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "connection", "tableName"],
+      "properties": {
+        "type": {
+          "const": "postgis"
+        },
+        "title": {
+          "type": "string"
+        },
+        "abstract": {
+          "type": "string"
+        },
+        "crs": {
+          "type": "string"
+        },
+        "connection": {
+          "$ref": "#/$defs/postgisConnection"
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tableName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "geometryColumn": {
+          "type": "string",
+          "minLength": 1
+        },
+        "primaryKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "srid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "properties": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "batchSize": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "extentStrategy": {
+          "enum": ["estimated", "exact", "none"]
+        }
+      }
+    },
+    "postgisConnection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "connectionString": {
+          "type": "string"
+        },
+        "connectionStringEnv": {
+          "type": "string",
+          "minLength": 1
+        },
+        "host": {
+          "type": "string"
+        },
+        "hostEnv": {
+          "type": "string",
+          "minLength": 1
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "database": {
+          "type": "string"
+        },
+        "databaseEnv": {
+          "type": "string",
+          "minLength": 1
+        },
+        "user": {
+          "type": "string"
+        },
+        "userEnv": {
+          "type": "string",
+          "minLength": 1
+        },
+        "password": {
+          "type": "string"
+        },
+        "passwordEnv": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ssl": {
+          "type": "boolean"
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "connectionTimeoutMillis": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "idleTimeoutMillis": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "statementTimeoutMillis": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "queryTimeoutMillis": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "applicationName": {
           "type": "string"
         }
       }

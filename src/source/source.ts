@@ -61,7 +61,7 @@ export abstract class FeatureSource extends Source {
   async getExtent(layer: Layer): Promise<BBox | null> {
     let extent: BBox | null = null
 
-    for await (const feature of this.readAll({ layer })) {
+    for await (const feature of this.mapFeatures(this.streamFeatures({ layer }), { layer })) {
       const bbox = feature.bbox ?? Gt.bbox(feature.geometry)
       if (bbox) extent = extent ? Gt.expand(extent, bbox) : bbox
     }
@@ -70,7 +70,7 @@ export abstract class FeatureSource extends Source {
   }
 
   stream(options: StreamOptions): ReadableStream<Feature> {
-    return toStream(this.readAll(options), options, (signal) => this.abortReason(signal))
+    return toStream(this.mapFeatures(this.streamFeatures(options), options), options, (signal) => this.abortReason(signal))
   }
 
   async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
@@ -86,16 +86,16 @@ export abstract class FeatureSource extends Source {
     return signal.reason
   }
 
-  private async *readAll(options: StreamOptions): AsyncGenerator<Feature> {
+  protected async *mapFeatures(features: AsyncIterable<Feature>, options: StreamOptions): AsyncGenerator<Feature> {
     let index = 0
 
-    for await (const feature of this.streamFeatures(options)) {
+    for await (const feature of features) {
       yield await this.mapFeature(feature, index, options.layer)
       index += 1
     }
   }
 
-  private async mapFeature(feature: Feature, index: number, layer: Layer): Promise<Feature> {
+  protected async mapFeature(feature: Feature, index: number, layer: Layer): Promise<Feature> {
     const output = this.transformFeature
       ? await this.transformFeature(feature, index)
       : feature
