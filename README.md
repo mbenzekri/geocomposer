@@ -48,9 +48,13 @@ Pour vider les caches de tuiles configurés dans `services.xyz.cache` et
 npm run serve -- --config config.local.json --clear-tile-cache
 ```
 
-Le viewer OpenLayers de test est `src/example/world-demo.html`.
+Le viewer OpenLayers de test est `src/example/world-viewer.html`.
 Si vous l'ouvrez avec VS Code Live Server, le projet ignore `cache/**` pour
 eviter qu'une tuile XYZ/WMTS rendue recharge automatiquement la page.
+
+Le viewer des styles de test est `src/example/styles-preview.html`.
+Il affiches les images produites par les demos
+
 
 Le WMS est exposé sur le chemin `services.wms.path` de `config.json`, par
 défaut `/wms`. Les tuiles XYZ sont exposées sur `services.xyz.path` et suivent

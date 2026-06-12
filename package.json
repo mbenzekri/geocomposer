@@ -1,19 +1,14 @@
 {
-  "name": "ogc-ol-renderer-poc",
+  "name": "geo-composer",
   "version": "0.1.0",
   "type": "module",
   "private": true,
   "scripts": {
     "build": "tsc",
-    "serve": "tsx src/geo-composer.ts",
-    "demo": "tsx src/example/render-demo.ts",
-    "demo:styles": "tsx src/example/style-smoke-demo.ts",
-    "demo:world": "tsx src/example/render-world-geojson.ts",
-    "demo:world:shp": "tsx src/example/render-world-shapefile.ts",
-    "demo:world:gml": "tsx src/example/render-world-gml.ts",
-    "demo:world:gpkg": "tsx src/example/render-world-geopackage.ts",
-    "demo:dynamic-style": "tsx src/example/render-dynamic-style.ts",
-    "demo:all": "npm run build && npm run demo:styles && npm run demo && npm run demo:world && npm run demo:world:shp && npm run demo:world:gml && npm run demo:world:gpkg && npm run demo:dynamic-style"
+    "serve": "tsx src/geo-composer.ts -cc",
+    "demo:styles": "tsx src/example/demo-styles.ts",
+    "demo:dynstyle": "tsx src/example/demo-dynstyle.ts",
+    "demo:all": "npm run build && npm run demo:styles && npm run demo:dynstyle"
   },
   "dependencies": {
     "ajv": "^8.20.0",
