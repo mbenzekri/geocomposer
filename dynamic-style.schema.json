@@ -396,6 +396,9 @@
         "img": {
           "$ref": "#/$defs/stringValue"
         },
+        "imgSize": {
+          "$ref": "#/$defs/numberPairValue"
+        },
         "displacement": {
           "$ref": "#/$defs/numberPairValue"
         },

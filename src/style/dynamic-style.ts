@@ -178,6 +178,7 @@ export async function createDynamicStyleFn(
 export class DynamicStyle {
   private readonly jsonStyle: NormalizedDynamicStyleJson
   private readonly cache = new Map<string, Style[]>()
+  private readonly iconOptionsNormalizer = new DynamicIconOptionsNormalizer()
   private readonly userdata: () => unknown
   private readonly units: 'm' | 'dd'
   private readonly dotsPerInch: number
@@ -525,7 +526,7 @@ export class DynamicStyle {
     delete options.type
     delete options.when
     this.applyColorOption(options, 'color')
-    normalizeIconSource(options)
+    this.iconOptionsNormalizer.normalize(options)
 
     return new Icon(options as IconOptions)
   }
@@ -1216,14 +1217,51 @@ function createImageSource(source: unknown): CanvasImageSource | null {
   return image as unknown as CanvasImageSource
 }
 
-function normalizeIconSource(options: JsonObject): void {
-  for (const property of ['src', 'img']) {
-    const value = options[property]
-    if (typeof value !== 'string') continue
+class DynamicIconOptionsNormalizer {
+  private readonly images = new Map<string, CanvasImageSource>()
 
-    options.src = value.trimStart().startsWith('<svg') ? svgDataUrl(value) : value
-    delete options.img
-    return
+  normalize(options: JsonObject): void {
+    const imageSource = options.img
+
+    if (typeof imageSource === 'string') {
+      if (options.imgSize !== undefined) {
+        const image = this.image(imageSource)
+        if (image) {
+          options.img = image
+          delete options.src
+        } else {
+          options.src = this.sourceUrl(imageSource)
+          delete options.img
+        }
+      } else {
+        options.src = this.sourceUrl(imageSource)
+        delete options.img
+      }
+    } else if (typeof options.src === 'string') {
+      options.src = this.sourceUrl(options.src)
+    }
+
+    delete options.imgSize
+  }
+
+  private image(source: string): CanvasImageSource | null {
+    const url = this.sourceUrl(source)
+    const cached = this.images.get(url)
+    if (cached) return cached
+
+    try {
+      const image = createImageSource(source)
+      if (!image) return null
+
+      this.images.set(url, image)
+      return image
+    } catch {
+      return null
+    }
+  }
+
+  private sourceUrl(source: string): string {
+    return source.trimStart().startsWith('<svg') ? svgDataUrl(source) : source
   }
 }
 
