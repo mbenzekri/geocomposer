@@ -107,6 +107,28 @@ les propriétés locales prennent priorité.
 Seule la forme `$defs` avec des références `#/$defs/...` est acceptée pour les
 définitions de configuration.
 
+Les fichiers de style dynamique référencés par `styles.*.path` acceptent aussi
+une section racine `$defs`, avec la même logique de référence et de fusion.
+Cette section sert uniquement à factoriser le JSON avant validation. Elle est
+distincte de `definitions`, qui reste le dictionnaire accessible pendant le
+rendu via `D` dans les expressions dynamiques.
+
+```json
+{
+  "$defs": {
+    "halo": { "color": "rgba(255, 255, 255, 0.9)", "width": 3 }
+  },
+  "static": {
+    "label": {
+      "text": {
+        "text": "",
+        "stroke": { "$ref": "#/$defs/halo" }
+      }
+    }
+  }
+}
+```
+
 `config.json` peut référencer des variables d'environnement dans ses chaînes :
 `$s{NOM}` pour une chaîne, `$i{NOM}` pour un entier, `$f{NOM}` pour un nombre
 réel et `$b{NOM}` pour un booléen `true` ou `false` sans tenir compte de la

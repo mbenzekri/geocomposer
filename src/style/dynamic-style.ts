@@ -7,6 +7,7 @@ import Style from 'ol/style/Style.js'
 import Text from 'ol/style/Text.js'
 import type { Feature } from '../core/feature.js'
 import type { StyleContext, StyleFn } from './style-fn.js'
+import { ConfigDefinitionResolver } from '../config/config-definition-resolver.js'
 import {
   setTextDeclutterMode,
   setTextDeclutterRank,
@@ -27,6 +28,7 @@ type TextOptions = ConstructorParameters<typeof Text>[0]
 
 export type DynamicStyleJson = {
   $schema?: string
+  $defs?: JsonObject
   constants?: JsonObject
   definitions?: JsonObject
   debug?: boolean
@@ -64,6 +66,8 @@ type DynamicStyleContext = {
   constants: JsonObject
   userdata: unknown
 }
+
+type NormalizedDynamicStyleJson = Required<Omit<DynamicStyleJson, '$defs'>>
 
 const INCHES_PER_UNIT = {
   m: 39.37,
@@ -172,7 +176,7 @@ export async function createDynamicStyleFn(
 }
 
 export class DynamicStyle {
-  private readonly jsonStyle: Required<DynamicStyleJson>
+  private readonly jsonStyle: NormalizedDynamicStyleJson
   private readonly cache = new Map<string, Style[]>()
   private readonly userdata: () => unknown
   private readonly units: 'm' | 'dd'
@@ -939,9 +943,10 @@ class DynamicPatchValidator {
   }
 }
 
-function normalizeStyleJson(jsonStyle: DynamicStyleJson, name: string): Required<DynamicStyleJson> {
-  const cloned = deepClone(jsonStyle)
-  const normalized: Required<DynamicStyleJson> = {
+function normalizeStyleJson(jsonStyle: DynamicStyleJson, name: string): NormalizedDynamicStyleJson {
+  const resolved = new ConfigDefinitionResolver('dynamic style').resolve(jsonStyle, `dynamic style "${name}"`)
+  const cloned = deepClone(resolved)
+  const normalized: NormalizedDynamicStyleJson = {
     $schema: cloned.$schema ?? '',
     constants: isPlainObject(cloned.constants) ? cloned.constants : {},
     definitions: isPlainObject(cloned.definitions) ? cloned.definitions : {},

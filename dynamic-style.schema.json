@@ -8,6 +8,9 @@
     "$schema": {
       "type": "string"
     },
+    "$defs": {
+      "$ref": "#/$defs/dynamicStyleDefinitions"
+    },
     "constants": {
       "type": "object",
       "additionalProperties": {
@@ -74,6 +77,14 @@
     }
   },
   "$defs": {
+    "dynamicStyleDefinitions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "dynamicStyleDefinitionPointer": {
+      "type": "string",
+      "pattern": "^#/\\$defs/.+"
+    },
     "dynamicPatch": {
       "type": "object",
       "additionalProperties": false,
@@ -153,6 +164,9 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
         "type": {
           "const": "Style"
         },
@@ -227,6 +241,9 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
         "type": {
           "const": "Fill"
         },
@@ -258,6 +275,9 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
         "type": {
           "const": "Stroke"
         },
@@ -317,6 +337,9 @@
       "additionalProperties": false,
       "anyOf": [
         {
+          "required": ["$ref"]
+        },
+        {
           "required": ["type"]
         },
         {
@@ -327,6 +350,9 @@
         }
       ],
       "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
         "type": {
           "const": "Icon"
         },
@@ -410,6 +436,9 @@
       "additionalProperties": false,
       "required": ["points", "radius"],
       "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
         "type": {
           "const": "RegularShape"
         },
@@ -456,6 +485,9 @@
       "additionalProperties": false,
       "required": ["radius"],
       "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
         "type": {
           "const": "Circle"
         },
@@ -508,6 +540,9 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
         "type": {
           "const": "Text"
         },

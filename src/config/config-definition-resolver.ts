@@ -7,6 +7,8 @@ const REF_KEY = '$ref'
 export class ConfigDefinitionResolver {
     private definitions: JsonObject = {}
 
+    constructor(private readonly subject = 'config') {}
+
     resolve<T>(document: T, label = 'configuration'): T {
         if (!this.isPlainObject(document)) return document
 
@@ -21,12 +23,12 @@ export class ConfigDefinitionResolver {
         if (section === undefined) return definitions
 
         if (!this.isPlainObject(section)) {
-            throw new Error(`Invalid config definitions at /${DEFINITION_SECTION_KEY} in ${label}: expected an object`)
+            throw new Error(`Invalid ${this.subject} definitions at /${DEFINITION_SECTION_KEY} in ${label}: expected an object`)
         }
 
         for (const [name, value] of Object.entries(section)) {
             if (Object.hasOwn(definitions, name)) {
-                throw new Error(`Duplicate config definition "${name}" in ${label}`)
+                throw new Error(`Duplicate ${this.subject} definition "${name}" in ${label}`)
             }
 
             definitions[name] = value
@@ -86,7 +88,7 @@ export class ConfigDefinitionResolver {
     private resolveRefObject(value: JsonObject, path: string[], label: string, stack: string[]): unknown {
         const pointer = value[REF_KEY]
         if (typeof pointer !== 'string') {
-            throw new Error(`Invalid config reference at ${this.formatLocation(path, label)}: "$ref" must be a string`)
+            throw new Error(`Invalid ${this.subject} reference at ${this.formatLocation(path, label)}: "$ref" must be a string`)
         }
 
         if (!this.isDefinitionPointer(pointer)) {
@@ -99,7 +101,7 @@ export class ConfigDefinitionResolver {
 
         if (!this.isPlainObject(referenced)) {
             throw new Error(
-                `Invalid config reference at ${this.formatLocation(path, label)}: "${pointer}" must resolve to an object when local overrides are provided`
+                `Invalid ${this.subject} reference at ${this.formatLocation(path, label)}: "${pointer}" must resolve to an object when local overrides are provided`
             )
         }
 
@@ -113,7 +115,7 @@ export class ConfigDefinitionResolver {
 
         if (stack.includes(normalizedPointer)) {
             throw new Error(
-                `Circular config definition reference at ${this.formatLocation(path, label)}: ${[...stack, normalizedPointer].join(' -> ')}`
+                `Circular ${this.subject} definition reference at ${this.formatLocation(path, label)}: ${[...stack, normalizedPointer].join(' -> ')}`
             )
         }
 
@@ -143,25 +145,25 @@ export class ConfigDefinitionResolver {
             }
         }
 
-        throw new Error(`Unknown config definition pointer "${pointer}" at ${this.formatLocation(path, label)}`)
+        throw new Error(`Unknown ${this.subject} definition pointer "${pointer}" at ${this.formatLocation(path, label)}`)
     }
 
     private parseDefinitionPointer(pointer: string, path: string[], label: string): string[] {
         if (!pointer.startsWith('#/')) {
-            throw new Error(`Invalid config definition pointer "${pointer}" at ${this.formatLocation(path, label)}`)
+            throw new Error(`Invalid ${this.subject} definition pointer "${pointer}" at ${this.formatLocation(path, label)}`)
         }
 
         const tokens = pointer.slice(2).split('/').map((token) => this.unescapePointerToken(token, pointer, path, label))
         const section = tokens.shift()
         if (section !== DEFINITION_POINTER_KEY) {
             throw new Error(
-                `Invalid config definition pointer "${pointer}" at ${this.formatLocation(path, label)}: expected #/$defs/<name>`
+                `Invalid ${this.subject} definition pointer "${pointer}" at ${this.formatLocation(path, label)}: expected #/$defs/<name>`
             )
         }
 
         if (tokens.length === 0) {
             throw new Error(
-                `Invalid config definition pointer "${pointer}" at ${this.formatLocation(path, label)}: expected a definition name`
+                `Invalid ${this.subject} definition pointer "${pointer}" at ${this.formatLocation(path, label)}: expected a definition name`
             )
         }
 

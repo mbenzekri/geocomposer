@@ -378,7 +378,9 @@ async function createStyles(
         ]
     ])
     const dynamicStyleValidator = new JsonSchemaValidator<DynamicStyleJson>(
-        resolve(baseDir, DYNAMIC_STYLE_SCHEMA_FILE), "Dynamic Style Schema"
+        resolve(baseDir, DYNAMIC_STYLE_SCHEMA_FILE), "Dynamic Style Schema", {
+            transform: (document) => new ConfigDefinitionResolver('dynamic style').resolve(document, 'dynamic style')
+        }
     )
 
     for (const [name, entry] of Object.entries(styleEntries)) {
