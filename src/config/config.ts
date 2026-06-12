@@ -223,6 +223,7 @@ export class Config extends Singleton {
         }
 
         if (this.loaded) return this
+        console.log(`[CONFIG]: ${this.path} loading`)
 
         const configValidator = new JsonSchemaValidator<GeoComposerJson>(
             resolve(this.dir, CONFIG_SCHEMA_FILE), "Configuration Schema", {
@@ -243,9 +244,13 @@ export class Config extends Singleton {
         const wmsLayers = selectLayers(json.services.wms.layers, layers, 'WMS')
         const wmsCrs = crs.codes()
         const wms = createWmsOptions(json.services.wms, wmsCrs, wmsLayers)
+
         this._port ??= json.server?.port ?? 3000
-        const logLevel = LogLevel[json.server?.logLevel ?? "LOG"]
-        console.log(`[CONFIG]: LogLevel set to ${json.server?.logLevel ?? "LOG"}`)
+        console.log(`[CONFIG]: Server port set to ${this._port}`)
+
+        const logLevelName = json.server?.logLevel ?? "LOG"
+        const logLevel = LogLevel[logLevelName]
+        console.log(`[CONFIG]: LogLevel set to ${logLevelName} = ${logLevel}`)
         console.setLevel(logLevel)
 
         wms && this.serviceReg.set('wms', new Wms(wms))
@@ -253,7 +258,7 @@ export class Config extends Singleton {
         wmts && this.serviceReg.set('wmts', new Wmts(wmts))
         this.loaded = true
 
-        console.log(`[Config]: ${this.path} loaded`)
+        console.log(`[CONFIG]: ${this.path} loaded`)
 
         return this
     }
