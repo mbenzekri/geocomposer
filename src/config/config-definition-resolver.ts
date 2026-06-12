@@ -1,7 +1,7 @@
 type JsonObject = Record<string, unknown>
 
-const DEFINITION_SECTION_KEYS = ['$defs', '$def'] as const
-const DEFINITION_POINTER_KEYS = new Set(['$defs', '$def', 'defs', 'def'])
+const DEFINITION_SECTION_KEY = '$defs'
+const DEFINITION_POINTER_KEY = '$defs'
 const REF_KEY = '$ref'
 
 export class ConfigDefinitionResolver {
@@ -17,21 +17,19 @@ export class ConfigDefinitionResolver {
     private collectDefinitions(document: JsonObject, label: string): JsonObject {
         const definitions: JsonObject = {}
 
-        for (const sectionKey of DEFINITION_SECTION_KEYS) {
-            const section = document[sectionKey]
-            if (section === undefined) continue
+        const section = document[DEFINITION_SECTION_KEY]
+        if (section === undefined) return definitions
 
-            if (!this.isPlainObject(section)) {
-                throw new Error(`Invalid config definitions at /${sectionKey} in ${label}: expected an object`)
+        if (!this.isPlainObject(section)) {
+            throw new Error(`Invalid config definitions at /${DEFINITION_SECTION_KEY} in ${label}: expected an object`)
+        }
+
+        for (const [name, value] of Object.entries(section)) {
+            if (Object.hasOwn(definitions, name)) {
+                throw new Error(`Duplicate config definition "${name}" in ${label}`)
             }
 
-            for (const [name, value] of Object.entries(section)) {
-                if (Object.hasOwn(definitions, name)) {
-                    throw new Error(`Duplicate config definition "${name}" in ${label}`)
-                }
-
-                definitions[name] = value
-            }
+            definitions[name] = value
         }
 
         return definitions
@@ -155,7 +153,7 @@ export class ConfigDefinitionResolver {
 
         const tokens = pointer.slice(2).split('/').map((token) => this.unescapePointerToken(token, pointer, path, label))
         const section = tokens.shift()
-        if (!section || !DEFINITION_POINTER_KEYS.has(section)) {
+        if (section !== DEFINITION_POINTER_KEY) {
             throw new Error(
                 `Invalid config definition pointer "${pointer}" at ${this.formatLocation(path, label)}: expected #/$defs/<name>`
             )
@@ -217,11 +215,11 @@ export class ConfigDefinitionResolver {
         if (!value.startsWith('#/')) return false
         const sectionEnd = value.indexOf('/', 2)
         const section = sectionEnd < 0 ? value.slice(2) : value.slice(2, sectionEnd)
-        return DEFINITION_POINTER_KEYS.has(section)
+        return section === DEFINITION_POINTER_KEY
     }
 
     private isDefinitionSectionKey(key: string): boolean {
-        return DEFINITION_SECTION_KEYS.some((sectionKey) => sectionKey === key)
+        return key === DEFINITION_SECTION_KEY
     }
 
     private formatLocation(path: string[], label: string): string {

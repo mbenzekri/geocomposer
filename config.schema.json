@@ -16,9 +16,6 @@
         "$defs": {
             "$ref": "#/$defs/configDefinitions"
         },
-        "$def": {
-            "$ref": "#/$defs/configDefinitions"
-        },
         "server": {
             "$ref": "#/$defs/server"
         },
@@ -48,7 +45,7 @@
         },
         "configDefinitionPointer": {
             "type": "string",
-            "pattern": "^#/(\\$defs|\\$def|defs|def)/.+"
+            "pattern": "^#/\\$defs/.+"
         },
         "envString": {
             "type": "string",

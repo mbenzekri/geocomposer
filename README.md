@@ -104,8 +104,8 @@ les propriétés locales prennent priorité.
 }
 ```
 
-Les alias `#/$def/...`, `#/defs/...` et `#/def/...` sont acceptés pour les
-références, mais `$defs` et `#/$defs/...` restent la forme canonique.
+Seule la forme `$defs` avec des références `#/$defs/...` est acceptée pour les
+définitions de configuration.
 
 `config.json` peut référencer des variables d'environnement dans ses chaînes :
 `$s{NOM}` pour une chaîne, `$i{NOM}` pour un entier, `$f{NOM}` pour un nombre
