@@ -1,5 +1,5 @@
 {
-    "$schema": "../../dynamic-style.schema.json",
+    "$schema": "../../dynstyle.schema.json",
     "title": "Capitals",
     "scales": [0, 10000000],
     "cacheKey": "capitals",

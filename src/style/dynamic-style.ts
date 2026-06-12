@@ -7,7 +7,7 @@ import Style from 'ol/style/Style.js'
 import Text from 'ol/style/Text.js'
 import type { Feature } from '../core/feature.js'
 import type { StyleContext, StyleFn } from './style-fn.js'
-import { ConfigDefinitionResolver } from '../config/config-definition-resolver.js'
+import { DefsSolver } from '../config/defs-solver.js'
 import {
   setTextDeclutterMode,
   setTextDeclutterRank,
@@ -945,7 +945,7 @@ class DynamicPatchValidator {
 }
 
 function normalizeStyleJson(jsonStyle: DynamicStyleJson, name: string): NormalizedDynamicStyleJson {
-  const resolved = new ConfigDefinitionResolver('dynamic style').resolve(jsonStyle, `dynamic style "${name}"`)
+  const resolved = new DefsSolver('dynamic style').solve(jsonStyle, `dynamic style "${name}"`)
   const cloned = deepClone(resolved)
   const normalized: NormalizedDynamicStyleJson = {
     $schema: cloned.$schema ?? '',

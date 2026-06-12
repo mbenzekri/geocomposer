@@ -4,16 +4,16 @@ const DEFINITION_SECTION_KEY = '$defs'
 const DEFINITION_POINTER_KEY = '$defs'
 const REF_KEY = '$ref'
 
-export class ConfigDefinitionResolver {
+export class DefsSolver {
     private definitions: JsonObject = {}
 
     constructor(private readonly subject = 'config') {}
 
-    resolve<T>(document: T, label = 'configuration'): T {
+    solve<T>(document: T, label = 'configuration'): T {
         if (!this.isPlainObject(document)) return document
 
         this.definitions = this.collectDefinitions(document, label)
-        return this.resolveValue(document, [], label, []) as T
+        return this.solveValue(document, [], label, []) as T
     }
 
     private collectDefinitions(document: JsonObject, label: string): JsonObject {
@@ -37,65 +37,65 @@ export class ConfigDefinitionResolver {
         return definitions
     }
 
-    private resolveValue(value: unknown, path: string[], label: string, stack: string[]): unknown {
+    private solveValue(value: unknown, path: string[], label: string, stack: string[]): unknown {
         if (typeof value === 'string') {
             if (this.isDefinitionPointer(value)) {
-                return this.resolvePointer(value, path, label, stack)
+                return this.solvePointer(value, path, label, stack)
             }
 
             return value
         }
 
         if (Array.isArray(value)) {
-            return value.map((item, index) => this.resolveValue(item, [...path, String(index)], label, stack))
+            return value.map((item, index) => this.solveValue(item, [...path, String(index)], label, stack))
         }
 
         if (!this.isPlainObject(value)) return value
 
         if (path.length === 0) {
-            return this.resolveRootObject(value, label, stack)
+            return this.solveRootObject(value, label, stack)
         }
 
         if (Object.hasOwn(value, REF_KEY)) {
-            return this.resolveRefObject(value, path, label, stack)
+            return this.solveRefObject(value, path, label, stack)
         }
 
-        return this.resolveObjectEntries(value, path, label, stack)
+        return this.solveObjectEntries(value, path, label, stack)
     }
 
-    private resolveRootObject(value: JsonObject, label: string, stack: string[]): JsonObject {
+    private solveRootObject(value: JsonObject, label: string, stack: string[]): JsonObject {
         const resolved: JsonObject = {}
 
         for (const [key, child] of Object.entries(value)) {
             if (this.isDefinitionSectionKey(key)) continue
 
-            resolved[key] = this.resolveValue(child, [key], label, stack)
+            resolved[key] = this.solveValue(child, [key], label, stack)
         }
 
         return resolved
     }
 
-    private resolveObjectEntries(value: JsonObject, path: string[], label: string, stack: string[]): JsonObject {
+    private solveObjectEntries(value: JsonObject, path: string[], label: string, stack: string[]): JsonObject {
         const resolved: JsonObject = {}
 
         for (const [key, child] of Object.entries(value)) {
-            resolved[key] = this.resolveValue(child, [...path, key], label, stack)
+            resolved[key] = this.solveValue(child, [...path, key], label, stack)
         }
 
         return resolved
     }
 
-    private resolveRefObject(value: JsonObject, path: string[], label: string, stack: string[]): unknown {
+    private solveRefObject(value: JsonObject, path: string[], label: string, stack: string[]): unknown {
         const pointer = value[REF_KEY]
         if (typeof pointer !== 'string') {
             throw new Error(`Invalid ${this.subject} reference at ${this.formatLocation(path, label)}: "$ref" must be a string`)
         }
 
         if (!this.isDefinitionPointer(pointer)) {
-            return this.resolveObjectEntries(value, path, label, stack)
+            return this.solveObjectEntries(value, path, label, stack)
         }
 
-        const referenced = this.resolvePointer(pointer, path, label, stack)
+        const referenced = this.solvePointer(pointer, path, label, stack)
         const overrideEntries = Object.entries(value).filter(([key]) => key !== REF_KEY)
         if (overrideEntries.length === 0) return referenced
 
@@ -105,11 +105,11 @@ export class ConfigDefinitionResolver {
             )
         }
 
-        const overrides = this.resolveObjectEntries(Object.fromEntries(overrideEntries), path, label, stack)
+        const overrides = this.solveObjectEntries(Object.fromEntries(overrideEntries), path, label, stack)
         return this.mergeObjects(referenced, overrides)
     }
 
-    private resolvePointer(pointer: string, path: string[], label: string, stack: string[]): unknown {
+    private solvePointer(pointer: string, path: string[], label: string, stack: string[]): unknown {
         const tokens = this.parseDefinitionPointer(pointer, path, label)
         const normalizedPointer = this.formatDefinitionPointer(tokens)
 
@@ -124,7 +124,7 @@ export class ConfigDefinitionResolver {
             value = this.readPointerToken(value, token, pointer, path, label)
         }
 
-        return this.resolveValue(this.clone(value), path, label, [...stack, normalizedPointer])
+        return this.solveValue(this.clone(value), path, label, [...stack, normalizedPointer])
     }
 
     private readPointerToken(

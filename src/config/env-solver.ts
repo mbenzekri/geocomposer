@@ -1,48 +1,48 @@
 import process from 'node:process'
 
-type ConfigEnvCode = 's' | 'i' | 'f' | 'b'
-type ConfigEnvValue = string | number | boolean
+type EnvCode = 's' | 'i' | 'f' | 'b'
+type EnvValue = string | number | boolean
 
-type ConfigEnvPlaceholder = {
+type EnvPlaceholder = {
     start: number
     end: number
     token: string
-    code: ConfigEnvCode
+    code: EnvCode
     name: string
-    value: ConfigEnvValue
+    value: EnvValue
 }
 
 const ENV_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
 const INTEGER_PATTERN = /^[+-]?\d+$/
 const FLOAT_PATTERN = /^[+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:[eE][+-]?\d+)?$/
 
-type ConfigEnvPlaceholderParts = {
+type EnvPlaceholderParts = {
     name: string
     defaultValue?: string
 }
 
-type ConfigEnvValueSource = 'environment variable' | 'default value'
+type EnvValueSource = 'environment variable' | 'default value'
 
-export class ConfigEnvResolver {
+export class EnvSolver {
     constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
 
-    resolve<T>(document: T, label = 'configuration'): T {
-        return this.resolveValue(document, [], label) as T
+    solve<T>(document: T, label = 'configuration'): T {
+        return this.solveValue(document, [], label) as T
     }
 
-    private resolveValue(value: unknown, path: string[], label: string): unknown {
+    private solveValue(value: unknown, path: string[], label: string): unknown {
         if (typeof value === 'string') {
-            return this.resolveString(value, path, label)
+            return this.solveString(value, path, label)
         }
 
         if (Array.isArray(value)) {
-            return value.map((item, index) => this.resolveValue(item, [...path, String(index)], label))
+            return value.map((item, index) => this.solveValue(item, [...path, String(index)], label))
         }
 
         if (this.isObject(value)) {
             const resolved: Record<string, unknown> = {}
             for (const [key, child] of Object.entries(value)) {
-                resolved[key] = this.resolveValue(child, [...path, key], label)
+                resolved[key] = this.solveValue(child, [...path, key], label)
             }
             return resolved
         }
@@ -50,7 +50,7 @@ export class ConfigEnvResolver {
         return value
     }
 
-    private resolveString(value: string, path: string[], label: string): ConfigEnvValue {
+    private solveString(value: string, path: string[], label: string): EnvValue {
         const placeholders = this.scanPlaceholders(value, path, label)
         if (placeholders.length === 0) return value
 
@@ -70,8 +70,8 @@ export class ConfigEnvResolver {
         return resolved + value.slice(offset)
     }
 
-    private scanPlaceholders(value: string, path: string[], label: string): ConfigEnvPlaceholder[] {
-        const placeholders: ConfigEnvPlaceholder[] = []
+    private scanPlaceholders(value: string, path: string[], label: string): EnvPlaceholder[] {
+        const placeholders: EnvPlaceholder[] = []
 
         for (let index = 0; index < value.length; index++) {
             if (value[index] !== '$') continue
@@ -108,7 +108,7 @@ export class ConfigEnvResolver {
                 token,
                 code,
                 name,
-                value: this.resolvePlaceholder(code, name, defaultValue, token, path, label)
+                value: this.solvePlaceholder(code, name, defaultValue, token, path, label)
             })
             index = closingBrace
         }
@@ -121,7 +121,7 @@ export class ConfigEnvResolver {
         token: string,
         path: string[],
         label: string
-    ): ConfigEnvPlaceholderParts {
+    ): EnvPlaceholderParts {
         const separator = content.indexOf('|')
         const name = separator < 0 ? content : content.slice(0, separator)
         const defaultValue = separator < 0 ? undefined : content.slice(separator + 1)
@@ -135,14 +135,14 @@ export class ConfigEnvResolver {
         return { name, defaultValue }
     }
 
-    private resolvePlaceholder(
-        code: ConfigEnvCode,
+    private solvePlaceholder(
+        code: EnvCode,
         name: string,
         defaultValue: string | undefined,
         token: string,
         path: string[],
         label: string
-    ): ConfigEnvValue {
+    ): EnvValue {
         const rawValue = this.env[name]
         const value = rawValue ?? defaultValue
         if (value === undefined) {
@@ -151,7 +151,7 @@ export class ConfigEnvResolver {
             )
         }
 
-        const source: ConfigEnvValueSource = rawValue === undefined ? 'default value' : 'environment variable'
+        const source: EnvValueSource = rawValue === undefined ? 'default value' : 'environment variable'
 
         switch (code) {
             case 's':
@@ -174,7 +174,7 @@ export class ConfigEnvResolver {
         token: string,
         path: string[],
         label: string,
-        source: ConfigEnvValueSource
+        source: EnvValueSource
     ): number {
         const normalized = value.trim()
         if (!INTEGER_PATTERN.test(normalized)) {
@@ -195,7 +195,7 @@ export class ConfigEnvResolver {
         token: string,
         path: string[],
         label: string,
-        source: ConfigEnvValueSource
+        source: EnvValueSource
     ): number {
         const normalized = value.trim()
         if (!FLOAT_PATTERN.test(normalized)) {
@@ -216,7 +216,7 @@ export class ConfigEnvResolver {
         token: string,
         path: string[],
         label: string,
-        source: ConfigEnvValueSource
+        source: EnvValueSource
     ): boolean {
         const normalized = value.trim().toLowerCase()
         if (normalized === 'true') return true
@@ -232,7 +232,7 @@ export class ConfigEnvResolver {
         label: string,
         expected: string,
         value: string,
-        source: ConfigEnvValueSource
+        source: EnvValueSource
     ): never {
         const valueSource = source === 'default value'
             ? `default value for ${token}`
@@ -249,7 +249,7 @@ export class ConfigEnvResolver {
         return `${pointer} in ${label}`
     }
 
-    private isEnvCode(value: string | undefined): value is ConfigEnvCode {
+    private isEnvCode(value: string | undefined): value is EnvCode {
         return value === 's' || value === 'i' || value === 'f' || value === 'b'
     }
 

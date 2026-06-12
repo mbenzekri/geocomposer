@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://geocomposer.local/dynamic-style.schema.json",
+  "$id": "https://geocomposer.local/dynstyle.schema.json",
   "title": "GeoComposer dynamic style",
   "type": "object",
   "additionalProperties": false,

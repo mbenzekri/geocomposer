@@ -19,10 +19,10 @@ import type { VectorTileOptions } from '../tileset/tileset.js'
 import { Gt } from '../core/geotools.js'
 import { Dict, Registry, Singleton } from '../core/tools.js'
 import { BBox, CrsCode } from '../core/geometry.js'
-import { JsonSchemaValidator } from './json-schema-validator.js'
+import { ValidatorTransform, JsonValidator } from './json-validator.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
-import { ConfigEnvResolver } from './config-env-resolver.js'
-import { ConfigDefinitionResolver } from './config-definition-resolver.js'
+import { EnvSolver } from './env-solver.js'
+import { DefsSolver } from './defs-solver.js'
 import { LogLevel} from "../core/log-level.js"
 
 
@@ -186,7 +186,7 @@ const BUILTIN_STYLES: Dict<StyleFn> = {
     default: defaultStyleFn
 }
 const CONFIG_SCHEMA_FILE = 'config.schema.json'
-const DYNAMIC_STYLE_SCHEMA_FILE = 'dynamic-style.schema.json'
+const DYNAMIC_STYLE_SCHEMA_FILE = 'dynstyle.schema.json'
 
 export class Config extends Singleton {
 
@@ -225,14 +225,11 @@ export class Config extends Singleton {
         if (this.loaded) return this
         console.log(`[CONFIG]: ${this.path} loading`)
 
-        const configValidator = new JsonSchemaValidator<GeoComposerJson>(
-            resolve(this.dir, CONFIG_SCHEMA_FILE), "Configuration Schema", {
-            transform: (document) => {
-                const withEnv = new ConfigEnvResolver().resolve(document, this.path)
-                return new ConfigDefinitionResolver().resolve(withEnv, this.path)
-            }
+        const transform: ValidatorTransform  = (document) => {
+            const withEnv = new EnvSolver().solve(document, this.path)
+            return new DefsSolver().solve(withEnv, this.path)
         }
-        )
+        const configValidator = new JsonValidator<GeoComposerJson>(resolve(this.dir, CONFIG_SCHEMA_FILE), "Configuration Schema", transform)
         const json = configValidator.validate(this.path)
         const crs = new CrsRegistry(json.projections)
         const sources = createSources(json.sources, this.dir, crs)
@@ -382,11 +379,10 @@ async function createStyles(
             }
         ]
     ])
-    const dynamicStyleValidator = new JsonSchemaValidator<DynamicStyleJson>(
-        resolve(baseDir, DYNAMIC_STYLE_SCHEMA_FILE), "Dynamic Style Schema", {
-            transform: (document) => new ConfigDefinitionResolver('dynamic style').resolve(document, 'dynamic style')
-        }
-    )
+
+    const transform: ValidatorTransform = (document) => new DefsSolver('dynamic style').solve(document, 'dynamic style')
+    const fullpath = resolve(baseDir, DYNAMIC_STYLE_SCHEMA_FILE)
+    const dynamicStyleValidator = new JsonValidator<DynamicStyleJson>(fullpath, "Dynamic Style Schema", transform)
 
     for (const [name, entry] of Object.entries(styleEntries)) {
         styles.set(name, await createStyle(name, entry, baseDir, dynamicStyleValidator))
@@ -399,7 +395,7 @@ async function createStyle(
     name: string,
     entry: StyleJson,
     baseDir: string,
-    dynamicStyleValidator: JsonSchemaValidator<DynamicStyleJson>
+    dynamicStyleValidator: JsonValidator<DynamicStyleJson>
 ): Promise<NamedStyle> {
     switch (entry.type) {
         case 'builtin':

@@ -1,5 +1,5 @@
 {
-    "$schema": "../../dynamic-style.schema.json",
+    "$schema": "../../dynstyle.schema.json",
     "title": "World",
     "cacheKey": "world",
     "static": {
