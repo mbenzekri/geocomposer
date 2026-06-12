@@ -9,6 +9,8 @@
 
 ## Installation Ubuntu
 
+Pour travailler avec PostGIS voir ``db/README.md``
+
 ```bash
 sudo apt update
 sudo apt install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev

@@ -72,7 +72,6 @@ restore
 reset
 ```
 
-Si l'un de ces scripts est absent, il faut corriger `db/package.json` avant de continuer.
 
 ---
 
