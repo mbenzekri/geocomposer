@@ -394,10 +394,7 @@
           "$ref": "#/$defs/stringValue"
         },
         "img": {
-          "$ref": "#/$defs/stringValue"
-        },
-        "imgSize": {
-          "$ref": "#/$defs/numberPairValue"
+          "$ref": "#/$defs/iconImageValue"
         },
         "displacement": {
           "$ref": "#/$defs/numberPairValue"
@@ -431,6 +428,32 @@
         },
         "declutterMode": {
           "$ref": "#/$defs/declutterModeValue"
+        }
+      }
+    },
+    "iconImageValue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/stringValue"
+        },
+        {
+          "$ref": "#/$defs/iconImageDescriptor"
+        }
+      ]
+    },
+    "iconImageDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["src"],
+      "properties": {
+        "src": {
+          "$ref": "#/$defs/stringValue"
+        },
+        "width": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "height": {
+          "$ref": "#/$defs/numberValue"
         }
       }
     },

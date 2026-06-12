@@ -25,6 +25,7 @@ type IconOptions = ConstructorParameters<typeof Icon>[0]
 type RegularShapeOptions = ConstructorParameters<typeof RegularShape>[0]
 type CircleOptions = ConstructorParameters<typeof CircleStyle>[0]
 type TextOptions = ConstructorParameters<typeof Text>[0]
+type ImageSourceSize = { width?: number, height?: number }
 
 export type DynamicStyleJson = {
   $schema?: string
@@ -1202,7 +1203,7 @@ function createCanvasContext(): CanvasRenderingContext2D {
   return context
 }
 
-function createImageSource(source: unknown): CanvasImageSource | null {
+function createImageSource(source: unknown, size?: ImageSourceSize): CanvasImageSource | null {
   if (source == null) return null
   if (typeof source !== 'string') return source as CanvasImageSource
 
@@ -1212,7 +1213,9 @@ function createImageSource(source: unknown): CanvasImageSource | null {
   }
 
   const image = new ImageConstructor()
+  applyImageSourceSize(image, size)
   image.src = source.trimStart().startsWith('<svg') ? svgDataUrl(source) : source
+  applyImageSourceSize(image, size)
 
   return image as unknown as CanvasImageSource
 }
@@ -1223,37 +1226,46 @@ class DynamicIconOptionsNormalizer {
   normalize(options: JsonObject): void {
     const imageSource = options.img
 
-    if (typeof imageSource === 'string') {
-      if (options.imgSize !== undefined) {
-        const image = this.image(imageSource)
-        if (image) {
-          options.img = image
-          delete options.src
-        } else {
-          options.src = this.sourceUrl(imageSource)
-          delete options.img
-        }
-      } else {
-        options.src = this.sourceUrl(imageSource)
-        delete options.img
-      }
+    if (isIconImageDescriptor(imageSource)) {
+      this.normalizeImageDescriptor(options, imageSource)
+    } else if (typeof imageSource === 'string') {
+      options.src = this.sourceUrl(imageSource)
+      delete options.img
     } else if (typeof options.src === 'string') {
       options.src = this.sourceUrl(options.src)
     }
-
-    delete options.imgSize
   }
 
-  private image(source: string): CanvasImageSource | null {
+  private normalizeImageDescriptor(options: JsonObject, descriptor: JsonObject): void {
+    const source = descriptor.src
+    if (typeof source !== 'string') {
+      delete options.img
+      return
+    }
+
+    const size = imageSourceSize(descriptor)
+    const image = this.image(source, size)
+    if (image) {
+      options.img = image
+      delete options.src
+      return
+    }
+
+    options.src = this.sourceUrl(source)
+    delete options.img
+  }
+
+  private image(source: string, size?: ImageSourceSize): CanvasImageSource | null {
     const url = this.sourceUrl(source)
-    const cached = this.images.get(url)
+    const cacheKey = this.cacheKey(url, size)
+    const cached = this.images.get(cacheKey)
     if (cached) return cached
 
     try {
-      const image = createImageSource(source)
+      const image = createImageSource(source, size)
       if (!image) return null
 
-      this.images.set(url, image)
+      this.images.set(cacheKey, image)
       return image
     } catch {
       return null
@@ -1263,6 +1275,32 @@ class DynamicIconOptionsNormalizer {
   private sourceUrl(source: string): string {
     return source.trimStart().startsWith('<svg') ? svgDataUrl(source) : source
   }
+
+  private cacheKey(url: string, size?: ImageSourceSize): string {
+    return `${url}\u0000${size?.width ?? ''}\u0000${size?.height ?? ''}`
+  }
+}
+
+function isIconImageDescriptor(value: unknown): value is JsonObject {
+  if (!isPlainObject(value)) return false
+
+  const prototype = Object.getPrototypeOf(value)
+  return (prototype === Object.prototype || prototype === null) && 'src' in value
+}
+
+function imageSourceSize(descriptor: JsonObject): ImageSourceSize | undefined {
+  const width = typeof descriptor.width === 'number' ? descriptor.width : undefined
+  const height = typeof descriptor.height === 'number' ? descriptor.height : undefined
+
+  return width === undefined && height === undefined ? undefined : { width, height }
+}
+
+function applyImageSourceSize(image: unknown, size?: ImageSourceSize): void {
+  if (!size) return
+
+  const target = image as { width?: number, height?: number }
+  if (size.width !== undefined) target.width = size.width
+  if (size.height !== undefined) target.height = size.height
 }
 
 function svgDataUrl(svg: string): string {

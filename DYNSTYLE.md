@@ -636,7 +636,11 @@ Propriétés courantes : `points`, `radius`, `radius2`, `angle`, `fill`,
 ```json
 {
   "type": "Icon",
-  "src": "assets/marker.svg",
+  "img": {
+    "src": "assets/marker.svg",
+    "width": 32,
+    "height": 32
+  },
   "scale": 0.8,
   "anchor": [0.5, 1]
 }
@@ -646,8 +650,10 @@ Propriétés courantes : `src`, `img`, `scale`, `opacity`, `rotation`,
 `rotateWithView`, `anchor`, `anchorXUnits`, `anchorYUnits`, `offset`, `size`,
 `color`, `displacement`.
 
-Si `src` ou `img` est une chaîne SVG commençant par `<svg`, elle est convertie
-en URL `data:image/svg+xml`.
+`img` peut être une chaîne source ou un objet `{ "src", "width", "height" }`.
+Dans ce second cas, `width` et `height` décrivent la taille intrinsèque de
+l'image source. Si `src` ou `img.src` est une chaîne SVG commençant par `<svg`,
+elle est convertie en URL `data:image/svg+xml`.
 
 ## Couleurs avancées
 

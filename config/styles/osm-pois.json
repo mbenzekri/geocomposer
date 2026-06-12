@@ -114,11 +114,11 @@
             "when": "=> !(D.isIgnored || D.isAdmin) && USCALE <= 3000",
             "image": {
                 "type": "Icon",
-                "img": "=>  C[D.fclass] ?? C.unknown",
-                "imgSize": [
-                    100,
-                    100
-                ],
+                "img": {
+                    "src": "=>  C[D.fclass] ?? C.unknown",
+                    "width": 100,
+                    "height": 100
+                },
                 "scale": "=> 1000 / SCALE * 0.25 "
             },
             "text": "=> USCALE <= 1000 ? D.text : null"
@@ -127,11 +127,11 @@
             "when": "=> D.isAdmin && LSCALE < 50000",
             "image": {
                 "type": "Icon",
-                "img": "=> C.unknown",
-                "imgSize": [
-                    100,
-                    100
-                ],
+                "img": {
+                    "src": "=> C.unknown",
+                    "width": 100,
+                    "height": 100
+                },
                 "scale": 0.25
             },
             "text": "=> LSCALE == 0 ? D.text : null"
