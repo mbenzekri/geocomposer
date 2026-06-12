@@ -1,12 +1,14 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { resolve } from 'node:path'
 import { escape, nonNegativeInteger, paramsFromUrl, Props } from '../core/tools.js'
 import { MarkupTemplate } from '../core/template.js'
 import { getMap } from '../ogc/get-map.js'
 import type { TileMatrixSet } from '../tileset/tile-matrix-set.js'
-import type { TileOutput, Tileset } from '../tileset/tileset.js'
+import { Tileset, type TileOutput } from '../tileset/tileset.js'
 import { getVectorTile } from '../tileset/vector-tile.js'
 import { Service } from './service.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
+import type { WmtsJson } from '../config/config.js'
 
 const WMTS_VERSION = '1.0.0'
 
@@ -116,6 +118,17 @@ export class Wmts extends Service {
 
         this.tilesetByName = new Map(opts.tilesets.map((tileset) => [tileset.name, tileset]))
         validateWmtsTilesets(opts.tilesets)
+    }
+
+    static fromConfig(entry: WmtsJson, tilesets: Tileset[], baseDir: string): Wmts {
+        return new Wmts({
+            title: entry.title,
+            abstract: entry.abstract,
+            path: entry.path,
+            onlineResource: entry.onlineResource,
+            cache: entry.cache ? resolve(baseDir, entry.cache) : undefined,
+            tilesets: Tileset.select(entry.tilesets, tilesets, 'WMTS')
+        })
     }
 
     get tilesets(): Tileset[] {

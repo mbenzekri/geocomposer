@@ -3,11 +3,12 @@ import Cursor from 'pg-cursor'
 import type { BBox, CrsCode, Geometry } from '../core/geometry.js'
 import type { DbRef, Feature, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
-import { DbSource, toStream, type FeatureTransform, type QueryOptions } from './source.js'
-import type { StreamOptions } from './source.js'
+import { DbSource, hasSourceConfigType, toStream, type FeatureTransform, type QueryOptions, type SourceConfigCrsResolver } from './source-base.js'
+import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard } from './source-utils.js'
 import { Props } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
+import type { PostgisSourceJson } from '../config/config.js'
 
 export type PostgisExtentStrategy = 'estimated' | 'exact' | 'none'
 
@@ -72,6 +73,29 @@ export class PostgisSource extends DbSource {
   private readonly reader: PostgisReader
   private opened = false
   private opening: Promise<void> | null = null
+
+  static acceptsConfig(entry: unknown): entry is PostgisSourceJson {
+    return hasSourceConfigType(entry, 'postgis')
+  }
+
+  static fromConfig(
+    id: string,
+    entry: PostgisSourceJson,
+    crs: SourceConfigCrsResolver
+  ): PostgisSource {
+    return new PostgisSource(id, {
+      crs: crs.resolve(entry.crs),
+      connection: entry.connection,
+      schema: entry.schema,
+      tableName: entry.tableName,
+      geometryColumn: entry.geometryColumn,
+      primaryKey: entry.primaryKey,
+      srid: entry.srid,
+      properties: entry.properties,
+      batchSize: entry.batchSize,
+      extentStrategy: entry.extentStrategy
+    })
+  }
 
   constructor(
     readonly id: string,

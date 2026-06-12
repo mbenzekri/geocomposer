@@ -1,19 +1,14 @@
 import { dirname, resolve } from 'node:path'
-import { Gt } from '../core/geotools.js'
 import { Dict, Registry, Singleton } from '../core/tools.js'
 import { BBox, CrsCode } from '../core/geometry.js'
 
 import { Service } from '../service/service.js'
-import { Xyz, type XyzOptions } from '../service/xyz.js'
-import { Wmts, type WmtsOptions } from '../service/wmts.js'
-import { Wms, type WmsOptions } from '../service/wms.js'
-import { GeoJsonSource } from '../source/geojson-source.js'
-import { type Source } from '../source/source.js'
-import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
-import { GpkgSource } from '../source/gpkg-source.js'
-import { MemSource } from '../source/mem-source.js'
-import { PostgisSource, type PostgisConnectionOptions, type PostgisExtentStrategy } from '../source/postgis-source.js'
-import { ShpSource } from '../source/shp-source.js'
+import { Xyz } from '../service/xyz.js'
+import { Wmts } from '../service/wmts.js'
+import { Wms } from '../service/wms.js'
+import { Source } from '../source/source.js'
+import { type GmlAxisOrder } from '../source/gml-source.js'
+import type { PostgisConnectionOptions, PostgisExtentStrategy } from '../source/postgis-source.js'
 
 import { Layer, type NamedStyle } from '../layer/layer.js'
 
@@ -249,15 +244,13 @@ export class Config extends Singleton {
         const configValidator = new ConfigValidator(fullpath, "Configuration Schema")
         const json = configValidator.validate(this.path)
         const crs = new CrsRegistry(json.projections)
-        const sources = createSources(json.sources, this.dir, crs)
+        const sources = Source.createAll(json.sources, this.dir, crs)
         const styles = await createStyles(json.styles ?? {}, this.dir)
-        const layers = createLayers(json.layers, sources, styles, crs)
-        const tilesets = createTilesets(json.tilesets ?? {}, layers)
-        const xyz = json.services.xyz ? createXyzOptions(json.services.xyz, tilesets, this.dir) : undefined
-        const wmts = json.services.wmts ? createWmtsOptions(json.services.wmts, tilesets, this.dir) : undefined
-        const wmsLayers = selectLayers(json.services.wms.layers, layers, 'WMS')
-        const wmsCrs = crs.codes()
-        const wms = createWmsOptions(json.services.wms, wmsCrs, wmsLayers)
+        const layers = Layer.createAll(json.layers, sources, styles, crs)
+        const tilesets = Tileset.createAll(json.tilesets ?? {}, layers)
+        const wms = Wms.fromConfig(json.services.wms, crs.codes(), layers)
+        const xyz = json.services.xyz ? Xyz.fromConfig(json.services.xyz, tilesets, this.dir) : undefined
+        const wmts = json.services.wmts ? Wmts.fromConfig(json.services.wmts, tilesets, this.dir) : undefined
 
         this._port ??= json.server?.port ?? 3000
         console.log(`[CONFIG]: Server port set to ${this._port}`)
@@ -267,9 +260,9 @@ export class Config extends Singleton {
         console.log(`[CONFIG]: LogLevel set to ${logLevelName} = ${logLevel}`)
         console.setLevel(logLevel)
 
-        wms && this.serviceReg.set('wms', new Wms(wms))
-        xyz && this.serviceReg.set('xyz', new Xyz(xyz))
-        wmts && this.serviceReg.set('wmts', new Wmts(wmts))
+        this.serviceReg.set('wms', wms)
+        xyz && this.serviceReg.set('xyz', xyz)
+        wmts && this.serviceReg.set('wmts', wmts)
         this.loaded = true
 
         console.log(`[CONFIG]: ${this.path} loaded`)
@@ -278,109 +271,6 @@ export class Config extends Singleton {
     }
 }
 
-
-function createSources(
-    sourceEntries: Dict<SourceJson>,
-    baseDir: string,
-    crs: CrsRegistry
-): Map<string, Source> {
-    const sourceEntriesByName = new Map(Object.entries(sourceEntries))
-    const sources = new Map<string, Source>()
-    const creating = new Set<string>()
-
-    const resolveSource = (name: string): Source => {
-        const existing = sources.get(name)
-        if (existing) return existing
-
-        const entry = sourceEntriesByName.get(name)
-        if (!entry) {
-            throw new Error(`Unknown source "${name}"`)
-        }
-
-        if (creating.has(name)) {
-            throw new Error(`Circular source reference involving "${name}"`)
-        }
-
-        creating.add(name)
-        try {
-            const source = createSource(name, entry, baseDir, crs, resolveSource)
-            sources.set(name, source)
-            return source
-        } finally {
-            creating.delete(name)
-        }
-    }
-
-    for (const name of sourceEntriesByName.keys()) {
-        resolveSource(name)
-    }
-
-    return sources
-}
-
-function createSource(
-    name: string,
-    entry: SourceJson,
-    baseDir: string,
-    crs: CrsRegistry,
-    resolveSource: (name: string) => Source
-): Source {
-    switch (entry.type) {
-        case 'geojson':
-            return new GeoJsonSource(name, resolve(baseDir, entry.path), {
-                crs: crs.resolve(entry.crs),
-                encoding: entry.encoding,
-                highWaterMark: entry.highWaterMark
-            })
-
-        case 'gml':
-            return new GmlSource(name, resolve(baseDir, entry.path), {
-                crs: crs.resolve(entry.crs),
-                encoding: entry.encoding,
-                highWaterMark: entry.highWaterMark,
-                featureElementNames: entry.featureElementNames,
-                geometryPropertyNames: entry.geometryPropertyNames,
-                axisOrder: entry.axisOrder
-            })
-
-        case 'shp':
-            return new ShpSource(
-                name,
-                resolve(baseDir, entry.shpPath),
-                resolve(baseDir, entry.dbfPath),
-                {
-                    crs: crs.resolve(entry.crs),
-                    dbfEncoding: entry.dbfEncoding,
-                    highWaterMark: entry.highWaterMark
-                }
-            )
-
-        case 'gpkg':
-            return new GpkgSource(name, resolve(baseDir, entry.path), {
-                crs: crs.resolve(entry.crs),
-                tableName: entry.tableName,
-                geometryColumn: entry.geometryColumn,
-                primaryKey: entry.primaryKey
-            })
-
-        case 'postgis':
-            return new PostgisSource(name, {
-                crs: crs.resolve(entry.crs),
-                connection: entry.connection,
-                schema: entry.schema,
-                tableName: entry.tableName,
-                geometryColumn: entry.geometryColumn,
-                primaryKey: entry.primaryKey,
-                srid: entry.srid,
-                properties: entry.properties,
-                batchSize: entry.batchSize,
-                extentStrategy: entry.extentStrategy
-            })
-
-        case 'mem':
-            return new MemSource(name, resolveSource(entry.source))
-    }
-}
 
 async function createStyles(
     styleEntries: Dict<StyleJson>,
@@ -449,220 +339,12 @@ async function createStyle(
     }
 }
 
-function createLayers(
-    layerEntries: Dict<LayerJson>,
-    sources: Map<string, Source>,
-    styles: Map<string, NamedStyle>,
-    crsReg: CrsRegistry
-): Layer[] {
-    return Object.entries(layerEntries).map(([name, entry]) => {
-        const source = sources.get(entry.source)
-        if (!source) {
-            throw new Error(`Unknown source "${entry.source}" in layer "${name}"`)
-        }
-
-        const defaultStyleId = entry.style ?? entry.styles?.[0] ?? 'default'
-        const styleIds = unique([defaultStyleId, ...(entry.styles ?? [])])
-
-        const layerStyles = styleIds.map((styleId) => {
-            const style = styles.get(styleId)
-            if (!style) {
-                throw new Error(`Unknown style "${styleId}" in layer "${name}"`)
-            }
-
-            return style
-        })
-        const sourceCrs = normalizeSourceCrs(entry.sourceCrs, source, name, crsReg)
-        const pointProperties = []
-        for (let pp of entry.pointProperties ?? []) {
-            if (pp.x === pp.y) {
-                throw new Error(`Layer "${name}" pointProperties must use different x and y properties`)
-            }
-
-            const crs = normalizeSourceCrs(pp.crs, source, name, crsReg)
-            pointProperties.push({ x: pp.x, y: pp.y, crs })
-        }
-        return new Layer(name, {
-            title: entry.title,
-            summary: entry.abstract,
-            source,
-            sourceCrs,
-            extent: Gt.normalize(entry.extent, name),
-            styles: layerStyles,
-            pointProperties
-        })
-    })
-}
-
-
-function createWmsOptions(wms: WmsJson, crs: string[], layers: Layer[]): WmsOptions {
-    return {
-        title: wms.title,
-        abstract: wms.abstract,
-        path: wms.path ?? '/wms',
-        maxWidth: wms.maxWidth ?? 4096,
-        maxHeight: wms.maxHeight ?? 4096,
-        onlineResource: wms.onlineResource,
-        crs,
-        layers
-    }
-}
-
-
-function createXyzOptions(xyz: XyzJson, tilesets: Tileset[], baseDir: string): XyzOptions {
-    return {
-        path: xyz.path,
-        maxScaleFactor: xyz.maxScaleFactor,
-        cache: xyz.cache ? resolve(baseDir, xyz.cache) : undefined,
-        tilesets: selectTilesets(xyz.tilesets, tilesets, 'XYZ')
-    }
-}
-
-function createWmtsOptions(wmts: WmtsJson, tilesets: Tileset[], baseDir: string): WmtsOptions {
-    return {
-        path: wmts.path,
-        title: wmts.title,
-        abstract: wmts.abstract,
-        onlineResource: wmts.onlineResource,
-        cache: wmts.cache ? resolve(baseDir, wmts.cache) : undefined,
-        tilesets: selectTilesets(wmts.tilesets, tilesets, 'WMTS')
-    }
-}
-
-function createTilesets(tilesetEntries: Dict<TilesetJson>, layers: Layer[]): Tileset[] {
-    const layersByName = new Map(layers.map((layer) => [layer.name, layer]))
-    return Object.entries(tilesetEntries).map(([name, entry]) => createTileset(name, entry, layersByName))
-}
-
-function createTileset(
-    name: string,
-    entry: TilesetJson,
-    layersByName: Map<string, Layer>
-): Tileset {
-    const layerRefs = normalizeTilesetLayers(name, entry)
-    if (layerRefs.length === 0) {
-        throw new Error(`Tileset "${name}" must reference at least one configured layer`)
-    }
-
-    return new Tileset({
-        name,
-        title: entry.title,
-        summary: entry.abstract,
-        tileMatrixSet: entry.tileMatrixSet,
-        formats: entry.formats,
-        tileSize: entry.tileSize,
-        minZoom: entry.minZoom,
-        maxZoom: entry.maxZoom,
-        cacheControl: entry.cacheControl,
-        vector: entry.vector,
-        layers: layerRefs.map((ref) => {
-            const layer = layersByName.get(ref.layer)
-            if (!layer) {
-                throw new Error(`Unknown layer "${ref.layer}" in tileset "${name}"`)
-            }
-
-            validateTilesetNamedStyle(layer, ref.style, name)
-
-            return layer
-        }),
-        styles: layerRefs.map((ref) => {
-            const layer = layersByName.get(ref.layer)
-            if (!layer) {
-                throw new Error(`Unknown layer "${ref.layer}" in tileset "${name}"`)
-            }
-
-            validateTilesetNamedStyle(layer, ref.style, name)
-
-            return ref.style
-        })
-    })
-}
-
-function normalizeTilesetLayers(name: string, entry: TilesetJson): TilesetLayerJson[] {
-    if (!entry.layers || entry.layers.length === 0) {
-        throw new Error(`Tileset "${name}" must define at least one entry in "layers"`)
-    }
-
-    return entry.layers.map((ref) => ({
-        layer: ref.layer,
-        style: ref.style
-    }))
-}
-
-function validateTilesetNamedStyle(layer: Layer, styleName: string | undefined, tilesetName: string): void {
-    try {
-        layer.resolveStyle(styleName)
-    } catch (error) {
-        if (!styleName) throw error
-        throw new Error(`Unknown style "${styleName}" for layer "${layer.name}" in tileset "${tilesetName}"`)
-    }
-}
-
-function selectTilesets(tilesetNames: string[] | undefined, tilesets: Tileset[], serviceName: string): Tileset[] {
-    if (!tilesetNames) {
-        if (tilesets.length === 0) {
-            throw new Error(`${serviceName} service requires at least one configured tileset`)
-        }
-
-        return tilesets
-    }
-
-    const tilesetsByName = new Map(tilesets.map((tileset) => [tileset.name, tileset]))
-    const selected = tilesetNames.map((name) => {
-        const tileset = tilesetsByName.get(name)
-        if (!tileset) {
-            throw new Error(`Unknown tileset "${name}" in ${serviceName} service`)
-        }
-
-        return tileset
-    })
-
-    if (selected.length === 0) {
-        throw new Error(`${serviceName} service requires at least one tileset`)
-    }
-
-    return selected
-}
-
-function selectLayers(layerNames: string[] | undefined, layers: Layer[], serviceName: string): Layer[] {
-    if (!layerNames) return layers
-
-    const layersByName = new Map(layers.map((layer) => [layer.name, layer]))
-    return layerNames.map((name) => {
-        const layer = layersByName.get(name)
-        if (!layer) {
-            throw new Error(`Unknown layer "${name}" in ${serviceName} service`)
-        }
-
-        return layer
-    })
-}
-
-function normalizeSourceCrs(
-    sourceCrs: string | undefined,
-    source: Source,
-    layerName: string,
-    crs: CrsRegistry
-): CrsCode {
-    const resolved = crs.resolve(sourceCrs) ?? source.crs
-
-    if (resolved !== source.crs) {
-        throw new Error(`Layer "${layerName}" sourceCrs "${resolved}" does not match source "${source.id}" CRS "${source.crs}"`)
-    }
-
-    return resolved
-}
-
 function titleFromId(id: string): string {
     return id
         .split(/[-_]/)
         .filter(Boolean)
         .map((part) => part[0]?.toUpperCase() + part.slice(1))
         .join(' ') || id
-}
-
-function unique<T>(items: T[]): T[] {
-    return [...new Set(items)]
 }
 
 class CrsRegistry {

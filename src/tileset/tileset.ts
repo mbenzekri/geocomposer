@@ -1,6 +1,8 @@
 import type { CrsCode, BBox } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { StyleFn } from '../style/style-fn.js'
+import type { Dict } from '../core/tools.js'
+import type { TilesetJson, TilesetLayerJson } from '../config/config.js'
 import { getTileMatrixSet, type TileMatrixSet } from './tile-matrix-set.js'
 
 export const RASTER_TILE_FORMAT = 'image/png'
@@ -95,6 +97,79 @@ export class Tileset {
     this.layers = options.layers
     this.styles = options.styles.map((stylename,index) => this.layers[index].resolveStyle(stylename))
     this.validate()
+  }
+
+  static createAll(tilesetEntries: Dict<TilesetJson>, layers: Layer[]): Tileset[] {
+    const layersByName = new Map(layers.map((layer) => [layer.name, layer]))
+    return Object.entries(tilesetEntries).map(([name, entry]) => Tileset.create(name, entry, layersByName))
+  }
+
+  static create(
+    name: string,
+    entry: TilesetJson,
+    layersByName: Map<string, Layer>
+  ): Tileset {
+    const layerRefs = normalizeTilesetLayers(name, entry)
+    if (layerRefs.length === 0) {
+      throw new Error(`Tileset "${name}" must reference at least one configured layer`)
+    }
+
+    return new Tileset({
+      name,
+      title: entry.title,
+      summary: entry.abstract,
+      tileMatrixSet: entry.tileMatrixSet,
+      formats: entry.formats,
+      tileSize: entry.tileSize,
+      minZoom: entry.minZoom,
+      maxZoom: entry.maxZoom,
+      cacheControl: entry.cacheControl,
+      vector: entry.vector,
+      layers: layerRefs.map((ref) => {
+        const layer = layersByName.get(ref.layer)
+        if (!layer) {
+          throw new Error(`Unknown layer "${ref.layer}" in tileset "${name}"`)
+        }
+
+        validateTilesetNamedStyle(layer, ref.style, name)
+        return layer
+      }),
+      styles: layerRefs.map((ref) => {
+        const layer = layersByName.get(ref.layer)
+        if (!layer) {
+          throw new Error(`Unknown layer "${ref.layer}" in tileset "${name}"`)
+        }
+
+        validateTilesetNamedStyle(layer, ref.style, name)
+        return ref.style
+      })
+    })
+  }
+
+  static select(names: string[] | undefined, tilesets: Tileset[], serviceName: string): Tileset[] {
+    if (!names) {
+      if (tilesets.length === 0) {
+        throw new Error(`${serviceName} service requires at least one configured tileset`)
+      }
+
+      return tilesets
+    }
+
+    const tilesetsByName = new Map(tilesets.map((tileset) => [tileset.name, tileset]))
+    const selected = names.map((name) => {
+      const tileset = tilesetsByName.get(name)
+      if (!tileset) {
+        throw new Error(`Unknown tileset "${name}" in ${serviceName} service`)
+      }
+
+      return tileset
+    })
+
+    if (selected.length === 0) {
+      throw new Error(`${serviceName} service requires at least one tileset`)
+    }
+
+    return selected
   }
 
   get crs(): CrsCode {
@@ -253,5 +328,25 @@ function normalizeVectorOptions(options: VectorTileOptions | undefined): Require
     },
     geojsonPrecision: options?.geojsonPrecision ?? DEFAULT_GEOJSON_PRECISION,
     maxFeatures: options?.maxFeatures
+  }
+}
+
+function normalizeTilesetLayers(name: string, entry: TilesetJson): TilesetLayerJson[] {
+  if (!entry.layers || entry.layers.length === 0) {
+    throw new Error(`Tileset "${name}" must define at least one entry in "layers"`)
+  }
+
+  return entry.layers.map((ref) => ({
+    layer: ref.layer,
+    style: ref.style
+  }))
+}
+
+function validateTilesetNamedStyle(layer: Layer, styleName: string | undefined, tilesetName: string): void {
+  try {
+    layer.resolveStyle(styleName)
+  } catch (error) {
+    if (!styleName) throw error
+    throw new Error(`Unknown style "${styleName}" for layer "${layer.name}" in tileset "${tilesetName}"`)
   }
 }

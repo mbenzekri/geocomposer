@@ -14,6 +14,7 @@ import { Service } from './service.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { Gt } from '../core/geotools.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
+import type { WmsJson } from '../config/config.js'
 
 const WMS_VERSION = '1.3.0'
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
@@ -45,6 +46,19 @@ export class Wms extends Service {
             ? options.crs
             : options.layers.map((layer) => layer.sourceCrs)
         )
+    }
+
+    static fromConfig(entry: WmsJson, crs: string[], layers: Layer[]): Wms {
+        return new Wms({
+            title: entry.title,
+            abstract: entry.abstract,
+            path: entry.path,
+            maxWidth: entry.maxWidth,
+            maxHeight: entry.maxHeight,
+            onlineResource: entry.onlineResource,
+            crs,
+            layers: selectLayers(entry.layers, layers, 'WMS')
+        })
     }
 
     async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -589,6 +603,19 @@ function isGetMapRequest(urlText: string | undefined): boolean {
     }
 }
 
+function selectLayers(layerNames: string[] | undefined, layers: Layer[], serviceName: string): Layer[] {
+    if (!layerNames) return layers
+
+    const layersByName = new Map(layers.map((layer) => [layer.name, layer]))
+    return layerNames.map((name) => {
+        const layer = layersByName.get(name)
+        if (!layer) {
+            throw new Error(`Unknown layer "${name}" in ${serviceName} service`)
+        }
+
+        return layer
+    })
+}
 
 function sendWmsError(res: ServerResponse, code: string, message: string): void {
     const body = [

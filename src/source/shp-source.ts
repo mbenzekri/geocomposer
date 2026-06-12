@@ -1,12 +1,14 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open, readFile, type FileHandle } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import type { Feature, ByteRange, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position, CrsCode} from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
-import { FileSource, type FeatureTransform } from './source.js'
-import type { StreamOptions } from './source.js'
+import { FileSource, hasSourceConfigType, type FeatureTransform, type SourceConfigCrsResolver } from './source-base.js'
+import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 import { Props } from '../core/tools.js'
+import type { ShpSourceJson } from '../config/config.js'
 
 export type ShpSourceOptions = {
   crs?: CrsCode
@@ -41,6 +43,28 @@ export class ShpSource extends FileSource {
   readonly crs: CrsCode
 
   private readonly reader: ShpReader
+
+  static acceptsConfig(entry: unknown): entry is ShpSourceJson {
+    return hasSourceConfigType(entry, 'shp')
+  }
+
+  static fromConfig(
+    id: string,
+    entry: ShpSourceJson,
+    baseDir: string,
+    crs: SourceConfigCrsResolver
+  ): ShpSource {
+    return new ShpSource(
+      id,
+      resolve(baseDir, entry.shpPath),
+      resolve(baseDir, entry.dbfPath),
+      {
+        crs: crs.resolve(entry.crs),
+        dbfEncoding: entry.dbfEncoding,
+        highWaterMark: entry.highWaterMark
+      }
+    )
+  }
 
   constructor(
     readonly id: string,

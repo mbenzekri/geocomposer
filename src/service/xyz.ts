@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { resolve } from 'node:path'
 import type { BBox } from '../core/geometry.js'
 import { getMap } from '../ogc/get-map.js'
 import { type TileOutput, Tileset, tileFormatFromExtension } from '../tileset/tileset.js'
@@ -6,6 +7,7 @@ import { getVectorTile } from '../tileset/vector-tile.js'
 import { Service } from './service.js'
 import { nonNegativeInteger } from '../core/tools.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
+import type { XyzJson } from '../config/config.js'
 
 const DEFAULT_MAX_SCALE_FACTOR = 4
 
@@ -40,6 +42,18 @@ export class Xyz extends Service {
 
         this.tilesets = options.tilesets
         this.tilesetByName = new Map(this.tilesets.map((tileset) => [tileset.name, tileset]))
+    }
+
+    static fromConfig(entry: XyzJson, tilesets: Tileset[], baseDir: string): Xyz {
+        return new Xyz({
+            title: entry.title,
+            abstract: entry.abstract,
+            path: entry.path,
+            onlineResource: entry.onlineResource,
+            maxScaleFactor: entry.maxScaleFactor,
+            cache: entry.cache ? resolve(baseDir, entry.cache) : undefined,
+            tilesets: Tileset.select(entry.tilesets, tilesets, 'XYZ')
+        })
     }
 
     matches(pathname: string): boolean {
@@ -256,4 +270,3 @@ async function renderTile(request: TileRequest): Promise<Buffer> {
         vector: request.tileset.vector
     })
 }
-

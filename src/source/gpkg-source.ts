@@ -1,13 +1,15 @@
 import { constants, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import type { DbRef, Feature, SourceRef} from '../core/feature.js'
 import type { Geometry, BBox, CrsCode} from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
-import { DbSource, type FeatureTransform } from './source.js'
-import type { StreamOptions } from './source.js'
+import { DbSource, hasSourceConfigType, type FeatureTransform, type SourceConfigCrsResolver } from './source-base.js'
+import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard } from './source-utils.js'
 import { Props } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
+import type { GpkgSourceJson } from '../config/config.js'
 
 export type GpkgSourceOptions = {
   crs?: CrsCode
@@ -45,6 +47,24 @@ export class GpkgSource extends DbSource {
   private readonly reader: GpkgReader
   private opened = false
   private opening: Promise<void> | null = null
+
+  static acceptsConfig(entry: unknown): entry is GpkgSourceJson {
+    return hasSourceConfigType(entry, 'gpkg')
+  }
+
+  static fromConfig(
+    id: string,
+    entry: GpkgSourceJson,
+    baseDir: string,
+    crs: SourceConfigCrsResolver
+  ): GpkgSource {
+    return new GpkgSource(id, resolve(baseDir, entry.path), {
+      crs: crs.resolve(entry.crs),
+      tableName: entry.tableName,
+      geometryColumn: entry.geometryColumn,
+      primaryKey: entry.primaryKey
+    })
+  }
 
   constructor(
     readonly id: string,
