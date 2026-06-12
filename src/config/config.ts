@@ -1,30 +1,50 @@
 import { dirname, resolve } from 'node:path'
-import { Layer, type NamedStyle } from '../layer/layer.js'
+import { Gt } from '../core/geotools.js'
+import { Dict, Registry, Singleton } from '../core/tools.js'
+import { BBox, CrsCode } from '../core/geometry.js'
+
 import { Service } from '../service/service.js'
+import { Xyz, type XyzOptions } from '../service/xyz.js'
+import { Wmts, type WmtsOptions } from '../service/wmts.js'
+import { Wms, type WmsOptions } from '../service/wms.js'
 import { GeoJsonSource } from '../source/geojson-source.js'
+import { type Source } from '../source/source.js'
 import { GmlSource, type GmlAxisOrder } from '../source/gml-source.js'
 import { GpkgSource } from '../source/gpkg-source.js'
 import { MemSource } from '../source/mem-source.js'
 import { PostgisSource, type PostgisConnectionOptions, type PostgisExtentStrategy } from '../source/postgis-source.js'
 import { ShpSource } from '../source/shp-source.js'
-import type { Source } from '../source/source.js'
+
+import { Layer, type NamedStyle } from '../layer/layer.js'
+
 import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-style.js'
 import { defaultStyleFn } from '../style/default-style.js'
-import type { StyleFn } from '../style/style-fn.js'
-import { Xyz, type XyzOptions } from '../service/xyz.js'
-import { Wmts, type WmtsOptions } from '../service/wmts.js'
-import { Wms, WmsOptions } from '../service/wms.js'
+import { type StyleFn } from '../style/style-fn.js'
+
 import { Tileset } from '../tileset/tileset.js'
 import type { VectorTileOptions } from '../tileset/tileset.js'
-import { Gt } from '../core/geotools.js'
-import { Dict, Registry, Singleton } from '../core/tools.js'
-import { BBox, CrsCode } from '../core/geometry.js'
-import { ValidatorTransform, JsonValidator } from './json-validator.js'
+import { JsonValidator } from '../core/json-validator.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
+
 import { EnvSolver } from './env-solver.js'
 import { DefsSolver } from './defs-solver.js'
 import { LogLevel} from "../core/log-level.js"
 
+
+class ConfigValidator extends JsonValidator<GeoComposerJson> {
+    protected transform(document: unknown): unknown {
+            const envSolved = new EnvSolver().solve(document)
+            const defsAndEnvSolved =  new DefsSolver().solve(envSolved)
+            return defsAndEnvSolved
+    }
+}
+
+class StyleValidator extends JsonValidator<DynamicStyleJson> {
+    protected transform(document: unknown): unknown {
+            const envSolved = new DefsSolver('dynamic style').solve(document, 'dynamic style')
+            return envSolved
+    }
+}
 
 export type ProjectionJson = {
     title: string
@@ -225,11 +245,8 @@ export class Config extends Singleton {
         if (this.loaded) return this
         console.log(`[CONFIG]: ${this.path} loading`)
 
-        const transform: ValidatorTransform  = (document) => {
-            const withEnv = new EnvSolver().solve(document, this.path)
-            return new DefsSolver().solve(withEnv, this.path)
-        }
-        const configValidator = new JsonValidator<GeoComposerJson>(resolve(this.dir, CONFIG_SCHEMA_FILE), "Configuration Schema", transform)
+        const fullpath = resolve(this.dir, CONFIG_SCHEMA_FILE) 
+        const configValidator = new ConfigValidator(fullpath, "Configuration Schema")
         const json = configValidator.validate(this.path)
         const crs = new CrsRegistry(json.projections)
         const sources = createSources(json.sources, this.dir, crs)
@@ -380,12 +397,11 @@ async function createStyles(
         ]
     ])
 
-    const transform: ValidatorTransform = (document) => new DefsSolver('dynamic style').solve(document, 'dynamic style')
     const fullpath = resolve(baseDir, DYNAMIC_STYLE_SCHEMA_FILE)
-    const dynamicStyleValidator = new JsonValidator<DynamicStyleJson>(fullpath, "Dynamic Style Schema", transform)
+    const styleValidator = new StyleValidator(fullpath, "Dynamic Style Schema")
 
     for (const [name, entry] of Object.entries(styleEntries)) {
-        styles.set(name, await createStyle(name, entry, baseDir, dynamicStyleValidator))
+        styles.set(name, await createStyle(name, entry, baseDir, styleValidator))
     }
 
     return styles
