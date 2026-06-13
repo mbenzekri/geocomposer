@@ -30,11 +30,11 @@ export abstract class Service {
 
     }
 
-    static createAll(
+    static build(
         services: unknown,
         baseDir: string,
     ): Registry<Service> {
-        throw new Error('Service.createAll is not initialized')
+        throw new Error('Service.build is not initialized')
     }
 
     async clearCache() {

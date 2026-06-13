@@ -40,7 +40,7 @@ export type StyleJson = BuiltinStyleJson | DynamicStyleFileJson
 export class Style {
   static readonly registry = new Registry<NamedStyle>('STYLE')
 
-  static async createAll(styleEntries: Dict<StyleJson>, baseDir: string): Promise<Registry<NamedStyle>> {
+  static async build(styleEntries: Dict<StyleJson>, baseDir: string): Promise<Registry<NamedStyle>> {
 
     Style.registry.set('default',{ name: 'default',title: 'Default',style: defaultStyleFn })
     const fullpath = resolve(baseDir, DYNAMIC_STYLE_SCHEMA_FILE)

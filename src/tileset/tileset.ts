@@ -117,7 +117,7 @@ export class Tileset {
         this.validate()
     }
 
-    static createAll(tilesetEntries: Dict<TilesetJson>): Registry<Tileset> {
+    static build(tilesetEntries: Dict<TilesetJson>): Registry<Tileset> {
         for (const [name, entry] of Object.entries(tilesetEntries)) {
             const tileset = Tileset.create(name, entry)
             Tileset.registry.set(name, tileset)

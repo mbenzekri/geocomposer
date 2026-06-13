@@ -41,7 +41,7 @@ export type SourceJson =
     | PostgisSourceJson
     | MemSourceJson
 
-Source.createAll = function createAll(
+Source.build = function createAll(
     sourceEntries: Record<string, unknown>,
     baseDir: string
 ): Registry<Source> {

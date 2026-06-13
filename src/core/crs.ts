@@ -35,7 +35,7 @@ export class Crs {
         this.proj = options.proj ?? new proj4.Proj(this.code)
     }
 
-    static createAll(entries: Dict<CrsJson>): Registry<Crs> {
+    static build(entries: Dict<CrsJson>): Registry<Crs> {
         for (const [code, entry] of Object.entries(entries)) {
             const crs = Crs.fromConfig(code, entry)
             Crs.registry.set(crs.code, crs)

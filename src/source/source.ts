@@ -36,11 +36,11 @@ export abstract class Source {
   abstract readonly storage: SourceStorage
   abstract readonly crs: CrsCode
 
-  static createAll(
+  static build(
     _sourceEntries: Record<string, unknown>,
     _baseDir: string,
   ): Registry<Source>{
-    throw new Error('Source.createAll is not initialized')
+    throw new Error('Source.build is not initialized')
   }
 
   static create(

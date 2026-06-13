@@ -89,12 +89,12 @@ export class Config extends Singleton {
         console.log(`[CONFIG]: Server port set to ${this._port}`)
 
         // creating all app objects in their registries
-        Crs.createAll(json.projections ?? {})
-        Source.createAll(json.sources, this.dir)
-        await Style.createAll(json.styles ?? {}, this.dir)
-        Layer.createAll(json.layers)
-        Tileset.createAll(json.tilesets ?? {})
-        Service.createAll(json.services, this.dir)
+        Crs.build(json.projections ?? {})
+        Source.build(json.sources, this.dir)
+        await Style.build(json.styles ?? {}, this.dir)
+        Layer.build(json.layers)
+        Tileset.build(json.tilesets ?? {})
+        Service.build(json.services, this.dir)
 
         this.loaded = true
         console.log(`[CONFIG]: ${this.path} loaded`)

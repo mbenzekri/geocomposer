@@ -12,7 +12,7 @@ export type ServicesJson = {
     wmts?: WmtsJson
 }
 
-Service.createAll = function createAll(services: ServicesJson,baseDir: string): Registry<Service> {
+Service.build = function build(services: ServicesJson,baseDir: string): Registry<Service> {
 
     const wms = Wms.fromConfig(services.wms)
     Service.registry.set('wms', wms)

@@ -70,7 +70,7 @@ export class Layer {
         this.pointProperties = options.pointProperties
     }
 
-    static createAll(layerEntries: Dict<LayerJson>): Registry<Layer> {
+    static build(layerEntries: Dict<LayerJson>): Registry<Layer> {
         for (const [name, entry] of Object.entries(layerEntries)) {
             const layer = Layer.create(name, entry)
             Layer.registry.set(layer.name, layer)
