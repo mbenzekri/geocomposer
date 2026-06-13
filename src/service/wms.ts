@@ -4,12 +4,13 @@ import type { BBox, CrsCode } from '../core/geometry.js'
 import { MarkupTemplate } from '../core/template.js'
 import { getInfo, INFO_FORMATS, type GetInfoOptions } from '../ogc/get-feature-info.js'
 import { getMap } from '../ogc/get-map.js'
-import { escape, paramsFromUrl, parseNonNegativeInt, parsePixelIndex, parsePositiveInt, Props, Registry } from '../core/tools.js'
-import type { Layer } from '../layer/layer.js'
+import { escape, paramsFromUrl, parseNonNegativeInt, parsePixelIndex, parsePositiveInt, Props } from '../core/tools.js'
+import { Layer } from '../layer/layer.js'
 import { Service } from './service-base.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { Gt } from '../core/geotools.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
+import { Crs } from '../core/crs.js'
 
 const WMS_VERSION = '1.3.0'
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
@@ -47,7 +48,7 @@ export class Wms extends Service {
         this.crs = [...new Set(crslist)]
     }
 
-    static fromConfig(entry: WmsJson, crs: string[], lyrReg: Registry<Layer>): Wms {
+    static fromConfig(entry: WmsJson): Wms {
         return new Wms({
             title: entry.title,
             abstract: entry.abstract,
@@ -55,8 +56,8 @@ export class Wms extends Service {
             maxWidth: entry.maxWidth,
             maxHeight: entry.maxHeight,
             onlineResource: entry.onlineResource,
-            crs,
-            layers: selectLayers(entry.layers, lyrReg, 'WMS')
+            crs: Crs.registry.all.map((entry) => entry.code),
+            layers: selectLayers(entry.layers, 'WMS')
         })
     }
 
@@ -530,11 +531,11 @@ function getFormatOptionsDpi(value: string | undefined): string | undefined {
 
 
 
-function selectLayers(layerNames: string[] | undefined, lyrReg: Registry<Layer>, serviceName: string): Layer[] {
+function selectLayers(layerNames: string[] | undefined, serviceName: string): Layer[] {
 
-    if (!layerNames) return lyrReg.all
+    if (!layerNames) return Layer.registry.all
     return layerNames.map((name) => {
-        if (lyrReg.has(name)) return lyrReg.get(name)
+        if (Layer.registry.has(name)) return Layer.registry.get(name)
         throw new Error(`Unknown layer "${name}" in ${serviceName} service`)
     })
 }

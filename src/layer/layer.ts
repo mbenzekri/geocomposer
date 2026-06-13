@@ -1,12 +1,13 @@
 import type { BBox, CrsCode } from '../core/geometry.js'
 import type { DescInfo, Feature } from '../core/feature.js'
-import type { QueryOptions, Source, StreamOptions } from '../source/source.js'
-import type { NamedStyle } from '../style/style.js'
+import { Source, type QueryOptions, type StreamOptions } from '../source/source.js'
+import { Style, type NamedStyle } from '../style/style.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
 import { Reproject } from '../stream/reproject.js'
 import { Gt } from '../core/geotools.js'
 import { Dict, Registry } from '../core/tools.js'
+import { Crs } from '../core/crs.js'
 
 export type PointProperties = {
     x: string
@@ -42,6 +43,8 @@ export type LayerOptions = {
 export type LayerStreamOptions = Omit<StreamOptions, 'layer'>
 export type LayerQueryOptions = Omit<QueryOptions, 'layer'>
 export class Layer {
+    static readonly registry = new Registry<Layer>('LAYER')
+
     readonly title?: string
     readonly summary?: string
     readonly source: Source
@@ -67,39 +70,30 @@ export class Layer {
         this.pointProperties = options.pointProperties
     }
 
-    static createAll(layerEntries: Dict<LayerJson>, crsReg: Registry<CrsCode>, styReg: Registry<NamedStyle>, srcReg: Registry<Source>): Registry<Layer> {
-        const lyrReg = new Registry<Layer>('LAYER')
-
+    static createAll(layerEntries: Dict<LayerJson>): Registry<Layer> {
         for (const [name, entry] of Object.entries(layerEntries)) {
-            const layer = Layer.create(name, entry, crsReg, styReg, srcReg, lyrReg)
-            lyrReg.set(layer.name, layer)
+            const layer = Layer.create(name, entry)
+            Layer.registry.set(layer.name, layer)
         }
-        return lyrReg
+        return Layer.registry
     }
 
-    static create(
-        name: string,
-        entry: LayerJson,
-        crsReg: Registry<CrsCode>,
-        styReg: Registry<NamedStyle>,
-        srcReg: Registry<Source>,
-        lyrReg: Registry<Layer>,
-    ): Layer {
-        if (!srcReg.has(entry.source)) {
+    static create(name: string,entry: LayerJson): Layer {
+        if (!Source.registry.has(entry.source)) {
             throw new Error(`Unknown source "${entry.source}" in layer "${name}"`)
         }
-        const source = srcReg.get(entry.source)
+        const source = Source.registry.get(entry.source)
         const defaultStyleId = entry.style ?? entry.styles?.[0] ?? 'default'
         const styleIds = [...new Set([defaultStyleId, ...(entry.styles ?? [])])]
         const layerStyles = styleIds.map((styleId) => {
-            if (!styReg.has(styleId)) {
+            if (!Style.registry.has(styleId)) {
                 throw new Error(`Unknown style "${styleId}" in layer "${name}"`)
             }
-            const style = styReg.get(styleId)
+            const style = Style.registry.get(styleId)
             return style
         })
 
-        const sourceCrs = Layer.normalizeSourceCrs(entry.sourceCrs, source, name, crsReg)
+        const sourceCrs = Layer.normalizeSourceCrs(entry.sourceCrs, source, name)
         const pointProperties: PointProperties[] = []
         for (const pp of entry.pointProperties ?? []) {
             if (pp.x === pp.y) {
@@ -108,7 +102,7 @@ export class Layer {
             pointProperties.push({
                 x: pp.x,
                 y: pp.y,
-                crs: Layer.normalizeSourceCrs(pp.crs, source, name, crsReg)
+                crs: Layer.normalizeSourceCrs(pp.crs, source, name)
             })
         }
 
@@ -174,12 +168,11 @@ export class Layer {
         return style.style
     }
 
-    private static normalizeSourceCrs(sourceCrs: string | undefined, source: Source, layerName: string, crs: Registry<CrsCode>): CrsCode {
+    private static normalizeSourceCrs(sourceCrs: string | undefined, source: Source, layerName: string): CrsCode {
 
-        const resolved = sourceCrs ? crs.get(sourceCrs) : source.crs
+        const resolved = sourceCrs ? Crs.registry.get(sourceCrs).code : source.crs
         if (resolved == source.crs) return resolved
         throw new Error(`Layer "${layerName}" sourceCrs "${resolved}" does not match source "${source.id}" CRS "${source.crs}"`)
     }
 
 }
-

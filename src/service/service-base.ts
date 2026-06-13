@@ -1,12 +1,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { TLSSocket } from 'node:tls'
-import type { Layer } from '../layer/layer.js'
-import type { Tileset } from '../tileset/tileset.js'
 import { TileCache } from '../tileset/tile-cache.js'
-import { CrsCode } from '../core/geometry.js'
 import { Registry } from '../core/tools.js'
 
 export abstract class Service {
+    static readonly registry = new Registry<Service>('SERVICES')
+
     readonly name: string
     readonly path: string
     readonly title: string
@@ -34,9 +33,6 @@ export abstract class Service {
     static createAll(
         services: unknown,
         baseDir: string,
-        crs: Registry<CrsCode>,
-        layers: Registry<Layer>,
-        tilesets: Registry<Tileset>,
     ): Registry<Service> {
         throw new Error('Service.createAll is not initialized')
     }

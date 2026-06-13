@@ -3,7 +3,6 @@ import { Gt } from '../core/geotools.js'
 import type { DescInfo, Feature, MemRef, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
 import { Source, hasSourceConfigType, type StreamOptions } from './source-base.js'
-import { Registry } from '../core/tools.js'
 
 export type MemFeatureProvider = (layer: Layer) => Feature[] | Promise<Feature[]>
 
@@ -26,9 +25,8 @@ export class MemSource extends Source {
     return hasSourceConfigType(entry, 'mem')
   }
 
-  static fromConfig(id: string, entry: MemSourceJson, sourceReg: Registry<Source>
-  ): MemSource {
-    return new MemSource(id, sourceReg.get(entry.source))
+  static fromConfig(id: string, entry: MemSourceJson): MemSource {
+    return new MemSource(id, Source.registry.get(entry.source))
   }
 
   constructor(id: string, source: Source)

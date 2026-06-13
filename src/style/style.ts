@@ -38,18 +38,19 @@ export type DynamicStyleFileJson = DescInfo & {
 export type StyleJson = BuiltinStyleJson | DynamicStyleFileJson
 
 export class Style {
+  static readonly registry = new Registry<NamedStyle>('STYLE')
+
   static async createAll(styleEntries: Dict<StyleJson>, baseDir: string): Promise<Registry<NamedStyle>> {
 
-    const styReg = new Registry<NamedStyle>('STYLE') 
-    styReg.set('default',{ name: 'default',title: 'Default',style: defaultStyleFn })
+    Style.registry.set('default',{ name: 'default',title: 'Default',style: defaultStyleFn })
     const fullpath = resolve(baseDir, DYNAMIC_STYLE_SCHEMA_FILE)
     const styleValidator = new StyleValidator(fullpath, 'Dynamic Style Schema')
 
     for (const [name, entry] of Object.entries(styleEntries)) {
         const style = await Style.create(name, entry, baseDir, styleValidator)
-        styReg.set(name, style) 
+        Style.registry.set(name, style)
     }
-    return styReg
+    return Style.registry
   }
 
   static async create(

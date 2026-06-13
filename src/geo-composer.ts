@@ -2,36 +2,20 @@ import './core/log-level.js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
-import { Args, parseArgs, parsePort, Registry } from './core/tools.js'
+import { Args, parseArgs, parsePort } from './core/tools.js'
 import { Config } from './config/config.js'
 import { Service } from './service/service.js'
 import { Source } from './source/source.js'
-import { Layer } from './layer/layer.js'
-import { CrsCode } from './core/geometry.js'
-import { Tileset } from './tileset/tileset.js'
-import { NamedStyle } from './style/style.js'
 
 
 export class GeoComposer {
     readonly port: number
     readonly server: Server
-    readonly serviceReg: Registry<Service>
-    readonly sourceReg: Registry<Source>
-    readonly layerReg: Registry<Layer>
-    readonly styleReg: Registry<NamedStyle>
-    readonly crsReg: Registry<CrsCode>
-    readonly tilesetReg: Registry<Tileset>
     private shuttingDown = false
     private opened = false
 
     private constructor(config: Config) {
         this.port = config.port
-        this.serviceReg = config.serviceReg
-        this.sourceReg = config.sourceReg
-        this.layerReg = config.layerReg
-        this.styleReg = config.styleReg
-        this.crsReg = config.crsReg
-        this.tilesetReg = config.tilesetReg
 
         this.server = createServer((req, res) => {
             this.handle(req, res).catch((error) => {
@@ -48,7 +32,7 @@ export class GeoComposer {
         const config = await Config.load(configPath,port)
 
         if (args.clearTileCache) {
-            await Promise.all(config.serviceReg.all.map(service => service.clearCache()))
+            await Promise.all(Service.registry.all.map(service => service.clearCache()))
         }
 
         return new GeoComposer(config)
@@ -60,7 +44,7 @@ export class GeoComposer {
         const openedSources: Source[] = []
 
         try {
-            for (const source of this.sourceReg.all) {
+            for (const source of Source.registry.all) {
                 await source.open()
                 openedSources.push(source)
             }
@@ -80,7 +64,7 @@ export class GeoComposer {
         if (!this.opened) return
 
         try {
-            await this.closeSources(this.sourceReg.all.reverse())
+            await this.closeSources(Source.registry.all.reverse())
         } finally {
             this.opened = false
         }
@@ -142,7 +126,7 @@ export class GeoComposer {
 
     private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const url = new URL(req.url ?? '/', 'http://localhost')
-        const service = this.serviceReg.all.find((entry) => entry.matches(url.pathname))
+        const service = Service.registry.all.find((entry) => entry.matches(url.pathname))
 
         if (service) {
             await service.handle(req, res)
@@ -162,7 +146,7 @@ export class GeoComposer {
 
     private logListening(): void {
         const baseUrl = `http://localhost:${this.port}`
-        this.serviceReg.all.forEach(
+        Service.registry.all.forEach(
             service => service.logListening(baseUrl)
         )
     }

@@ -1,13 +1,13 @@
 import { dirname, resolve } from 'node:path'
-import { Dict, Registry, Singleton } from '../core/tools.js'
+import { Dict, Singleton } from '../core/tools.js'
 
 import { LogLevel} from "../core/log-level.js"
-import { CrsCode } from '../core/geometry.js'
+import { Crs, type CrsJson } from '../core/crs.js'
 
 import { Service, type ServicesJson } from '../service/service.js'
 import { Source, type SourceJson } from '../source/source.js'
 import { Layer, type LayerJson } from '../layer/layer.js'
-import { Style, type NamedStyle, type StyleJson } from '../style/style.js'
+import { Style, type StyleJson } from '../style/style.js'
 import { Tileset, type TilesetJson } from '../tileset/tileset.js'
 
 import { JsonValidator } from '../core/json-validator.js'
@@ -23,9 +23,7 @@ class ConfigValidator extends JsonValidator<GeoComposerJson> {
     }
 }
 
-export type ProjectionJson = {
-    title: string
-}
+export type ProjectionJson = CrsJson
 
 export type ServerJson = {
     port?: number
@@ -53,13 +51,6 @@ export class Config extends Singleton {
     get port(): number { return this._port ?? 3000 }
     private _port?: number
     private loaded = false
-
-    readonly crsReg = new Registry<CrsCode>('CRS')
-    styleReg! : Registry<NamedStyle>
-    serviceReg! : Registry<Service>
-    sourceReg! : Registry<Source>
-    layerReg! : Registry<Layer>
-    tilesetReg! : Registry<Tileset>
 
     constructor(configPath: string, port?: number) {
         super()
@@ -92,18 +83,18 @@ export class Config extends Singleton {
         // set LogLevel and PORT from Args/Config
         const logLevelName = json.server?.logLevel ?? "LOG"
         const logLevel = LogLevel[logLevelName]
-        console.log(`[CONFIG]: LogLevel set to ${logLevelName} = ${logLevel}`)
+        console.log(`[CONFIG]: LogLevel set to ${logLevelName}`)
         console.setLevel(logLevel)
         this._port ??= json.server?.port ?? 3000
         console.log(`[CONFIG]: Server port set to ${this._port}`)
 
         // creating all app objects in their registries
-        Object.entries(json.projections ?? {}).forEach(v => this.crsReg.set(v[0],v[0]))
-        this.sourceReg = Source.createAll(json.sources, this.dir, this.crsReg)
-        this.styleReg = await Style.createAll(json.styles ?? {}, this.dir)
-        this.layerReg = Layer.createAll(json.layers, this.crsReg,this.styleReg, this.sourceReg)
-        this.tilesetReg = Tileset.createAll(json.tilesets ?? {}, this.layerReg)
-        this.serviceReg = Service.createAll(json.services, this.dir,this.crsReg, this.layerReg,this.tilesetReg)
+        Crs.createAll(json.projections ?? {})
+        Source.createAll(json.sources, this.dir)
+        await Style.createAll(json.styles ?? {}, this.dir)
+        Layer.createAll(json.layers)
+        Tileset.createAll(json.tilesets ?? {})
+        Service.createAll(json.services, this.dir)
 
         this.loaded = true
         console.log(`[CONFIG]: ${this.path} loaded`)

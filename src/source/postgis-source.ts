@@ -6,8 +6,9 @@ import type { Layer } from '../layer/layer.js'
 import { DbSource, hasSourceConfigType, toStream, type FeatureTransform, type QueryOptions } from './source-base.js'
 import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard } from './source-utils.js'
-import { Props, Registry } from '../core/tools.js'
+import { Props } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
+import { Crs } from '../core/crs.js'
 
 export type PostgisExtentStrategy = 'estimated' | 'exact' | 'none'
 
@@ -93,11 +94,10 @@ export class PostgisSource extends DbSource {
 
   static fromConfig(
     id: string,
-    entry: PostgisSourceJson,
-    crs: Registry<CrsCode>
+    entry: PostgisSourceJson
   ): PostgisSource {
     return new PostgisSource(id, {
-      crs: entry.crs ? crs.get(entry.crs) : "EPSG:4326",
+      crs: entry.crs ? Crs.registry.get(entry.crs).code : "EPSG:4326",
       connection: entry.connection,
       schema: entry.schema,
       tableName: entry.tableName,

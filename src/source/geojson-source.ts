@@ -7,7 +7,7 @@ import type { Layer } from '../layer/layer.js'
 import { FileSource, hasSourceConfigType, type FeatureTransform } from './source-base.js'
 import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
-import { Registry } from '../core/tools.js'
+import { Crs } from '../core/crs.js'
 
 export type GeoJsonSourceOptions = {
   crs?: CrsCode
@@ -37,11 +37,10 @@ export class GeoJsonSource extends FileSource {
   static fromConfig(
     id: string,
     entry: GeoJsonSourceJson,
-    baseDir: string,
-    crs: Registry<CrsCode>
+    baseDir: string
   ): GeoJsonSource {
     return new GeoJsonSource(id, resolve(baseDir, entry.path), {
-      crs: entry.crs ? crs.get(entry.crs) : "EPSG:4326",
+      crs: entry.crs ? Crs.registry.get(entry.crs).code : "EPSG:4326",
       encoding: entry.encoding,
       highWaterMark: entry.highWaterMark
     })

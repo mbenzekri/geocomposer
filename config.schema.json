@@ -441,6 +441,9 @@
                 "title"
             ],
             "properties": {
+                "name": {
+                    "type": "string"
+                },
                 "title": {
                     "type": "string"
                 }

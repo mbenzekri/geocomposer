@@ -29,6 +29,8 @@ export type QueryOptions = StreamOptions & {
 export type FeatureTransform = (feature: Feature, index: number) => Feature | Promise<Feature>
 
 export abstract class Source {
+  static readonly registry = new Registry<Source>('SOURCE')
+
   abstract readonly id: string
   abstract readonly type: string
   abstract readonly storage: SourceStorage
@@ -37,7 +39,6 @@ export abstract class Source {
   static createAll(
     _sourceEntries: Record<string, unknown>,
     _baseDir: string,
-    _crs: Registry<CrsCode>,
   ): Registry<Source>{
     throw new Error('Source.createAll is not initialized')
   }
@@ -46,8 +47,6 @@ export abstract class Source {
     _name: string,
     _entry: unknown,
     _baseDir: string,
-    _crs: Registry<CrsCode>,
-    _sourceReg: Registry<Source>
   ): Source {
     throw new Error('Source.create is not initialized')
   }

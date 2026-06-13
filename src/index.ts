@@ -1,6 +1,7 @@
 import './core/log-level.js'
 export * from './core/feature.js'
 export * from './core/geometry.js'
+export * from './core/crs.js'
 export * from './core/tools.js'
 export * from './config/config.js'
 export * from './core/geotools.js'

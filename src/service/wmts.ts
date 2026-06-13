@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { resolve } from 'node:path'
-import { escape, nonNegativeInteger, paramsFromUrl, Props, Registry } from '../core/tools.js'
+import { escape, nonNegativeInteger, paramsFromUrl, Props } from '../core/tools.js'
 import { MarkupTemplate } from '../core/template.js'
 import { getMap } from '../ogc/get-map.js'
 import type { TileMatrixSet } from '../tileset/tile-matrix-set.js'
@@ -124,14 +124,14 @@ export class Wmts extends Service {
         validateWmtsTilesets(opts.tilesets)
     }
 
-    static fromConfig(entry: WmtsJson, baseDir: string, tsetReg: Registry<Tileset>): Wmts {
+    static fromConfig(entry: WmtsJson, baseDir: string): Wmts {
         return new Wmts({
             title: entry.title,
             abstract: entry.abstract,
             path: entry.path,
             onlineResource: entry.onlineResource,
             cache: entry.cache ? resolve(baseDir, entry.cache) : undefined,
-            tilesets: Tileset.select(entry.tilesets, 'WMTS', tsetReg)
+            tilesets: Tileset.select(entry.tilesets, 'WMTS')
         })
     }
 

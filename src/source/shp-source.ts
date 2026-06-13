@@ -7,7 +7,8 @@ import type { Layer } from '../layer/layer.js'
 import { FileSource, hasSourceConfigType, type FeatureTransform } from './source-base.js'
 import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
-import { Props, Registry } from '../core/tools.js'
+import { Props } from '../core/tools.js'
+import { Crs } from '../core/crs.js'
 
 export type ShpSourceOptions = {
   crs?: CrsCode
@@ -59,14 +60,13 @@ export class ShpSource extends FileSource {
   static fromConfig(
     id: string,
     entry: ShpSourceJson,
-    baseDir: string,
-    crs: Registry<CrsCode>
+    baseDir: string
   ): ShpSource {
     const shppath = resolve(baseDir, entry.shpPath)
     const dbfpath = resolve(baseDir, entry.dbfPath)
     return new ShpSource(id, shppath, dbfpath,
       {
-        crs: entry.crs ? crs.get(entry.crs) : "EPSG:4326",
+        crs: entry.crs ? Crs.registry.get(entry.crs).code : "EPSG:4326",
         dbfEncoding: entry.dbfEncoding,
         highWaterMark: entry.highWaterMark
       }

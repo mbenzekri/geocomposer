@@ -7,7 +7,8 @@ import type { Layer } from '../layer/layer.js'
 import { FileSource, hasSourceConfigType, type FeatureTransform } from './source-base.js'
 import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
-import { Props, Registry } from '../core/tools.js'
+import { Props } from '../core/tools.js'
+import { Crs } from '../core/crs.js'
 
 export type GmlAxisOrder = 'xy' | 'yx' | 'auto'
 
@@ -88,11 +89,10 @@ export class GmlSource extends FileSource {
   static fromConfig(
     id: string,
     entry: GmlSourceJson,
-    baseDir: string,
-    crs: Registry<CrsCode>
+    baseDir: string
   ): GmlSource {
     return new GmlSource(id, resolve(baseDir, entry.path), {
-      crs: entry.crs ? crs.get(entry.crs) : "EPSG:4326",
+      crs: entry.crs ? Crs.registry.get(entry.crs).code : "EPSG:4326",
       encoding: entry.encoding,
       highWaterMark: entry.highWaterMark,
       featureElementNames: entry.featureElementNames,

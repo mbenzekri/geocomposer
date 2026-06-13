@@ -1,5 +1,5 @@
 import type { CrsCode, BBox } from '../core/geometry.js'
-import type { Layer } from '../layer/layer.js'
+import { Layer } from '../layer/layer.js'
 import { StyleFn } from '../style/style-fn.js'
 import { Dict, Registry } from '../core/tools.js'
 import { DescInfo } from '../core/feature.js'
@@ -84,6 +84,8 @@ export type TilesetOptions = {
 }
 
 export class Tileset {
+    static readonly registry = new Registry<Tileset>('TILESET')
+
     readonly name: string
     readonly title?: string
     readonly summary?: string
@@ -115,19 +117,17 @@ export class Tileset {
         this.validate()
     }
 
-    static createAll(tilesetEntries: Dict<TilesetJson>, lyrReg: Registry<Layer>): Registry<Tileset> {
-        const tsetReg = new Registry<Tileset>('TILESET')
+    static createAll(tilesetEntries: Dict<TilesetJson>): Registry<Tileset> {
         for (const [name, entry] of Object.entries(tilesetEntries)) {
-            const tileset = Tileset.create(name, entry, lyrReg)
-            tsetReg.set(name, tileset)
+            const tileset = Tileset.create(name, entry)
+            Tileset.registry.set(name, tileset)
         }
-        return tsetReg
+        return Tileset.registry
     }
 
     static create(
         name: string,
-        entry: TilesetJson,
-        lyrReg: Registry<Layer>
+        entry: TilesetJson
     ): Tileset {
         const layerRefs = normalizeTilesetLayers(name, entry)
         if (layerRefs.length === 0) {
@@ -146,7 +146,7 @@ export class Tileset {
             cacheControl: entry.cacheControl,
             vector: entry.vector,
             layers: layerRefs.map((ref) => {
-                const layer = lyrReg.get(ref.layer)
+                const layer = Layer.registry.get(ref.layer)
                 if (!layer) {
                     throw new Error(`Unknown layer "${ref.layer}" in tileset "${name}"`)
                 }
@@ -155,7 +155,7 @@ export class Tileset {
                 return layer
             }),
             styles: layerRefs.map((ref) => {
-                const layer = lyrReg.get(ref.layer)
+                const layer = Layer.registry.get(ref.layer)
                 if (!layer) {
                     throw new Error(`Unknown layer "${ref.layer}" in tileset "${name}"`)
                 }
@@ -166,14 +166,14 @@ export class Tileset {
         })
     }
 
-    static select(names: string[] | undefined, serviceName: string, tsetReg: Registry<Tileset>): Tileset[] {
+    static select(names: string[] | undefined, serviceName: string): Tileset[] {
         if (!names) {
-            if (tsetReg.all.length > 0) return tsetReg.all
+            if (Tileset.registry.all.length > 0) return Tileset.registry.all
             throw new Error(`${serviceName} service requires at least one configured tileset`)
         }
 
         const selected = names.map((name) => {
-            const tileset = tsetReg.get(name)
+            const tileset = Tileset.registry.get(name)
             if (tileset) return tileset
             throw new Error(`Unknown tileset "${name}" in ${serviceName} service`)
         })

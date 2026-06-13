@@ -7,8 +7,9 @@ import type { Layer } from '../layer/layer.js'
 import { DbSource, hasSourceConfigType, type FeatureTransform } from './source-base.js'
 import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard } from './source-utils.js'
-import { Props, Registry } from '../core/tools.js'
+import { Props } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
+import { Crs } from '../core/crs.js'
 
 export type GpkgSourceOptions = {
   crs?: CrsCode
@@ -63,11 +64,10 @@ export class GpkgSource extends DbSource {
   static fromConfig(
     id: string,
     entry: GpkgSourceJson,
-    baseDir: string,
-    crs: Registry<CrsCode>
+    baseDir: string
   ): GpkgSource {
     return new GpkgSource(id, resolve(baseDir, entry.path), {
-      crs: entry.crs ? crs.get(entry.crs) : "EPSG:4326",
+      crs: entry.crs ? Crs.registry.get(entry.crs).code : "EPSG:4326",
       tableName: entry.tableName,
       geometryColumn: entry.geometryColumn,
       primaryKey: entry.primaryKey

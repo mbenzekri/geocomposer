@@ -5,7 +5,7 @@ import { getMap } from '../ogc/get-map.js'
 import { type TileOutput, Tileset, tileFormatFromExtension } from '../tileset/tileset.js'
 import { getVectorTile } from '../tileset/vector-tile.js'
 import { Service } from './service-base.js'
-import { nonNegativeInteger, Registry } from '../core/tools.js'
+import { nonNegativeInteger } from '../core/tools.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
 
 const DEFAULT_MAX_SCALE_FACTOR = 4
@@ -49,7 +49,7 @@ export class Xyz extends Service {
         this.tilesetByName = new Map(this.tilesets.map((tileset) => [tileset.name, tileset]))
     }
 
-    static fromConfig(entry: XyzJson, baseDir: string, tsetReg: Registry<Tileset>): Xyz {
+    static fromConfig(entry: XyzJson, baseDir: string): Xyz {
         return new Xyz({
             title: entry.title,
             abstract: entry.abstract,
@@ -57,7 +57,7 @@ export class Xyz extends Service {
             onlineResource: entry.onlineResource,
             maxScaleFactor: entry.maxScaleFactor,
             cache: entry.cache ? resolve(baseDir, entry.cache) : undefined,
-            tilesets: Tileset.select(entry.tilesets, 'XYZ', tsetReg)
+            tilesets: Tileset.select(entry.tilesets, 'XYZ')
         })
     }
 

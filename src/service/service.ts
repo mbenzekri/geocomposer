@@ -1,7 +1,4 @@
-import { CrsCode } from '../core/geometry.js'
-import { Registry } from '../core/tools.js'
-import type { Layer } from '../layer/layer.js'
-import type { Tileset } from '../tileset/tileset.js'
+import type { Registry } from '../core/tools.js'
 import { Service } from './service-base.js'
 import { Wms, type WmsJson } from './wms.js'
 import { Wmts, type WmtsJson } from './wmts.js'
@@ -15,26 +12,20 @@ export type ServicesJson = {
     wmts?: WmtsJson
 }
 
-Service.createAll = function createAll(
-    services: ServicesJson,
-    baseDir: string,
-    crsReg: Registry<CrsCode>,
-    lyrReg: Registry<Layer>,
-    tsetReg: Registry<Tileset>
-): Registry<Service> {
-    const svcReg = new Registry<Service>('SERVICES')
+Service.createAll = function createAll(services: ServicesJson,baseDir: string): Registry<Service> {
 
-    const wms = Wms.fromConfig(services.wms, crsReg.all, lyrReg)
+    const wms = Wms.fromConfig(services.wms)
+    Service.registry.set('wms', wms)
 
-    svcReg.set('wms', wms)
     if (services.xyz) {
-        const xyz = Xyz.fromConfig(services.xyz, baseDir, tsetReg)
-        svcReg.set('xyz', xyz)
+        const xyz = Xyz.fromConfig(services.xyz, baseDir)
+        Service.registry.set('xyz', xyz)
     }
 
     if (services.wmts) {
-        const wmts = Wmts.fromConfig(services.wmts, baseDir, tsetReg)
-        svcReg.set('wmts', wmts)
+        const wmts = Wmts.fromConfig(services.wmts, baseDir)
+        Service.registry.set('wmts', wmts)
     }
-    return svcReg
+    
+    return Service.registry
 }
