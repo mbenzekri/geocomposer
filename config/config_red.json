@@ -35,13 +35,13 @@
             "type": "geojson",
             "title": "World GeoJSON",
             "abstract": "World country boundaries GeoJSON demo source.",
-            "path": "data/world.geojson"
+            "path": "../data/world.geojson"
         },
         "capitals": {
             "type": "geojson",
             "title": "Capitals GeoJSON",
             "abstract": "World capitals GeoJSON demo source.",
-            "path": "data/capitals.geojson"
+            "path": "../data/capitals.geojson"
         }
     },
     "styles": {
@@ -49,13 +49,13 @@
             "type": "dynamic",
             "title": "World Red",
             "abstract": "Country boundaries rendered from a DynStyle JSON file.",
-            "path": "config/styles/world_red.json"
+            "path": "styles/world_red.json"
         },
         "capitals": {
             "type": "dynamic",
             "title": "Capitals",
             "abstract": "Capital city points and labels rendered from a DynStyle JSON file.",
-            "path": "config/styles/capitals.json",
+            "path": "styles/capitals.json",
             "options": {
                 "units": "dd"
             }

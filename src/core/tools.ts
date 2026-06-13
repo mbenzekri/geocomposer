@@ -12,10 +12,12 @@ export type Args = {
     port?: number
 }
 
+export const DEFAULT_CONFIG_PATH = 'config/config.json'
+
 export function parseArgs(): Args {
     const args = process.argv.slice(2)
     const options: Args = {
-        configPath: path.resolve(process.cwd(), process.env.CONFIG ?? 'config.json'),
+        configPath: path.resolve(process.cwd(), process.env.CONFIG ?? DEFAULT_CONFIG_PATH),
         clearTileCache: false
     }
     console.setLevel(LogLevel.LOG)
@@ -225,4 +227,3 @@ export function parsePixelIndex(value: string | undefined, name: string, size: n
 
     return number
 }
-

@@ -523,7 +523,7 @@ C'est probablement l'angle le plus original aujourd'hui : la plupart des serveur
 - [x] Corriger la prise en compte du port dans `src/geo-composer.ts`: `--port` est parse, `PORT` est lu, mais `server.listen()` utilise encore `config.server.port`; rendre le port effectif et les logs coherents.
 - [x] Corriger les scripts `serve:wms` et `serve:xyz` dans `package.json` ou recreer les fichiers cibles absents (`src/example/run-world-wms-server.ts`, `src/example/run-world-xyz-server.ts`).
 - [x] Corriger la reference README vers `src/example/world-services-openlayers.html`, qui n'existe pas dans le depot actuel; pointer vers le viewer existant ou ajouter le fichier.
-- [x] Corriger `config.schema.json` pour `layers.*.pointProperties`: `x`, `y` et `crs` doivent etre des schemas `{ "type": "string" }`, pas des chaines brutes.
+- [x] Corriger `config/config.schema.json` pour `layers.*.pointProperties`: `x`, `y` et `crs` doivent etre des schemas `{ "type": "string" }`, pas des chaines brutes.
 - [x] Decider de la strategie GeoPackage sous Node: utiliser Node `22.5+` fourni par l'environnement courant/nvm pour `node:sqlite`, sans ajouter de specificite `package.json` ni fallback SQLite natif non-GDAL.
 
 ### A decider - fiabilite et production
@@ -558,14 +558,14 @@ C'est probablement l'angle le plus original aujourd'hui : la plupart des serveur
 - [ ] Ajouter des tests de contrats OGC: WMS `GetCapabilities`, `GetMap`, `GetFeatureInfo`, ordre d'axes EPSG:4326 en WMS 1.3.0, erreurs XML, HEAD/OPTIONS.
 - [ ] Ajouter des tests XYZ/WMTS: limites z/x/y, `@2x`, cache, `GetCapabilities`, `GetTile`, styles de tilesets multi-couches.
 - [ ] Transformer les smoke images en verifications automatisees minimales: dimensions, PNG non vide, pixels attendus, et eventuellement baseline image.
-- [ ] Ajouter un test de chargement de `config.json`, `config_red.json` et du schema pour garantir que les exemples restent synchronises.
+- [ ] Ajouter un test de chargement de `config/config.json`, `config/config_red.json` et du schema pour garantir que les exemples restent synchronises.
 
 ### A decider - architecture / maintenabilite
 
 - [ ] Decouper les gros fichiers en classes/services plus petites: `dynamic-style.ts`, `gml-source.ts`, `gpkg-source.ts`, `config.ts`, `wms.ts`.
 - [ ] Extraire des parseurs objets explicites (`GeoJsonFeatureParser`, `GmlFeatureParser`, `ShpRecordReader`, `DbfReader`, `WkbReader`) avec tests unitaires dedies.
 - [ ] Remplacer les helpers statiques trop larges (`Gt`) par services/domain objects plus explicites pour respecter l'orientation objet du projet.
-- [ ] Centraliser la validation runtime de config au lieu de laisser `config.schema.json` et les types TypeScript diverger.
+- [ ] Centraliser la validation runtime de config au lieu de laisser `config/config.schema.json` et les types TypeScript diverger.
 - [ ] Clarifier la frontiere API publique dans `src/index.ts`: exporter seulement les abstractions stables ou documenter que tout est experimental.
 - [ ] Ajouter une convention de formatage/lint TypeScript pour corriger les espacements incoherents et proteger les futures contributions.
 

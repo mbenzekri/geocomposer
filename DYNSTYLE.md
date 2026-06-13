@@ -8,14 +8,14 @@ d'une couche. Il sert surtout à répondre à trois questions :
    expressions dans `static`)
 3. Quelles valeurs faut-il mettre en cache ensemble ? (`cacheKey`)
 
-Le style est chargé depuis `config.json` avec une entrée `type: "dynamic"` :
+Le style est chargé depuis `config/config.json` avec une entrée `type: "dynamic"` :
 
 ```json
 {
   "type": "dynamic",
   "name": "world",
   "title": "World",
-  "path": "config/styles/world.json",
+  "path": "styles/world.json",
   "options": {
     "units": "m",
     "dotsPerInch": 90

@@ -71,7 +71,7 @@
         "xyz": {
             "path": "/tiles",
             "maxScaleFactor": 4,
-            "cache": "cache/xyz",
+            "cache": "../cache/xyz",
             "tilesets": "#/$defs/tilesetList" 
         },
         "wmts": {
@@ -79,7 +79,7 @@
             "title": "GeoComposer WMTS",
             "abstract": "WMTS service backed by GeoComposer tilesets.",
             "onlineResource": "http://localhost:3000/wmts",
-            "cache": "cache/wmts",
+            "cache": "../cache/wmts",
             "tilesets": "#/$defs/tilesetList" 
         }
     },
@@ -254,13 +254,13 @@
             "type": "geojson",
             "title": "World GeoJSON",
             "abstract": "World country boundaries GeoJSON demo source.",
-            "path": "data/world.geojson"
+            "path": "../data/world.geojson"
         },
         "capitals": {
             "type": "geojson",
             "title": "Capitals GeoJSON",
             "abstract": "World capitals GeoJSON demo source.",
-            "path": "data/capitals.geojson"
+            "path": "../data/capitals.geojson"
         },
         "world-mem": {
             "type": "mem",
@@ -272,21 +272,21 @@
             "type": "gml",
             "title": "World GML",
             "abstract": "World country boundaries GML demo source.",
-            "path": "data/world.gml",
+            "path": "../data/world.gml",
             "axisOrder": "auto"
         },
         "world-shp": {
             "type": "shp",
             "title": "World Shapefile",
             "abstract": "World country boundaries shapefile demo source.",
-            "shpPath": "data/shapefile/world.shp",
-            "dbfPath": "data/shapefile/world.dbf"
+            "shpPath": "../data/shapefile/world.shp",
+            "dbfPath": "../data/shapefile/world.dbf"
         },
         "world-gpkg": {
             "type": "gpkg",
             "title": "World GeoPackage",
             "abstract": "World country boundaries GeoPackage demo source.",
-            "path": "data/world.gpkg",
+            "path": "../data/world.gpkg",
             "tableName": "world",
             "geometryColumn": "geom"
         },
@@ -316,13 +316,13 @@
             "type": "dynamic",
             "title": "World",
             "abstract": "Country boundaries rendered from a DynStyle JSON file.",
-            "path": "config/styles/world.json"
+            "path": "styles/world.json"
         },
         "capitals": {
             "type": "dynamic",
             "title": "Capitals",
             "abstract": "Capital city points and labels rendered from a DynStyle JSON file.",
-            "path": "config/styles/capitals.json",
+            "path": "styles/capitals.json",
             "options": {
                 "units": "dd"
             }

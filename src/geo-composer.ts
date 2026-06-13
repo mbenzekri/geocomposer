@@ -2,7 +2,7 @@ import './core/log-level.js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
-import { Args, parseArgs, parsePort } from './core/tools.js'
+import { Args, DEFAULT_CONFIG_PATH, parseArgs, parsePort } from './core/tools.js'
 import { Config } from './config/config.js'
 import { Service } from './service/service-build.js'
 import { Source } from './source/source-build.js'
@@ -27,7 +27,7 @@ export class GeoComposer {
     }
 
     static async from(args: Partial<Args> = {}): Promise<GeoComposer> {
-        const configPath = path.resolve(process.cwd(), args.configPath ?? process.env.CONFIG ?? 'config.json')
+        const configPath = path.resolve(process.cwd(), args.configPath ?? process.env.CONFIG ?? DEFAULT_CONFIG_PATH)
         const port = parsePort(process.env.PORT, args.port)
         const config = await Config.load(configPath,port)
 
