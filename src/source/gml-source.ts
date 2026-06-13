@@ -1,14 +1,13 @@
 import { createReadStream, type PathLike } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import type { Feature, FileRef, SourceRef } from '../core/feature.js'
+import type { DescInfo, Feature, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position, CrsCode } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
-import { FileSource, hasSourceConfigType, type FeatureTransform, type SourceConfigCrsResolver } from './source-base.js'
+import { FileSource, hasSourceConfigType, type FeatureTransform } from './source-base.js'
 import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
-import { Props } from '../core/tools.js'
-import type { GmlSourceJson } from '../config/config.js'
+import { Props, Registry } from '../core/tools.js'
 
 export type GmlAxisOrder = 'xy' | 'yx' | 'auto'
 
@@ -20,6 +19,17 @@ export type GmlSourceOptions = {
   geometryPropertyNames?: string[]
   axisOrder?: GmlAxisOrder
   transformFeature?: FeatureTransform
+}
+
+export type GmlSourceJson = DescInfo & {
+  type: 'gml'
+  crs?: string
+  path: string
+  encoding?: BufferEncoding
+  highWaterMark?: number
+  featureElementNames?: string[]
+  geometryPropertyNames?: string[]
+  axisOrder?: GmlAxisOrder
 }
 
 type ParsedXmlFeature = {
@@ -79,10 +89,10 @@ export class GmlSource extends FileSource {
     id: string,
     entry: GmlSourceJson,
     baseDir: string,
-    crs: SourceConfigCrsResolver
+    crs: Registry<CrsCode>
   ): GmlSource {
     return new GmlSource(id, resolve(baseDir, entry.path), {
-      crs: crs.resolve(entry.crs),
+      crs: entry.crs ? crs.get(entry.crs) : "EPSG:4326",
       encoding: entry.encoding,
       highWaterMark: entry.highWaterMark,
       featureElementNames: entry.featureElementNames,

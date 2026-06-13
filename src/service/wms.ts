@@ -2,19 +2,14 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import proj4 from 'proj4'
 import type { BBox, CrsCode } from '../core/geometry.js'
 import { MarkupTemplate } from '../core/template.js'
-import {
-    getInfo,
-    INFO_FORMATS,
-    type GetInfoOptions
-} from '../ogc/get-feature-info.js'
+import { getInfo, INFO_FORMATS, type GetInfoOptions } from '../ogc/get-feature-info.js'
 import { getMap } from '../ogc/get-map.js'
-import { escape, paramsFromUrl, Props } from '../core/tools.js'
+import { escape, paramsFromUrl, parseNonNegativeInt, parsePixelIndex, parsePositiveInt, Props, Registry } from '../core/tools.js'
 import type { Layer } from '../layer/layer.js'
-import { Service } from './service.js'
+import { Service } from './service-base.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { Gt } from '../core/geotools.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
-import type { WmsJson } from '../config/config.js'
 
 const WMS_VERSION = '1.3.0'
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
@@ -25,6 +20,12 @@ export type WmsOptions = DescInfo & ServiceInfo & {
     layers: Layer[]
     maxWidth?: number
     maxHeight?: number
+}
+
+export type WmsJson = DescInfo & ServiceInfo & {
+    maxWidth?: number
+    maxHeight?: number
+    layers?: string[]
 }
 
 export class Wms extends Service {
@@ -42,13 +43,11 @@ export class Wms extends Service {
         this.maxWidth = options.maxWidth ?? 4096
         this.maxHeight = options.maxHeight ?? 4096
         this.layerByName = new Map(options.layers.map((layer) => [layer.name, layer]))
-        this.crs = unique(options.crs && options.crs.length > 0
-            ? options.crs
-            : options.layers.map((layer) => layer.sourceCrs)
-        )
+        const crslist = (options.crs?.length ?? 0 > 0) ? options.crs : options.layers.map((layer) => layer.sourceCrs)
+        this.crs = [...new Set(crslist)]
     }
 
-    static fromConfig(entry: WmsJson, crs: string[], layers: Layer[]): Wms {
+    static fromConfig(entry: WmsJson, crs: string[], lyrReg: Registry<Layer>): Wms {
         return new Wms({
             title: entry.title,
             abstract: entry.abstract,
@@ -57,7 +56,7 @@ export class Wms extends Service {
             maxHeight: entry.maxHeight,
             onlineResource: entry.onlineResource,
             crs,
-            layers: selectLayers(entry.layers, layers, 'WMS')
+            layers: selectLayers(entry.layers, lyrReg, 'WMS')
         })
     }
 
@@ -91,7 +90,7 @@ export class Wms extends Service {
             const service = params.get('SERVICE')
 
             if (service && service.toUpperCase() !== 'WMS') {
-                sendWmsError(res, 'InvalidParameterValue', 'SERVICE must be WMS')
+                this.sendWmsError(res, 'InvalidParameterValue', 'SERVICE must be WMS')
                 return
             }
 
@@ -140,10 +139,10 @@ export class Wms extends Service {
                 return
             }
 
-            sendWmsError(res, 'OperationNotSupported', `Unsupported REQUEST: ${params.get('REQUEST') ?? ''}`)
+            this.sendWmsError(res, 'OperationNotSupported', `Unsupported REQUEST: ${params.get('REQUEST') ?? ''}`)
         } catch (error) {
             this.logHandleError(traceId, fullUrl, startedAt, error)
-            sendWmsError(res, 'InvalidParameterValue', error instanceof Error ? error.message : String(error))
+            this.sendWmsError(res, 'InvalidParameterValue', error instanceof Error ? error.message : String(error))
         }
     }
 
@@ -181,7 +180,7 @@ export class Wms extends Service {
             throw new Error('CRS is required')
         }
         const rawBbox = this.require(params, 'BBOX')
-        const parsedBbox = parseBBox(rawBbox, crs, version)
+        const parsedBbox = Gt.parseBBox(rawBbox, crs, version)
         validateCrs(supportedCrs, crs)
         const styleNames = parseStyles(params.get('STYLES'), selectedLayers.length)
         const layers = selectedLayers.map((layer, index) => layer);
@@ -264,7 +263,7 @@ export class Wms extends Service {
             formatted: true
         }
     }
-    logListening(baseUrl:string): void {
+    logListening(baseUrl: string): void {
         console.log(`[WMS] GetMap : ${baseUrl}${this.path}?SERVICE=WMS&REQUEST=GetMap`)
         console.log(`[WMS] GetCapabilities: ${baseUrl}${this.path}?SERVICE=WMS&REQUEST=GetCapabilities`)
     }
@@ -274,7 +273,16 @@ export class Wms extends Service {
         console.debug(`[WMS] GetMap ${traceId}: BBOX used = ${request.bbox.join(',')}`)
         console.debug(`[WMS] GetMap ${traceId}: CRS=${request.crs} VERSION=${request.version} ORDER=${request.bboxOrder} SIZE=${request.width}x${request.height} PIXEL_RATIO=${request.pixelRatio}`)
     }
+    private sendWmsError(res: ServerResponse, code: string, message: string): void {
+        const body = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<ServiceExceptionReport version="1.3.0" xmlns="http://www.opengis.net/ogc">',
+            `<ServiceException code="${escape(code)}">${escape(message)}</ServiceException>`,
+            '</ServiceExceptionReport>'
+        ].join('')
 
+        Service.sendText(res, 400, body, 'text/xml; charset=utf-8')
+    }
 }
 
 type MapRequest = {
@@ -356,7 +364,7 @@ const WMS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
 
 class WmsCapabilitiesBuilder {
     static async build(service: Wms, layers: Layer[], path: string, crs: CrsCode[]): Promise<string> {
-        const supportedCrs = unique(crs)
+        const supportedCrs = [... new Set(crs)]
         const layerViews = []
 
         for (const layer of layers) {
@@ -420,6 +428,8 @@ class WmsCapabilitiesBuilder {
             boundingBoxes
         }
     }
+
+
 }
 
 function transformBBox(bbox: BBox, sourceCrs: CrsCode, targetCrs: CrsCode): BBox | null {
@@ -484,65 +494,18 @@ function validateCrs(supportedCrs: CrsCode[], crs: CrsCode): void {
     }
 }
 
-function parseBBox(value: string, crs: CrsCode, version: string): { bbox: BBox, order: 'xy' | 'yx' } {
-    const parts = value.split(',').map((part) => Number(part.trim()))
-    if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) {
-        throw new Error(`Invalid BBOX: ${value}`)
-    }
 
-    if (!usesLatLonAxisOrder(crs, version)) {
-        const bbox: BBox = [parts[0], parts[1], parts[2], parts[3]]
-        validateBBox(bbox, crs)
-        return {
-            bbox,
-            order: 'xy'
-        }
-    }
-
-    const bbox: BBox = [parts[1], parts[0], parts[3], parts[2]]
-    validateBBox(bbox, crs)
-    return {
-        bbox,
-        order: 'yx'
-    }
-}
-
-function validateBBox(bbox: BBox, crs: CrsCode): void {
-    const [minX, minY, maxX, maxY] = bbox
-
-    if (!(minX < maxX) || !(minY < maxY)) {
-        throw new Error(`Invalid BBOX for ${crs}: minimum bounds must be lower than maximum bounds`)
-    }
-}
 
 function toWmsBoundingBox(bbox: BBox, crs: CrsCode, version: string): BBox {
-    if (usesLatLonAxisOrder(crs, version)) {
+    if (Gt.usesLatLonAxisOrder(crs, version)) {
         return [bbox[1], bbox[0], bbox[3], bbox[2]]
     }
 
     return bbox
 }
 
-function usesLatLonAxisOrder(crs: CrsCode, version: string): boolean {
-    return version === '1.3.0' && crs.toUpperCase() === 'EPSG:4326'
-}
 
-function unique<T>(values: T[]): T[] {
-    return [...new Set(values)]
-}
 
-function parsePositiveInt(value: string, name: string, maxValue: number): number {
-    const number = Number.parseInt(value, 10)
-    if (!Number.isFinite(number) || number <= 0) {
-        throw new Error(`${name} must be a positive integer`)
-    }
-
-    if (number > maxValue) {
-        throw new Error(`${name} exceeds maximum value ${maxValue}`)
-    }
-
-    return number
-}
 
 function parseWmsPixelRatio(params: Map<string, string>): number {
     const dpiValue = params.get('MAP_RESOLUTION')
@@ -565,65 +528,13 @@ function getFormatOptionsDpi(value: string | undefined): string | undefined {
     return value.match(/(?:^|;)\s*dpi\s*:\s*([^;]+)/i)?.[1]?.trim()
 }
 
-function parseNonNegativeInt(value: string, name: string, maxValue: number): number {
-    const number = Number(value)
-    if (!Number.isInteger(number) || number < 0) {
-        throw new Error(`${name} must be a non-negative integer`)
-    }
 
-    if (number > maxValue) {
-        throw new Error(`${name} exceeds maximum value ${maxValue}`)
-    }
 
-    return number
-}
+function selectLayers(layerNames: string[] | undefined, lyrReg: Registry<Layer>, serviceName: string): Layer[] {
 
-function parsePixelIndex(value: string | undefined, name: string, size: number): number {
-    if (value === undefined || value === '') {
-        throw new Error(`${name} is required`)
-    }
-
-    const number = Number(value)
-    if (!Number.isInteger(number) || number < 0 || number >= size) {
-        throw new Error(`${name} must be an integer pixel index between 0 and ${size - 1}`)
-    }
-
-    return number
-}
-
-function isGetMapRequest(urlText: string | undefined): boolean {
-    if (!urlText) return false
-
-    try {
-        const url = new URL(urlText, 'http://localhost')
-        const request = url.searchParams.get('REQUEST')
-        return (request ?? '').toUpperCase() === 'GETMAP'
-    } catch {
-        return false
-    }
-}
-
-function selectLayers(layerNames: string[] | undefined, layers: Layer[], serviceName: string): Layer[] {
-    if (!layerNames) return layers
-
-    const layersByName = new Map(layers.map((layer) => [layer.name, layer]))
+    if (!layerNames) return lyrReg.all
     return layerNames.map((name) => {
-        const layer = layersByName.get(name)
-        if (!layer) {
-            throw new Error(`Unknown layer "${name}" in ${serviceName} service`)
-        }
-
-        return layer
+        if (lyrReg.has(name)) return lyrReg.get(name)
+        throw new Error(`Unknown layer "${name}" in ${serviceName} service`)
     })
-}
-
-function sendWmsError(res: ServerResponse, code: string, message: string): void {
-    const body = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<ServiceExceptionReport version="1.3.0" xmlns="http://www.opengis.net/ogc">',
-        `<ServiceException code="${escape(code)}">${escape(message)}</ServiceException>`,
-        '</ServiceExceptionReport>'
-    ].join('')
-
-    Service.sendText(res, 400, body, 'text/xml; charset=utf-8')
 }

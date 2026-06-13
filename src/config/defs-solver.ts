@@ -1,3 +1,5 @@
+import { isPlainObject } from "../core/tools.js"
+
 type JsonObject = Record<string, unknown>
 
 const DEFINITION_SECTION_KEY = '$defs'
@@ -10,7 +12,7 @@ export class DefsSolver {
     constructor(private readonly subject = 'config') {}
 
     solve<T>(document: T, label = 'configuration'): T {
-        if (!this.isPlainObject(document)) return document
+        if (!isPlainObject(document)) return document
 
         this.definitions = this.collectDefinitions(document, label)
         return this.solveValue(document, [], label, []) as T
@@ -22,7 +24,7 @@ export class DefsSolver {
         const section = document[DEFINITION_SECTION_KEY]
         if (section === undefined) return definitions
 
-        if (!this.isPlainObject(section)) {
+        if (!isPlainObject(section)) {
             throw new Error(`Invalid ${this.subject} definitions at /${DEFINITION_SECTION_KEY} in ${label}: expected an object`)
         }
 
@@ -50,7 +52,7 @@ export class DefsSolver {
             return value.map((item, index) => this.solveValue(item, [...path, String(index)], label, stack))
         }
 
-        if (!this.isPlainObject(value)) return value
+        if (!isPlainObject(value)) return value
 
         if (path.length === 0) {
             return this.solveRootObject(value, label, stack)
@@ -99,7 +101,7 @@ export class DefsSolver {
         const overrideEntries = Object.entries(value).filter(([key]) => key !== REF_KEY)
         if (overrideEntries.length === 0) return referenced
 
-        if (!this.isPlainObject(referenced)) {
+        if (!isPlainObject(referenced)) {
             throw new Error(
                 `Invalid ${this.subject} reference at ${this.formatLocation(path, label)}: "${pointer}" must resolve to an object when local overrides are provided`
             )
@@ -134,7 +136,7 @@ export class DefsSolver {
         path: string[],
         label: string
     ): unknown {
-        if (this.isPlainObject(value) && Object.hasOwn(value, token)) {
+        if (isPlainObject(value) && Object.hasOwn(value, token)) {
             return value[token]
         }
 
@@ -188,7 +190,7 @@ export class DefsSolver {
 
         for (const [key, overrideValue] of Object.entries(overrides)) {
             const baseValue = merged[key]
-            if (this.isPlainObject(baseValue) && this.isPlainObject(overrideValue)) {
+            if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
                 merged[key] = this.mergeObjects(baseValue, overrideValue)
                 continue
             }
@@ -202,7 +204,7 @@ export class DefsSolver {
     private clone(value: unknown): unknown {
         if (Array.isArray(value)) return value.map((item) => this.clone(item))
 
-        if (this.isPlainObject(value)) {
+        if (isPlainObject(value)) {
             const cloned: JsonObject = {}
             for (const [key, child] of Object.entries(value)) {
                 cloned[key] = this.clone(child)

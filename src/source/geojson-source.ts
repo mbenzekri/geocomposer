@@ -2,18 +2,26 @@ import { createReadStream, type PathLike } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { CrsCode } from '../core/geometry.js'
-import type { Feature, FileRef, SourceRef } from '../core/feature.js'
+import type { DescInfo, Feature, FileRef, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
-import { FileSource, hasSourceConfigType, type FeatureTransform, type SourceConfigCrsResolver } from './source-base.js'
+import { FileSource, hasSourceConfigType, type FeatureTransform } from './source-base.js'
 import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
-import type { GeoJsonSourceJson } from '../config/config.js'
+import { Registry } from '../core/tools.js'
 
 export type GeoJsonSourceOptions = {
   crs?: CrsCode
   encoding?: BufferEncoding
   highWaterMark?: number
   transformFeature?: FeatureTransform
+}
+
+export type GeoJsonSourceJson = DescInfo & {
+  type: 'geojson'
+  path: string
+  crs?: string
+  encoding?: BufferEncoding
+  highWaterMark?: number
 }
 
 export class GeoJsonSource extends FileSource {
@@ -30,10 +38,10 @@ export class GeoJsonSource extends FileSource {
     id: string,
     entry: GeoJsonSourceJson,
     baseDir: string,
-    crs: SourceConfigCrsResolver
+    crs: Registry<CrsCode>
   ): GeoJsonSource {
     return new GeoJsonSource(id, resolve(baseDir, entry.path), {
-      crs: crs.resolve(entry.crs),
+      crs: entry.crs ? crs.get(entry.crs) : "EPSG:4326",
       encoding: entry.encoding,
       highWaterMark: entry.highWaterMark
     })

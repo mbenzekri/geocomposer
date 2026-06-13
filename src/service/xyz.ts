@@ -4,16 +4,21 @@ import type { BBox } from '../core/geometry.js'
 import { getMap } from '../ogc/get-map.js'
 import { type TileOutput, Tileset, tileFormatFromExtension } from '../tileset/tileset.js'
 import { getVectorTile } from '../tileset/vector-tile.js'
-import { Service } from './service.js'
-import { nonNegativeInteger } from '../core/tools.js'
+import { Service } from './service-base.js'
+import { nonNegativeInteger, Registry } from '../core/tools.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
-import type { XyzJson } from '../config/config.js'
 
 const DEFAULT_MAX_SCALE_FACTOR = 4
 
 export type XyzOptions = DescInfo & ServiceInfo & {
     tilesets: Tileset[]
     maxScaleFactor?: number
+}
+
+export type XyzJson = DescInfo & ServiceInfo & {
+    maxScaleFactor?: number
+    cache?: string
+    tilesets?: string[]
 }
 
 type TileRequest = {
@@ -44,7 +49,7 @@ export class Xyz extends Service {
         this.tilesetByName = new Map(this.tilesets.map((tileset) => [tileset.name, tileset]))
     }
 
-    static fromConfig(entry: XyzJson, tilesets: Tileset[], baseDir: string): Xyz {
+    static fromConfig(entry: XyzJson, baseDir: string, tsetReg: Registry<Tileset>): Xyz {
         return new Xyz({
             title: entry.title,
             abstract: entry.abstract,
@@ -52,7 +57,7 @@ export class Xyz extends Service {
             onlineResource: entry.onlineResource,
             maxScaleFactor: entry.maxScaleFactor,
             cache: entry.cache ? resolve(baseDir, entry.cache) : undefined,
-            tilesets: Tileset.select(entry.tilesets, tilesets, 'XYZ')
+            tilesets: Tileset.select(entry.tilesets, 'XYZ', tsetReg)
         })
     }
 

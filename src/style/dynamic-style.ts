@@ -13,7 +13,7 @@ import {
   setTextDeclutterRank,
   setTextRenderStep
 } from './text-render-step.js'
-import { Props } from '../core/tools.js'
+import { isObject, isPlainObject, Props } from '../core/tools.js'
 
 type JsonObject = Props
 type DynamicExpression = string | string[]
@@ -1339,10 +1339,3 @@ function unescapeJsonPointer(value: string): string {
   return value.replace(/~1/g, '/').replace(/~0/g, '~')
 }
 
-function isPlainObject(value: unknown): value is JsonObject {
-  return isObject(value) && !Array.isArray(value)
-}
-
-function isObject(value: unknown): value is object {
-  return typeof value === 'object' && value !== null
-}

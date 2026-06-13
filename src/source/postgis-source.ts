@@ -1,14 +1,13 @@
 import pg, { type Pool as PgPool, type PoolClient, type PoolConfig, type QueryResultRow } from 'pg'
 import Cursor from 'pg-cursor'
 import type { BBox, CrsCode, Geometry } from '../core/geometry.js'
-import type { DbRef, Feature, SourceRef } from '../core/feature.js'
+import type { DbRef, DescInfo, Feature, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
-import { DbSource, hasSourceConfigType, toStream, type FeatureTransform, type QueryOptions, type SourceConfigCrsResolver } from './source-base.js'
+import { DbSource, hasSourceConfigType, toStream, type FeatureTransform, type QueryOptions } from './source-base.js'
 import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard } from './source-utils.js'
-import { Props } from '../core/tools.js'
+import { Props, Registry } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
-import type { PostgisSourceJson } from '../config/config.js'
 
 export type PostgisExtentStrategy = 'estimated' | 'exact' | 'none'
 
@@ -40,6 +39,20 @@ export type PostgisSourceOptions = {
   batchSize?: number
   extentStrategy?: PostgisExtentStrategy
   transformFeature?: FeatureTransform
+}
+
+export type PostgisSourceJson = DescInfo & {
+  type: 'postgis'
+  crs?: string
+  connection: PostgisConnectionOptions
+  schema?: string
+  tableName: string
+  geometryColumn?: string
+  primaryKey?: string
+  srid?: number
+  properties?: string[]
+  batchSize?: number
+  extentStrategy?: PostgisExtentStrategy
 }
 
 type PostgisTableMeta = {
@@ -81,10 +94,10 @@ export class PostgisSource extends DbSource {
   static fromConfig(
     id: string,
     entry: PostgisSourceJson,
-    crs: SourceConfigCrsResolver
+    crs: Registry<CrsCode>
   ): PostgisSource {
     return new PostgisSource(id, {
-      crs: crs.resolve(entry.crs),
+      crs: entry.crs ? crs.get(entry.crs) : "EPSG:4326",
       connection: entry.connection,
       schema: entry.schema,
       tableName: entry.tableName,

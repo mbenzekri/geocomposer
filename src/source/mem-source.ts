@@ -1,11 +1,16 @@
 import type { BBox, CrsCode } from '../core/geometry.js'
 import { Gt } from '../core/geotools.js'
-import type { Feature, MemRef, SourceRef } from '../core/feature.js'
+import type { DescInfo, Feature, MemRef, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
-import { Source, hasSourceConfigType, type SourceResolver, type StreamOptions } from './source-base.js'
-import type { MemSourceJson } from '../config/config.js'
+import { Source, hasSourceConfigType, type StreamOptions } from './source-base.js'
+import { Registry } from '../core/tools.js'
 
 export type MemFeatureProvider = (layer: Layer) => Feature[] | Promise<Feature[]>
+
+export type MemSourceJson = DescInfo & {
+  type: 'mem'
+  source: string
+}
 
 export class MemSource extends Source {
   readonly type = 'mem'
@@ -21,8 +26,9 @@ export class MemSource extends Source {
     return hasSourceConfigType(entry, 'mem')
   }
 
-  static fromConfig(id: string, entry: MemSourceJson, resolveSource: SourceResolver): MemSource {
-    return new MemSource(id, resolveSource(entry.source))
+  static fromConfig(id: string, entry: MemSourceJson, sourceReg: Registry<Source>
+  ): MemSource {
+    return new MemSource(id, sourceReg.get(entry.source))
   }
 
   constructor(id: string, source: Source)

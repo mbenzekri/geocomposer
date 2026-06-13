@@ -1,20 +1,28 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open, readFile, type FileHandle } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import type { Feature, ByteRange, FileRef, SourceRef } from '../core/feature.js'
+import type { DescInfo, Feature, ByteRange, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position, CrsCode} from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
-import { FileSource, hasSourceConfigType, type FeatureTransform, type SourceConfigCrsResolver } from './source-base.js'
+import { FileSource, hasSourceConfigType, type FeatureTransform } from './source-base.js'
 import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
-import { Props } from '../core/tools.js'
-import type { ShpSourceJson } from '../config/config.js'
+import { Props, Registry } from '../core/tools.js'
 
 export type ShpSourceOptions = {
   crs?: CrsCode
   dbfEncoding?: BufferEncoding
   highWaterMark?: number
   transformFeature?: FeatureTransform
+}
+
+export type ShpSourceJson = DescInfo & {
+  type: 'shp'
+  crs?: string
+  shpPath: string
+  dbfPath: string
+  dbfEncoding?: BufferEncoding
+  highWaterMark?: number
 }
 
 type ShpRecord = {
@@ -52,14 +60,13 @@ export class ShpSource extends FileSource {
     id: string,
     entry: ShpSourceJson,
     baseDir: string,
-    crs: SourceConfigCrsResolver
+    crs: Registry<CrsCode>
   ): ShpSource {
-    return new ShpSource(
-      id,
-      resolve(baseDir, entry.shpPath),
-      resolve(baseDir, entry.dbfPath),
+    const shppath = resolve(baseDir, entry.shpPath)
+    const dbfpath = resolve(baseDir, entry.dbfPath)
+    return new ShpSource(id, shppath, dbfpath,
       {
-        crs: crs.resolve(entry.crs),
+        crs: entry.crs ? crs.get(entry.crs) : "EPSG:4326",
         dbfEncoding: entry.dbfEncoding,
         highWaterMark: entry.highWaterMark
       }

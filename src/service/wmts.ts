@@ -1,20 +1,24 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { resolve } from 'node:path'
-import { escape, nonNegativeInteger, paramsFromUrl, Props } from '../core/tools.js'
+import { escape, nonNegativeInteger, paramsFromUrl, Props, Registry } from '../core/tools.js'
 import { MarkupTemplate } from '../core/template.js'
 import { getMap } from '../ogc/get-map.js'
 import type { TileMatrixSet } from '../tileset/tile-matrix-set.js'
 import { Tileset, type TileOutput } from '../tileset/tileset.js'
 import { getVectorTile } from '../tileset/vector-tile.js'
-import { Service } from './service.js'
+import { Service } from './service-base.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
-import type { WmtsJson } from '../config/config.js'
 
 const WMTS_VERSION = '1.0.0'
 
 export type WmtsOptions = DescInfo & ServiceInfo & {
     tilesets: Tileset[]
     cache?: string
+}
+
+export type WmtsJson = DescInfo & ServiceInfo & {
+    cache?: string
+    tilesets?: string[]
 }
 
 type WmtsTileRequest = {
@@ -120,14 +124,14 @@ export class Wmts extends Service {
         validateWmtsTilesets(opts.tilesets)
     }
 
-    static fromConfig(entry: WmtsJson, tilesets: Tileset[], baseDir: string): Wmts {
+    static fromConfig(entry: WmtsJson, baseDir: string, tsetReg: Registry<Tileset>): Wmts {
         return new Wmts({
             title: entry.title,
             abstract: entry.abstract,
             path: entry.path,
             onlineResource: entry.onlineResource,
             cache: entry.cache ? resolve(baseDir, entry.cache) : undefined,
-            tilesets: Tileset.select(entry.tilesets, tilesets, 'WMTS')
+            tilesets: Tileset.select(entry.tilesets, 'WMTS', tsetReg)
         })
     }
 

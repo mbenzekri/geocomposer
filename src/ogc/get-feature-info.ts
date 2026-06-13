@@ -4,7 +4,7 @@ import type { Layer } from '../layer/layer.js'
 import { escape, Props } from '../core/tools.js'
 import { HitFilter } from '../stream/hit-filter.js'
 
-export const INFO_FORMATS = ['application/geo+json', 'application/json', 'text/xml', 'application/xml'] as const
+export const INFO_FORMATS = ['application/geo+json', 'application/json', 'text/xml', 'application/xml']
 
 export type InfoFormat = typeof INFO_FORMATS[number]
 
@@ -51,13 +51,13 @@ export type GetInfoOptions = {
 const INFO_LIMIT_REACHED = new Error('Info feature limit reached')
 
 
-function getInfoFormater(format: string| undefined) {
-    switch(format) {
-        case 'application/geo+json' : return new GeoJsonFormatter();
-        case 'application/json' : return new GeoJsonFormatter();
-        case 'text/xml' : return new XmlFormatter();
-        case 'application/xml' : return new XmlFormatter();
-        
+function getInfoFormater(format: string | undefined) {
+    switch (format) {
+        case 'application/geo+json': return new GeoJsonFormatter();
+        case 'application/json': return new GeoJsonFormatter();
+        case 'text/xml': return new XmlFormatter();
+        case 'application/xml': return new XmlFormatter();
+
     }
     return new InfoResultFormatter()
 }
@@ -82,7 +82,7 @@ export async function getInfo(options: GetInfoOptions): Promise<InfoResult | Inf
         coordinate: point,
         featureCount: options.featureCount
     }
-    const format = options.formatted ? normalizeInfoFormat(options.infoFormat) : undefined
+    const format = options.formatted ? InfoFormatter.normalizeInfoFormat(options.infoFormat) : undefined
     let limitReached = options.featureCount <= 0
     let abortCurrentLayer: (() => void) | undefined
     const output = formatter.writableStream(infoContext, () => {
@@ -127,7 +127,7 @@ export async function getInfo(options: GetInfoOptions): Promise<InfoResult | Inf
     return format
         ? {
             body: result as string,
-            contentType: contentTypeForInfoFormat(format)
+            contentType: `${format}; charset=utf-8`
         }
         : result as InfoResult
 }
@@ -176,6 +176,14 @@ export abstract class InfoFormatter<T = string> {
 
         return Object.assign(writable, { result })
     }
+
+    static normalizeInfoFormat(value: string | undefined): InfoFormat {
+
+        const format = (value ?? 'application/geo+json').toLowerCase()
+        if (value && INFO_FORMATS.includes(value)) return format
+        throw new Error(`Unsupported INFO_FORMAT: ${value}`)
+    }
+
 }
 
 class InfoResultFormatter extends InfoFormatter<InfoResult> {
@@ -232,7 +240,6 @@ class GeoJsonFormatter extends InfoFormatter {
 
         return value
     }
-
 }
 
 class XmlFormatter extends InfoFormatter {
@@ -306,17 +313,5 @@ class XmlFormatter extends InfoFormatter {
 }
 
 
-function normalizeInfoFormat(value: string | undefined): InfoFormat {
-    const format = (value ?? 'application/geo+json').toLowerCase()
-    if (isInfoFormat(format)) return format
 
-    throw new Error(`Unsupported INFO_FORMAT: ${value ?? ''}`)
-}
 
-function isInfoFormat(value: string): value is InfoFormat {
-    return (INFO_FORMATS as readonly string[]).includes(value)
-}
-
-function contentTypeForInfoFormat(format: InfoFormat): string {
-    return `${format}; charset=utf-8`
-}

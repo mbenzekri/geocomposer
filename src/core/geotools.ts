@@ -1,6 +1,6 @@
 import proj4 from 'proj4'
 import { get as getProjection } from 'ol/proj.js'
-import type { BBox, Geometry, HitContext, Position } from './geometry.js'
+import type { BBox, CrsCode, Geometry, HitContext, Position } from './geometry.js'
 import { Feature } from './feature.js'
 
 type ProjectionDomain = {
@@ -402,17 +402,55 @@ export abstract class Gt {
         sourceCrs: string,
         targetCrs: string
     ): Feature['properties'] {
-    if (!properties) return properties
+        if (!properties) return properties
 
-    const x_src = Number(properties[label_x])
-    const y_src = Number(properties[label_y])
-    if (!Number.isFinite(x_src) || !Number.isFinite(y_src)) return properties
+        const x_src = Number(properties[label_x])
+        const y_src = Number(properties[label_y])
+        if (!Number.isFinite(x_src) || !Number.isFinite(y_src)) return properties
 
-    const [x, y] = Gt.transformPosition([x_src, y_src], sourceCrs, targetCrs)
-    const projected = { ...properties }
-    projected[label_x] = x
-    projected[label_y] = y
-    return projected
-}
+        const [x, y] = Gt.transformPosition([x_src, y_src], sourceCrs, targetCrs)
+        const projected = { ...properties }
+        projected[label_x] = x
+        projected[label_y] = y
+        return projected
+    }
+
+    static parseBBox(value: string, crs: CrsCode, version: string): { bbox: BBox, order: 'xy' | 'yx' } {
+        const parts = value.split(',').map((part) => Number(part.trim()))
+        if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) {
+            throw new Error(`Invalid BBOX: ${value}`)
+        }
+
+        if (!this.usesLatLonAxisOrder(crs, version)) {
+            const bbox: BBox = [parts[0], parts[1], parts[2], parts[3]]
+            this.validateBBox(bbox, crs)
+            return {
+                bbox,
+                order: 'xy'
+            }
+        }
+
+        const bbox: BBox = [parts[1], parts[0], parts[3], parts[2]]
+        this.validateBBox(bbox, crs)
+        return {
+            bbox,
+            order: 'yx'
+        }
+
+
+    }
+
+    static validateBBox(bbox: BBox, crs: CrsCode): void {
+        const [minX, minY, maxX, maxY] = bbox
+
+        if (!(minX < maxX) || !(minY < maxY)) {
+            throw new Error(`Invalid BBOX for ${crs}: minimum bounds must be lower than maximum bounds`)
+        }
+    }
+
+    static usesLatLonAxisOrder(crs: CrsCode, version: string): boolean {
+        return version === '1.3.0' && crs.toUpperCase() === 'EPSG:4326'
+    }
+
 
 }

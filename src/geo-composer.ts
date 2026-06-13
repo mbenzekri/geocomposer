@@ -6,9 +6,10 @@ import { Args, parseArgs, parsePort, Registry } from './core/tools.js'
 import { Config } from './config/config.js'
 import { Service } from './service/service.js'
 import { Source } from './source/source.js'
-import { Layer, NamedStyle } from './layer/layer.js'
+import { Layer } from './layer/layer.js'
 import { CrsCode } from './core/geometry.js'
 import { Tileset } from './tileset/tileset.js'
+import { NamedStyle } from './style/style.js'
 
 
 export class GeoComposer {

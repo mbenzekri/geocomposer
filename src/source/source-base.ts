@@ -4,6 +4,7 @@ import type { Feature, SourceRef } from '../core/feature.js'
 import { Gt } from '../core/geotools.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
 import type { Layer } from '../layer/layer.js'
+import { Registry } from '../core/tools.js'
 
 export type SourceStorage = 'mem' | 'file' | 'database'
 
@@ -27,12 +28,6 @@ export type QueryOptions = StreamOptions & {
 
 export type FeatureTransform = (feature: Feature, index: number) => Feature | Promise<Feature>
 
-export type SourceConfigCrsResolver = {
-  resolve(name: string | undefined): CrsCode | undefined
-}
-
-export type SourceResolver = (name: string) => Source
-
 export abstract class Source {
   abstract readonly id: string
   abstract readonly type: string
@@ -40,28 +35,20 @@ export abstract class Source {
   abstract readonly crs: CrsCode
 
   static createAll(
-    sourceEntries: Record<string, unknown>,
-    baseDir: string,
-    crs: SourceConfigCrsResolver
-  ): Map<string, Source> {
-    void sourceEntries
-    void baseDir
-    void crs
+    _sourceEntries: Record<string, unknown>,
+    _baseDir: string,
+    _crs: Registry<CrsCode>,
+  ): Registry<Source>{
     throw new Error('Source.createAll is not initialized')
   }
 
   static create(
-    name: string,
-    entry: unknown,
-    baseDir: string,
-    crs: SourceConfigCrsResolver,
-    resolveSource: SourceResolver
+    _name: string,
+    _entry: unknown,
+    _baseDir: string,
+    _crs: Registry<CrsCode>,
+    _sourceReg: Registry<Source>
   ): Source {
-    void name
-    void entry
-    void baseDir
-    void crs
-    void resolveSource
     throw new Error('Source.create is not initialized')
   }
 

@@ -1,15 +1,14 @@
 import { constants, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import type { DbRef, Feature, SourceRef} from '../core/feature.js'
+import type { DbRef, DescInfo, Feature, SourceRef} from '../core/feature.js'
 import type { Geometry, BBox, CrsCode} from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
-import { DbSource, hasSourceConfigType, type FeatureTransform, type SourceConfigCrsResolver } from './source-base.js'
+import { DbSource, hasSourceConfigType, type FeatureTransform } from './source-base.js'
 import type { StreamOptions } from './source-base.js'
 import { AbortSignalGuard } from './source-utils.js'
-import { Props } from '../core/tools.js'
+import { Props, Registry } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
-import type { GpkgSourceJson } from '../config/config.js'
 
 export type GpkgSourceOptions = {
   crs?: CrsCode
@@ -17,6 +16,15 @@ export type GpkgSourceOptions = {
   geometryColumn?: string
   primaryKey?: string
   transformFeature?: FeatureTransform
+}
+
+export type GpkgSourceJson = DescInfo & {
+  type: 'gpkg'
+  crs?: string
+  path: string
+  tableName?: string
+  geometryColumn?: string
+  primaryKey?: string
 }
 
 type SqliteDatabase = {
@@ -56,10 +64,10 @@ export class GpkgSource extends DbSource {
     id: string,
     entry: GpkgSourceJson,
     baseDir: string,
-    crs: SourceConfigCrsResolver
+    crs: Registry<CrsCode>
   ): GpkgSource {
     return new GpkgSource(id, resolve(baseDir, entry.path), {
-      crs: crs.resolve(entry.crs),
+      crs: entry.crs ? crs.get(entry.crs) : "EPSG:4326",
       tableName: entry.tableName,
       geometryColumn: entry.geometryColumn,
       primaryKey: entry.primaryKey

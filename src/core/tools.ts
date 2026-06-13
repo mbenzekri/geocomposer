@@ -1,5 +1,6 @@
 import path from "node:path"
 import { LogLevel } from "./log-level.js"
+import { measureMemory } from "node:vm"
 export type Constructor<T> = abstract new (...args: any[]) => T
 export type Props = Record<string, unknown>
 export type Dict<T> = Record<string, T>
@@ -107,8 +108,10 @@ export class Registry<T>  {
     this.reg.set(name, item)
   }
 
-  get(name: string): T | undefined {
-    return this.reg.get(name)
+  get(name: string): T {
+    const crs = this.reg.get(name)
+    if (crs) return crs
+    throw new Error(`Item ${name} not found in Registry ${this.name}`)
   }
 
   get all(): T[] {
@@ -121,20 +124,18 @@ export class Registry<T>  {
 }
 
 
+export function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return isObject(value) && !Array.isArray(value)
+}
+
+export function isObject(value: unknown): value is object {
+  return typeof value === 'object' && value !== null
+}
+
 export function isTruthy(value: unknown): boolean {
     return Boolean(Array.isArray(value) ? value.length : value)
 }
 
-export function parsePort(value: string | undefined, fallback: number | undefined): number | undefined {
-    if (value === undefined || value === '') return fallback
-
-    const port = Number.parseInt(value, 10)
-    if (!Number.isFinite(port) || port <= 0 || port > 65535) {
-        throw new Error(`Invalid PORT: ${value}`)
-    }
-
-    return port
-}
 
 export function stringify(value: unknown): string {
     return String(value == null ? '' : value)
@@ -149,6 +150,43 @@ export function escape(value: string): string {
         .replaceAll("'", '&#39;')
 }
 
+
+export function paramsFromUrl(url: URL): Map<string, string> {
+    const params = new Map<string, string>()
+
+    for (const [key, value] of url.searchParams.entries()) {
+        params.set(key.toUpperCase(), value)
+    }
+
+    return params
+}
+
+
+export function parsePort(value: string | undefined, fallback: number | undefined): number | undefined {
+    if (value === undefined || value === '') return fallback
+
+    const port = Number.parseInt(value, 10)
+    if (!Number.isFinite(port) || port <= 0 || port > 65535) {
+        throw new Error(`Invalid PORT: ${value}`)
+    }
+
+    return port
+}
+
+export function parseNonNegativeInt(value: string, name: string, maxValue: number): number {
+    const number = Number(value)
+    if (!Number.isInteger(number) || number < 0) {
+        throw new Error(`${name} must be a non-negative integer`)
+    }
+
+    if (number > maxValue) {
+        throw new Error(`${name} exceeds maximum value ${maxValue}`)
+    }
+
+    return number
+}
+
+
 export function nonNegativeInteger(value: string, name: string): number {
     if (!/^\d+$/.test(value)) {
         throw new Error(`${name} must be a non-negative integer`)
@@ -162,12 +200,29 @@ export function nonNegativeInteger(value: string, name: string): number {
     return number
 }
 
-export function paramsFromUrl(url: URL): Map<string, string> {
-    const params = new Map<string, string>()
-
-    for (const [key, value] of url.searchParams.entries()) {
-        params.set(key.toUpperCase(), value)
+export function parsePositiveInt(value: string, name: string, maxValue: number): number {
+    const number = Number.parseInt(value, 10)
+    if (!Number.isFinite(number) || number <= 0) {
+        throw new Error(`${name} must be a positive integer`)
     }
 
-    return params
+    if (number > maxValue) {
+        throw new Error(`${name} exceeds maximum value ${maxValue}`)
+    }
+
+    return number
 }
+
+export function parsePixelIndex(value: string | undefined, name: string, size: number): number {
+    if (value === undefined || value === '') {
+        throw new Error(`${name} is required`)
+    }
+
+    const number = Number(value)
+    if (!Number.isInteger(number) || number < 0 || number >= size) {
+        throw new Error(`${name} must be an integer pixel index between 0 and ${size - 1}`)
+    }
+
+    return number
+}
+

@@ -1,4 +1,5 @@
 import process from 'node:process'
+import { isPlainObject } from '../core/tools.js'
 
 type EnvCode = 's' | 'i' | 'f' | 'b'
 type EnvValue = string | number | boolean
@@ -39,7 +40,7 @@ export class EnvSolver {
             return value.map((item, index) => this.solveValue(item, [...path, String(index)], label))
         }
 
-        if (this.isObject(value)) {
+        if (isPlainObject(value)) {
             const resolved: Record<string, unknown> = {}
             for (const [key, child] of Object.entries(value)) {
                 resolved[key] = this.solveValue(child, [...path, key], label)

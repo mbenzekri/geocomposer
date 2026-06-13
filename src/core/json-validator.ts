@@ -3,6 +3,7 @@ import  path from 'node:path'
 import { Ajv2020 } from 'ajv/dist/2020.js'
 import type { ErrorObject, ValidateFunction } from 'ajv'
 import process from 'node:process'
+import { isPlainObject } from './tools.js'
 
 export class JsonValidator<T> {
     private schemaName: string
@@ -15,7 +16,7 @@ export class JsonValidator<T> {
     constructor(schema: unknown, name: string) {
         this.schemaName = name
         const document = this.load(schema)
-        if (!this.isObject(document)) {
+        if (!isPlainObject(document)) {
             throw new Error(`Invalid JSON Schema in ${document.label}: expected an object`)
         }
 
@@ -99,7 +100,4 @@ export class JsonValidator<T> {
         return typeof params.additionalProperty === 'string' ? params.additionalProperty : undefined
     }
 
-    private isObject(value: unknown): value is object {
-        return typeof value === 'object' && value !== null && !Array.isArray(value)
-    }
 }
