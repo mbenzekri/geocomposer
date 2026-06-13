@@ -4,8 +4,8 @@ import { Dict, Singleton } from '../core/tools.js'
 import { LogLevel} from "../core/log-level.js"
 import { Crs, type CrsJson } from '../core/crs.js'
 
-import { Service, type ServicesJson } from '../service/service.js'
-import { Source, type SourceJson } from '../source/source.js'
+import { Service, type ServicesJson } from '../service/service-build.js'
+import { Source, type SourceJson } from '../source/source-build.js'
 import { Layer, type LayerJson } from '../layer/layer.js'
 import { Style, type StyleJson } from '../style/style.js'
 import { Tileset, type TilesetJson } from '../tileset/tileset.js'

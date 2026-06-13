@@ -2,7 +2,7 @@ import type { BBox, CrsCode } from '../core/geometry.js'
 import { Gt } from '../core/geotools.js'
 import type { DescInfo, Feature, MemRef, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
-import { Source, hasSourceConfigType, type StreamOptions } from './source-base.js'
+import { Source, hasSourceConfigType, type StreamOptions } from './source.js'
 
 export type MemFeatureProvider = (layer: Layer) => Feature[] | Promise<Feature[]>
 

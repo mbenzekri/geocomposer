@@ -6,7 +6,7 @@ import { getMap } from '../ogc/get-map.js'
 import type { TileMatrixSet } from '../tileset/tile-matrix-set.js'
 import { Tileset, type TileOutput } from '../tileset/tileset.js'
 import { getVectorTile } from '../tileset/vector-tile.js'
-import { Service } from './service-base.js'
+import { Service } from './service.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
 
 const WMTS_VERSION = '1.0.0'

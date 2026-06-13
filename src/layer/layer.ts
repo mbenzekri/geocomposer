@@ -1,6 +1,6 @@
 import type { BBox, CrsCode } from '../core/geometry.js'
 import type { DescInfo, Feature } from '../core/feature.js'
-import { Source, type QueryOptions, type StreamOptions } from '../source/source.js'
+import { Source, type QueryOptions, type StreamOptions } from '../source/source-build.js'
 import { Style, type NamedStyle } from '../style/style.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { BboxFilter } from '../stream/bbox-filter.js'

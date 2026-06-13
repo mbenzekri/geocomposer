@@ -4,7 +4,7 @@ import type { BBox } from '../core/geometry.js'
 import { getMap } from '../ogc/get-map.js'
 import { type TileOutput, Tileset, tileFormatFromExtension } from '../tileset/tileset.js'
 import { getVectorTile } from '../tileset/vector-tile.js'
-import { Service } from './service-base.js'
+import { Service } from './service.js'
 import { nonNegativeInteger } from '../core/tools.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
 

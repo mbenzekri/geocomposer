@@ -6,7 +6,7 @@ import { getInfo, INFO_FORMATS, type GetInfoOptions } from '../ogc/get-feature-i
 import { getMap } from '../ogc/get-map.js'
 import { escape, paramsFromUrl, parseNonNegativeInt, parsePixelIndex, parsePositiveInt, Props } from '../core/tools.js'
 import { Layer } from '../layer/layer.js'
-import { Service } from './service-base.js'
+import { Service } from './service.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { Gt } from '../core/geotools.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'

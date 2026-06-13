@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
 import { Args, parseArgs, parsePort } from './core/tools.js'
 import { Config } from './config/config.js'
-import { Service } from './service/service.js'
-import { Source } from './source/source.js'
+import { Service } from './service/service-build.js'
+import { Source } from './source/source-build.js'
 
 
 export class GeoComposer {
