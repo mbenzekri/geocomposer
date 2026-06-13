@@ -35,14 +35,12 @@
             "type": "geojson",
             "title": "World GeoJSON",
             "abstract": "World country boundaries GeoJSON demo source.",
-            "crs": "EPSG:4326",
             "path": "data/world.geojson"
         },
         "capitals": {
             "type": "geojson",
             "title": "Capitals GeoJSON",
             "abstract": "World capitals GeoJSON demo source.",
-            "crs": "EPSG:4326",
             "path": "data/capitals.geojson"
         }
     },
@@ -68,7 +66,7 @@
             "title": "World GeoJSON",
             "abstract": "World country boundaries from the GeoJSON demo dataset.",
             "source": "world",
-            "sourceCrs": "EPSG:4326",
+            "crs": "EPSG:4326",
             "extent": "#/$defs/worldExtent",
             "style": "world",
             "pointProperties": [
@@ -83,7 +81,7 @@
             "title": "Capitals GeoJSON",
             "abstract": "World capitals from the GeoJSON demo dataset.",
             "source": "capitals",
-            "sourceCrs": "EPSG:4326",
+            "crs": "EPSG:4326",
             "extent": "#/$defs/worldExtent",
             "style": "capitals"
         }

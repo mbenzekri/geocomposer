@@ -4,7 +4,7 @@ import { MemSource } from '../source/mem-source.js'
 import { getMap } from '../ogc/get-map.js'
 import { createDynamicStyleFn } from '../style/dynamic-style.js'
 
-const source = new MemSource('demo', 'EPSG:4326', (layer) => [
+const source = new MemSource('demo', (layer) => [
   {
     layer,
     type: 'Feature',
@@ -81,6 +81,7 @@ const style = await createDynamicStyleFn('demo', {
 })
 const layer = new Layer('demo', {
   source,
+  crs: 'EPSG:4326',
   styles: [{
     name: 'default',
     style

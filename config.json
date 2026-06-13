@@ -9,7 +9,7 @@
             90
         ],
         "defaultLayer": {
-            "sourceCrs": "EPSG:4326",
+            "crs": "EPSG:4326",
             "extent": "#/$defs/worldExtent",
             "style": "world",
             "pointProperties": [
@@ -254,14 +254,12 @@
             "type": "geojson",
             "title": "World GeoJSON",
             "abstract": "World country boundaries GeoJSON demo source.",
-            "crs": "EPSG:4326",
             "path": "data/world.geojson"
         },
         "capitals": {
             "type": "geojson",
             "title": "Capitals GeoJSON",
             "abstract": "World capitals GeoJSON demo source.",
-            "crs": "EPSG:4326",
             "path": "data/capitals.geojson"
         },
         "world-mem": {
@@ -274,7 +272,6 @@
             "type": "gml",
             "title": "World GML",
             "abstract": "World country boundaries GML demo source.",
-            "crs": "EPSG:4326",
             "path": "data/world.gml",
             "axisOrder": "auto"
         },
@@ -282,7 +279,6 @@
             "type": "shp",
             "title": "World Shapefile",
             "abstract": "World country boundaries shapefile demo source.",
-            "crs": "EPSG:4326",
             "shpPath": "data/shapefile/world.shp",
             "dbfPath": "data/shapefile/world.dbf"
         },
@@ -298,7 +294,6 @@
             "type": "postgis",
             "title": "World PostGIS",
             "abstract": "World country boundaries PostGIS demo source.",
-            "crs": "EPSG:4326",
             "connection": {
                 "connectionString": "#/$defs/connection",
                 "max": 4,
@@ -338,7 +333,7 @@
             "title": "Capitals GeoJSON",
             "abstract": "World capitals from the GeoJSON demo dataset.",
             "source": "capitals",
-            "sourceCrs": "EPSG:4326",
+            "crs": "EPSG:4326",
             "extent": "#/$defs/worldExtent",
             "style": "capitals"
         },

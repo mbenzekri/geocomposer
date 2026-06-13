@@ -23,7 +23,7 @@ export type PointPropertiesJson = {
 
 export type LayerJson = DescInfo & {
     source: string
-    sourceCrs?: string
+    crs: string
     extent?: BBox
     style?: string
     styles?: string[]
@@ -34,21 +34,23 @@ export type LayerOptions = {
     title?: string
     summary?: string
     source: Source
-    sourceCrs?: CrsCode
+    crs: CrsCode
     extent?: BBox
     styles: NamedStyle[]
     pointProperties: PointProperties[]
 }
 
 export type LayerStreamOptions = Omit<StreamOptions, 'layer'>
-export type LayerQueryOptions = Omit<QueryOptions, 'layer'>
+export type LayerQueryOptions = Omit<QueryOptions, 'layer'> & {
+    crs?: CrsCode
+}
 export class Layer {
     static readonly registry = new Registry<Layer>('LAYER')
 
     readonly title?: string
     readonly summary?: string
     readonly source: Source
-    readonly sourceCrs: CrsCode
+    readonly crs: CrsCode
     readonly extent?: BBox
     readonly styles: readonly NamedStyle[]
     readonly pointProperties: PointProperties[]
@@ -64,7 +66,7 @@ export class Layer {
         this.title = options.title
         this.summary = options.summary
         this.source = options.source
-        this.sourceCrs = options.sourceCrs ?? options.source.crs
+        this.crs = options.crs
         this.extent = options.extent
         this.styles = options.styles
         this.pointProperties = options.pointProperties
@@ -93,7 +95,7 @@ export class Layer {
             return style
         })
 
-        const sourceCrs = Layer.normalizeSourceCrs(entry.sourceCrs, source, name)
+        const crs = Layer.resolveCrs(entry.crs, `Layer "${name}" crs`)
         const pointProperties: PointProperties[] = []
         for (const pp of entry.pointProperties ?? []) {
             if (pp.x === pp.y) {
@@ -102,7 +104,7 @@ export class Layer {
             pointProperties.push({
                 x: pp.x,
                 y: pp.y,
-                crs: Layer.normalizeSourceCrs(pp.crs, source, name)
+                crs: pp.crs ? Layer.resolveCrs(pp.crs, `Layer "${name}" pointProperties crs`) : crs
             })
         }
 
@@ -110,7 +112,7 @@ export class Layer {
             title: entry.title,
             summary: entry.abstract,
             source,
-            sourceCrs,
+            crs,
             extent: Gt.normalize(entry.extent, name),
             styles: [...layerStyles.values()],
             pointProperties
@@ -130,9 +132,9 @@ export class Layer {
     }
 
     query(options: LayerQueryOptions = {}): ReadableStream<Feature> {
-        const crs = options.crs ?? this.sourceCrs
+        const crs = options.crs ?? this.crs
 
-        if (crs === this.sourceCrs) {
+        if (crs === this.crs) {
             return this.source.query({
                 bbox: options.bbox,
                 signal: options.signal,
@@ -142,7 +144,7 @@ export class Layer {
         }
 
         const sourceBbox = options.bbox
-            ? Gt.transformBBox(options.bbox, crs, this.sourceCrs)
+            ? Gt.transformBBox(options.bbox, crs, this.crs)
             : undefined
         const input = this.source.query({
             bbox: sourceBbox,
@@ -151,7 +153,7 @@ export class Layer {
             layer: this
         })
 
-        const reprojected = input.pipeThrough(new Reproject(this.sourceCrs, crs))
+        const reprojected = input.pipeThrough(new Reproject(this.crs, crs))
         return options.bbox
             ? reprojected.pipeThrough(new BboxFilter(options.bbox))
             : reprojected
@@ -168,11 +170,12 @@ export class Layer {
         return style.style
     }
 
-    private static normalizeSourceCrs(sourceCrs: string | undefined, source: Source, layerName: string): CrsCode {
+    private static resolveCrs(crs: string, label: string): CrsCode {
+        if (!Crs.registry.has(crs)) {
+            throw new Error(`${label} "${crs}" is not declared in projections`)
+        }
 
-        const resolved = sourceCrs ? Crs.registry.get(sourceCrs).code : source.crs
-        if (resolved == source.crs) return resolved
-        throw new Error(`Layer "${layerName}" sourceCrs "${resolved}" does not match source "${source.id}" CRS "${source.crs}"`)
+        return Crs.registry.get(crs).code
     }
 
 }

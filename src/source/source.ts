@@ -1,5 +1,5 @@
 import type { PathLike } from 'node:fs'
-import type { BBox, CrsCode } from '../core/geometry.js'
+import type { BBox } from '../core/geometry.js'
 import type { Feature, SourceRef } from '../core/feature.js'
 import { Gt } from '../core/geotools.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
@@ -22,7 +22,6 @@ export type StreamOptions = {
 
 export type QueryOptions = StreamOptions & {
   bbox?: BBox
-  crs?: CrsCode
   properties?: string[]
 }
 
@@ -34,7 +33,6 @@ export abstract class Source {
   abstract readonly id: string
   abstract readonly type: string
   abstract readonly storage: SourceStorage
-  abstract readonly crs: CrsCode
 
   static build(
     _sourceEntries: Record<string, unknown>,
@@ -121,6 +119,7 @@ export abstract class FeatureSource extends Source {
     return {
       ...output,
       layer,
+      crs: layer.crs,
       sourceRef: feature.sourceRef
     }
   }

@@ -17,7 +17,7 @@ const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
 
 
 export type WmsOptions = DescInfo & ServiceInfo & {
-    crs?: CrsCode[]
+    supportedCrs?: CrsCode[]
     layers: Layer[]
     maxWidth?: number
     maxHeight?: number
@@ -26,6 +26,7 @@ export type WmsOptions = DescInfo & ServiceInfo & {
 export type WmsJson = DescInfo & ServiceInfo & {
     maxWidth?: number
     maxHeight?: number
+    supportedCrs?: string[]
     layers?: string[]
 }
 
@@ -33,7 +34,7 @@ export class Wms extends Service {
     private readonly maxWidth: number
     private readonly maxHeight: number
     private readonly layerByName: Map<string, Layer>
-    private readonly crs: CrsCode[]
+    private readonly supportedCrs: CrsCode[]
     private nextTraceId = 1
     private get layers() {
         return [...this.layerByName.values()]
@@ -44,8 +45,8 @@ export class Wms extends Service {
         this.maxWidth = options.maxWidth ?? 4096
         this.maxHeight = options.maxHeight ?? 4096
         this.layerByName = new Map(options.layers.map((layer) => [layer.name, layer]))
-        const crslist = (options.crs?.length ?? 0 > 0) ? options.crs : options.layers.map((layer) => layer.sourceCrs)
-        this.crs = [...new Set(crslist)]
+        const crslist = (options.supportedCrs?.length ?? 0 > 0) ? options.supportedCrs : options.layers.map((layer) => layer.crs)
+        this.supportedCrs = [...new Set(crslist)]
     }
 
     static fromConfig(entry: WmsJson): Wms {
@@ -56,7 +57,9 @@ export class Wms extends Service {
             maxWidth: entry.maxWidth,
             maxHeight: entry.maxHeight,
             onlineResource: entry.onlineResource,
-            crs: Crs.registry.all.map((entry) => entry.code),
+            supportedCrs: entry.supportedCrs
+                ? entry.supportedCrs.map((crs) => resolveCrs(crs, 'WMS supportedCrs'))
+                : Crs.registry.all.map((entry) => entry.code),
             layers: selectLayers(entry.layers, 'WMS')
         })
     }
@@ -96,7 +99,7 @@ export class Wms extends Service {
             }
 
             if (request === 'GETCAPABILITIES') {
-                const xml = await WmsCapabilitiesBuilder.build(this, this.layers, this.path, this.crs)
+                const xml = await WmsCapabilitiesBuilder.build(this, this.layers, this.path, this.supportedCrs)
                 Service.sendText(res, 200, xml, 'text/xml; charset=utf-8')
                 return
             }
@@ -105,7 +108,7 @@ export class Wms extends Service {
                 this.nextTraceId += 1
                 this.logHandleStart(traceId, req.method ?? 'GET', fullUrl)
 
-                const mapRequest = this.parseGetMap(params, this.layerByName, this.crs, this.maxWidth, this.maxHeight)
+                const mapRequest = this.parseGetMap(params, this.layerByName, this.supportedCrs, this.maxWidth, this.maxHeight)
                 this.logHandleParams(traceId, mapRequest)
                 const image = await getMap({
                     layers: mapRequest.layers,
@@ -134,7 +137,7 @@ export class Wms extends Service {
             }
 
             if (request === 'GETFEATUREINFO') {
-                const infoRequest = this.parseGetFeatureInfo(params, this.layerByName, this.crs, this.maxWidth, this.maxHeight)
+                const infoRequest = this.parseGetFeatureInfo(params, this.layerByName, this.supportedCrs, this.maxWidth, this.maxHeight)
                 const info = await getInfo(infoRequest)
                 Service.sendText(res, 200, info.body, info.contentType, req.method === 'HEAD')
                 return
@@ -395,19 +398,19 @@ class WmsCapabilitiesBuilder {
                 title: style.title ?? style.name,
                 summary: style.abstract
             })),
-            extent: extent ? this.extentView(extent, layer.sourceCrs, supportedCrs) : undefined
+            extent: extent ? this.extentView(extent, layer.crs, supportedCrs) : undefined
         }
     }
 
-    private static extentView(bbox: BBox, sourceCrs: CrsCode, crs: CrsCode[]): Props {
-        const geographicBbox = sourceCrs === 'EPSG:4326'
+    private static extentView(bbox: BBox, layerCrs: CrsCode, crs: CrsCode[]): Props {
+        const geographicBbox = layerCrs === 'EPSG:4326'
             ? bbox
-            : transformBBox(bbox, sourceCrs, 'EPSG:4326') ?? bbox
+            : transformBBox(bbox, layerCrs, 'EPSG:4326') ?? bbox
         const boundingBoxes = crs
             .map((code) => {
-                const targetBbox = code === sourceCrs
+                const targetBbox = code === layerCrs
                     ? bbox
-                    : transformBBox(bbox, sourceCrs, code)
+                    : transformBBox(bbox, layerCrs, code)
                 if (!targetBbox) return null
 
                 const axisBbox = toWmsBoundingBox(targetBbox, code, WMS_VERSION)
@@ -433,14 +436,14 @@ class WmsCapabilitiesBuilder {
 
 }
 
-function transformBBox(bbox: BBox, sourceCrs: CrsCode, targetCrs: CrsCode): BBox | null {
-    if (sourceCrs === targetCrs) return bbox
+function transformBBox(bbox: BBox, inputCrs: CrsCode, targetCrs: CrsCode): BBox | null {
+    if (inputCrs === targetCrs) return bbox
 
     const positions = [
-        transformPosition([bbox[0], bbox[1]], sourceCrs, targetCrs),
-        transformPosition([bbox[0], bbox[3]], sourceCrs, targetCrs),
-        transformPosition([bbox[2], bbox[1]], sourceCrs, targetCrs),
-        transformPosition([bbox[2], bbox[3]], sourceCrs, targetCrs)
+        transformPosition([bbox[0], bbox[1]], inputCrs, targetCrs),
+        transformPosition([bbox[0], bbox[3]], inputCrs, targetCrs),
+        transformPosition([bbox[2], bbox[1]], inputCrs, targetCrs),
+        transformPosition([bbox[2], bbox[3]], inputCrs, targetCrs)
     ]
 
     if (positions.some((position) => !position)) return null
@@ -454,15 +457,15 @@ function transformBBox(bbox: BBox, sourceCrs: CrsCode, targetCrs: CrsCode): BBox
     ]
 }
 
-function transformPosition(position: [number, number], sourceCrs: CrsCode, targetCrs: CrsCode): [number, number] | null {
+function transformPosition(position: [number, number], inputCrs: CrsCode, targetCrs: CrsCode): [number, number] | null {
     const x = position[0]
     const y = position[1]
-    const [fromX, fromY] = sourceCrs === 'EPSG:4326' && targetCrs === 'EPSG:3857'
+    const [fromX, fromY] = inputCrs === 'EPSG:4326' && targetCrs === 'EPSG:3857'
         ? [x, Gt.clamp(y, -WEB_MERCATOR_LATITUDE_LIMIT, WEB_MERCATOR_LATITUDE_LIMIT)]
         : [x, y]
 
     try {
-        return proj4(sourceCrs, targetCrs, [fromX, fromY]) as [number, number]
+        return proj4(inputCrs, targetCrs, [fromX, fromY]) as [number, number]
     } catch {
         return null
     }
@@ -493,6 +496,14 @@ function validateCrs(supportedCrs: CrsCode[], crs: CrsCode): void {
     if (supportedCrs.length > 0 && !supportedCrs.includes(crs)) {
         throw new Error(`CRS ${crs} is not supported by this service`)
     }
+}
+
+function resolveCrs(crs: string, label: string): CrsCode {
+    if (!Crs.registry.has(crs)) {
+        throw new Error(`${label} "${crs}" is not declared in projections`)
+    }
+
+    return Crs.registry.get(crs).code
 }
 
 

@@ -2,17 +2,15 @@ import { constants, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { DbRef, DescInfo, Feature, SourceRef} from '../core/feature.js'
-import type { Geometry, BBox, CrsCode} from '../core/geometry.js'
+import type { Geometry, BBox } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { DbSource, hasSourceConfigType, type FeatureTransform } from './source.js'
 import type { StreamOptions } from './source.js'
 import { AbortSignalGuard } from './source-utils.js'
 import { Props } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
-import { Crs } from '../core/crs.js'
 
 export type GpkgSourceOptions = {
-  crs?: CrsCode
   tableName?: string
   geometryColumn?: string
   primaryKey?: string
@@ -21,7 +19,6 @@ export type GpkgSourceOptions = {
 
 export type GpkgSourceJson = DescInfo & {
   type: 'gpkg'
-  crs?: string
   path: string
   tableName?: string
   geometryColumn?: string
@@ -45,13 +42,8 @@ type GeoPackageTableMeta = {
   srsId: number | null
 }
 
-const GPKG_CRS_PREFIX = 'EPSG:'
-
 export class GpkgSource extends DbSource {
   readonly type = 'geopackage'
-  get crs(): CrsCode {
-    return this.reader.crs
-  }
 
   private readonly reader: GpkgReader
   private opened = false
@@ -67,7 +59,6 @@ export class GpkgSource extends DbSource {
     baseDir: string
   ): GpkgSource {
     return new GpkgSource(id, resolve(baseDir, entry.path), {
-      crs: entry.crs ? Crs.registry.get(entry.crs).code : "EPSG:4326",
       tableName: entry.tableName,
       geometryColumn: entry.geometryColumn,
       primaryKey: entry.primaryKey
@@ -82,7 +73,6 @@ export class GpkgSource extends DbSource {
     super(options.transformFeature)
 
     this.reader = new GpkgReader(this.id, this.filePath, {
-      crs: options.crs,
       tableName: options.tableName,
       geometryColumn: options.geometryColumn,
       primaryKey: options.primaryKey
@@ -132,23 +122,14 @@ export class GpkgSource extends DbSource {
 }
 
 class GpkgReader {
-  private readonly userCrs?: CrsCode
-  private resolvedCrs: CrsCode
   private db: SqliteDatabase | null = null
   private meta: GeoPackageTableMeta | null = null
 
   constructor(
     private readonly sourceId: string,
     private readonly filePath: PathLike,
-    private readonly options: Pick<GpkgSourceOptions, 'crs' | 'tableName' | 'geometryColumn' | 'primaryKey'>
-  ) {
-    this.userCrs = options.crs
-    this.resolvedCrs = options.crs ?? 'EPSG:4326'
-  }
-
-  get crs(): CrsCode {
-    return this.resolvedCrs
-  }
+    private readonly options: Pick<GpkgSourceOptions, 'tableName' | 'geometryColumn' | 'primaryKey'>
+  ) {}
 
   async open(): Promise<void> {
     await access(this.filePath, constants.R_OK)
@@ -159,13 +140,6 @@ class GpkgReader {
       geometryColumn: this.options.geometryColumn,
       primaryKey: this.options.primaryKey
     })
-
-    if (!this.userCrs) {
-      const inferredCrs = crsFromSrsId(this.meta.srsId)
-      if (inferredCrs) {
-        this.resolvedCrs = inferredCrs
-      }
-    }
   }
 
   async close(): Promise<void> {
@@ -519,8 +493,4 @@ function normalizePropertyValue(value: unknown): unknown {
   }
 
   return value
-}
-
-export function crsFromSrsId(srsId: number | null): CrsCode | null {
-  return Number.isInteger(srsId) ? `${GPKG_CRS_PREFIX}${srsId}` : null
 }

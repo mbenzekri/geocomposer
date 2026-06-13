@@ -1,4 +1,4 @@
-import type { BBox, CrsCode } from '../core/geometry.js'
+import type { BBox } from '../core/geometry.js'
 import { Gt } from '../core/geotools.js'
 import type { DescInfo, Feature, MemRef, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
@@ -17,7 +17,6 @@ export class MemSource extends Source {
   private readonly source: Source | null
   private readonly featureProvider: MemFeatureProvider | null
   private readonly initialFeatures: Feature[] | null
-  private readonly memoryCrs: CrsCode
   private readonly featuresByLayer = new Map<Layer, Feature[]>()
   private readonly openings = new Map<Layer, Promise<void>>()
 
@@ -30,29 +29,22 @@ export class MemSource extends Source {
   }
 
   constructor(id: string, source: Source)
-  constructor(id: string, crs: CrsCode, features: Feature[] | MemFeatureProvider)
+  constructor(id: string, features?: Feature[] | MemFeatureProvider)
   constructor(
     readonly id: string,
-    sourceOrCrs: Source | CrsCode,
-    features: Feature[] | MemFeatureProvider = []
+    sourceOrFeatures: Source | Feature[] | MemFeatureProvider = []
   ) {
     super()
 
-    if (isSource(sourceOrCrs)) {
-      this.source = sourceOrCrs
+    if (isSource(sourceOrFeatures)) {
+      this.source = sourceOrFeatures
       this.featureProvider = null
       this.initialFeatures = null
-      this.memoryCrs = sourceOrCrs.crs
     } else {
       this.source = null
-      this.featureProvider = typeof features === 'function' ? features : null
-      this.initialFeatures = typeof features === 'function' ? null : features
-      this.memoryCrs = sourceOrCrs
+      this.featureProvider = typeof sourceOrFeatures === 'function' ? sourceOrFeatures : null
+      this.initialFeatures = typeof sourceOrFeatures === 'function' ? null : sourceOrFeatures
     }
-  }
-
-  get crs(): CrsCode {
-    return this.source?.crs ?? this.memoryCrs
   }
 
   async close(): Promise<void> {
@@ -180,6 +172,7 @@ export class MemSource extends Source {
     return {
       ...feature,
       layer,
+      crs: layer.crs,
       sourceRef
     }
   }
@@ -201,7 +194,7 @@ export class MemSource extends Source {
   }
 }
 
-function isSource(value: Source | CrsCode): value is Source {
+function isSource(value: Source | Feature[] | MemFeatureProvider): value is Source {
   return typeof value === 'object'
     && value !== null
     && typeof (value as Source).stream === 'function'

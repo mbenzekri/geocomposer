@@ -2,16 +2,14 @@ import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open, readFile, type FileHandle } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { DescInfo, Feature, ByteRange, FileRef, SourceRef } from '../core/feature.js'
-import type { Geometry, Position, CrsCode} from '../core/geometry.js'
+import type { Geometry, Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { FileSource, hasSourceConfigType, type FeatureTransform } from './source.js'
 import type { StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 import { Props } from '../core/tools.js'
-import { Crs } from '../core/crs.js'
 
 export type ShpSourceOptions = {
-  crs?: CrsCode
   dbfEncoding?: BufferEncoding
   highWaterMark?: number
   transformFeature?: FeatureTransform
@@ -19,7 +17,6 @@ export type ShpSourceOptions = {
 
 export type ShpSourceJson = DescInfo & {
   type: 'shp'
-  crs?: string
   shpPath: string
   dbfPath: string
   dbfEncoding?: BufferEncoding
@@ -49,7 +46,6 @@ type DbfRecord = {
 
 export class ShpSource extends FileSource {
   readonly type = 'shapefile'
-  readonly crs: CrsCode
 
   private readonly reader: ShpReader
 
@@ -66,7 +62,6 @@ export class ShpSource extends FileSource {
     const dbfpath = resolve(baseDir, entry.dbfPath)
     return new ShpSource(id, shppath, dbfpath,
       {
-        crs: entry.crs ? Crs.registry.get(entry.crs).code : "EPSG:4326",
         dbfEncoding: entry.dbfEncoding,
         highWaterMark: entry.highWaterMark
       }
@@ -81,7 +76,6 @@ export class ShpSource extends FileSource {
   ) {
     super(options.transformFeature)
 
-    this.crs = options.crs ?? 'EPSG:4326'
     this.reader = new ShpReader(this.id, this.shpPath, this.dbfPath, {
       dbfEncoding: options.dbfEncoding,
       highWaterMark: options.highWaterMark

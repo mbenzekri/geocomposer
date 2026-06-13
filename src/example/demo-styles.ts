@@ -252,10 +252,11 @@ let failed = false
 
 for (const smokeCase of smokeCases) {
   try {
-    const source = new MemSource(smokeCase.name, 'EPSG:4326', (layer) => [smokeCase.feature(layer)])
+    const source = new MemSource(smokeCase.name, (layer) => [smokeCase.feature(layer)])
     const style = await smokeCase.createStyle()
     const layer = new Layer(smokeCase.name, {
       source,
+      crs: 'EPSG:4326',
       styles: [{
         name: 'default',
         style

@@ -8,7 +8,6 @@ import type { StreamOptions } from './source.js'
 import { AbortSignalGuard } from './source-utils.js'
 import { Props } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
-import { Crs } from '../core/crs.js'
 
 export type PostgisExtentStrategy = 'estimated' | 'exact' | 'none'
 
@@ -29,7 +28,6 @@ export type PostgisConnectionOptions = {
 }
 
 export type PostgisSourceOptions = {
-  crs?: CrsCode
   connection: PostgisConnectionOptions
   schema?: string
   tableName: string
@@ -44,7 +42,6 @@ export type PostgisSourceOptions = {
 
 export type PostgisSourceJson = DescInfo & {
   type: 'postgis'
-  crs?: string
   connection: PostgisConnectionOptions
   schema?: string
   tableName: string
@@ -74,15 +71,11 @@ type PostgisQuery = {
 const DEFAULT_SCHEMA = 'public'
 const DEFAULT_BATCH_SIZE = 500
 const DEFAULT_EXTENT_STRATEGY: PostgisExtentStrategy = 'estimated'
-const POSTGIS_CRS_PREFIX = 'EPSG:'
 
 const PgPoolConstructor = pg.Pool
 
 export class PostgisSource extends DbSource {
   readonly type = 'postgis'
-  get crs(): CrsCode {
-    return this.reader.crs
-  }
 
   private readonly reader: PostgisReader
   private opened = false
@@ -97,7 +90,6 @@ export class PostgisSource extends DbSource {
     entry: PostgisSourceJson
   ): PostgisSource {
     return new PostgisSource(id, {
-      crs: entry.crs ? Crs.registry.get(entry.crs).code : "EPSG:4326",
       connection: entry.connection,
       schema: entry.schema,
       tableName: entry.tableName,
@@ -181,23 +173,14 @@ export class PostgisSource extends DbSource {
 }
 
 class PostgisReader {
-  private readonly userCrs?: CrsCode
-  private resolvedCrs: CrsCode
   private pool: PgPool | null = null
   private meta: PostgisTableMeta | null = null
 
   constructor(
     private readonly sourceId: string,
     private readonly options: Required<Pick<PostgisSourceOptions, 'connection' | 'schema' | 'tableName' | 'batchSize' | 'extentStrategy'>>
-      & Pick<PostgisSourceOptions, 'crs' | 'geometryColumn' | 'primaryKey' | 'srid' | 'properties'>
-  ) {
-    this.userCrs = options.crs
-    this.resolvedCrs = options.crs ?? 'EPSG:4326'
-  }
-
-  get crs(): CrsCode {
-    return this.resolvedCrs
-  }
+      & Pick<PostgisSourceOptions, 'geometryColumn' | 'primaryKey' | 'srid' | 'properties'>
+  ) {}
 
   async open(): Promise<void> {
     this.pool = new PgPoolConstructor(createPoolConfig(this.options.connection))
@@ -211,12 +194,6 @@ class PostgisReader {
         client.release()
       }
 
-      if (!this.userCrs) {
-        const inferredCrs = crsFromSrid(this.meta.srid)
-        if (inferredCrs) {
-          this.resolvedCrs = inferredCrs
-        }
-      }
     } catch (error) {
       await this.close()
       throw error
@@ -259,7 +236,8 @@ class PostgisReader {
     const state = this.requireOpen()
     const query = this.selectSql(state.meta, {
       bbox: options.bbox,
-      properties: options.properties
+      properties: options.properties,
+      crs: options.layer.crs
     })
     yield* this.featuresFromQuery(state, query, options)
   }
@@ -375,14 +353,15 @@ class PostgisReader {
 
   private selectSql(
     meta: PostgisTableMeta,
-    options: { bbox?: BBox, properties?: string[] }
+    options: { bbox?: BBox, properties?: string[], crs?: CrsCode }
   ): PostgisQuery {
     const params: unknown[] = []
     const where: string[] = []
 
     if (options.bbox) {
       params.push(options.bbox[0], options.bbox[1], options.bbox[2], options.bbox[3])
-      const envelope = `ST_MakeEnvelope($${params.length - 3}, $${params.length - 2}, $${params.length - 1}, $${params.length}, ${meta.srid ?? 0})`
+      const envelopeSrid = (options.crs ? sridFromCrs(options.crs) : null) ?? meta.srid ?? 0
+      const envelope = `ST_MakeEnvelope($${params.length - 3}, $${params.length - 2}, $${params.length - 1}, $${params.length}, ${envelopeSrid})`
       const geom = quoteSqlIdentifier(meta.geometryColumn)
       where.push(`${geom} IS NOT NULL`)
       where.push(`ST_Intersects(${geom}, ${envelope})`)
@@ -805,6 +784,10 @@ function quoteSqlIdentifier(identifier: string): string {
   return `"${identifier.replace(/"/g, '""')}"`
 }
 
-function crsFromSrid(srid: number | null): CrsCode | null {
-  return srid !== null && Number.isInteger(srid) && srid > 0 ? `${POSTGIS_CRS_PREFIX}${srid}` : null
+function sridFromCrs(crs: CrsCode): number | null {
+  const match = crs.match(/^EPSG:(\d+)$/i)
+  if (!match) return null
+
+  const srid = Number(match[1])
+  return Number.isSafeInteger(srid) && srid > 0 ? srid : null
 }

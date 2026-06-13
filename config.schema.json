@@ -157,6 +157,13 @@
                         }
                     ]
                 },
+                "supportedCrs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                },
                 "layers": {
                     "type": "array",
                     "items": {
@@ -486,9 +493,6 @@
                 },
                 "abstract": {
                     "type": "string"
-                },
-                "crs": {
-                    "type": "string"
                 }
             }
         },
@@ -512,9 +516,6 @@
                             "type": "string"
                         },
                         "abstract": {
-                            "type": "string"
-                        },
-                        "crs": {
                             "type": "string"
                         },
                         "path": {
@@ -558,9 +559,6 @@
                             "type": "string"
                         },
                         "abstract": {
-                            "type": "string"
-                        },
-                        "crs": {
                             "type": "string"
                         },
                         "path": {
@@ -628,9 +626,6 @@
                 "abstract": {
                     "type": "string"
                 },
-                "crs": {
-                    "type": "string"
-                },
                 "shpPath": {
                     "type": "string"
                 },
@@ -670,9 +665,6 @@
                 "abstract": {
                     "type": "string"
                 },
-                "crs": {
-                    "type": "string"
-                },
                 "path": {
                     "type": "string"
                 },
@@ -703,9 +695,6 @@
                     "type": "string"
                 },
                 "abstract": {
-                    "type": "string"
-                },
-                "crs": {
                     "type": "string"
                 },
                 "connection": {
@@ -995,7 +984,8 @@
             "anyOf": [
                 {
                     "required": [
-                        "source"
+                        "source",
+                        "crs"
                     ]
                 },
                 {
@@ -1017,7 +1007,7 @@
                 "source": {
                     "type": "string"
                 },
-                "sourceCrs": {
+                "crs": {
                     "type": "string"
                 },
                 "extent": {
@@ -1053,7 +1043,7 @@
                                 "type": "string"
                             },
                             "crs": {
-                                "description": "crs of the (x,y) properties to be reprojected (if not provided same as layer)",
+                                "description": "crs of the (x,y) properties to be reprojected (if not provided same as layer crs)",
                                 "type": "string"
                             }
                         }

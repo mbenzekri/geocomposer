@@ -4,23 +4,26 @@ import type { Feature } from '../core/feature.js'
 
 export class Reproject extends TransformStream<Feature, Feature> {
   constructor(
-    sourceCrs: string,
+    inputCrs: string,
     targetCrs: string
   ) {
     super({
       transform: (feature, controller) => {
-        const shouldTransformGeometry = sourceCrs !== targetCrs && feature.geometry !== null
+        const shouldTransformGeometry = inputCrs !== targetCrs && feature.geometry !== null
         const shouldTransformPointProperties = feature.layer.pointProperties.some((pointProperty) =>
           pointProperty.crs !== targetCrs
         )
 
         if (!shouldTransformGeometry && !shouldTransformPointProperties) {
-          controller.enqueue(feature)
+          controller.enqueue({
+            ...feature,
+            crs: targetCrs
+          })
           return
         }
 
         const geometry = shouldTransformGeometry && feature.geometry
-          ? Gt.transformGeometry(feature.geometry, sourceCrs, targetCrs)
+          ? Gt.transformGeometry(feature.geometry, inputCrs, targetCrs)
           : feature.geometry
         const bbox = geometry ? Gt.bbox(geometry) ?? undefined : feature.bbox
         let properties = feature.properties
@@ -42,6 +45,7 @@ export class Reproject extends TransformStream<Feature, Feature> {
           ...feature,
           geometry,
           bbox,
+          crs: targetCrs,
           properties
         })
       }

@@ -2,18 +2,16 @@ import { createReadStream, type PathLike } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { DescInfo, Feature, FileRef, SourceRef } from '../core/feature.js'
-import type { Geometry, Position, CrsCode } from '../core/geometry.js'
+import type { Geometry, Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { FileSource, hasSourceConfigType, type FeatureTransform } from './source.js'
 import type { StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 import { Props } from '../core/tools.js'
-import { Crs } from '../core/crs.js'
 
 export type GmlAxisOrder = 'xy' | 'yx' | 'auto'
 
 export type GmlSourceOptions = {
-  crs?: CrsCode
   encoding?: BufferEncoding
   highWaterMark?: number
   featureElementNames?: string[]
@@ -24,7 +22,6 @@ export type GmlSourceOptions = {
 
 export type GmlSourceJson = DescInfo & {
   type: 'gml'
-  crs?: string
   path: string
   encoding?: BufferEncoding
   highWaterMark?: number
@@ -78,7 +75,6 @@ const GEOMETRY_ELEMENT_NAMES = [
 
 export class GmlSource extends FileSource {
   readonly type = 'gml'
-  readonly crs: CrsCode
 
   private readonly reader: GmlReader
 
@@ -92,7 +88,6 @@ export class GmlSource extends FileSource {
     baseDir: string
   ): GmlSource {
     return new GmlSource(id, resolve(baseDir, entry.path), {
-      crs: entry.crs ? Crs.registry.get(entry.crs).code : "EPSG:4326",
       encoding: entry.encoding,
       highWaterMark: entry.highWaterMark,
       featureElementNames: entry.featureElementNames,
@@ -108,7 +103,6 @@ export class GmlSource extends FileSource {
   ) {
     super(options.transformFeature)
 
-    this.crs = options.crs ?? 'EPSG:4326'
     this.reader = new GmlReader(this.id, this.filePath, {
       encoding: options.encoding ?? 'utf8',
       highWaterMark: options.highWaterMark,

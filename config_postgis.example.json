@@ -24,7 +24,6 @@
             "type": "postgis",
             "title": "Roads PostGIS",
             "abstract": "Road network from a PostGIS table.",
-            "crs": "EPSG:4326",
             "connection": {
                 "connectionString": "$s{GEOCOMPOSER_POSTGIS_URL}",
                 "max": 4,
@@ -47,7 +46,7 @@
             "title": "Roads",
             "abstract": "Roads from PostGIS.",
             "source": "roads-postgis",
-            "sourceCrs": "EPSG:4326",
+            "crs": "EPSG:4326",
             "extent": [-180, -90, 180, 90],
             "style": "default"
         }
