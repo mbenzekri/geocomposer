@@ -52,7 +52,9 @@
                 "world-gpkg",
                 "world-gpkg-capitals",
                 "world-postgis",
-                "world-postgis-capitals"
+                "world-postgis-capitals",
+                "world-oracle",
+                "world-oracle-capitals"
             ]
     },
     "server": {
@@ -239,6 +241,32 @@
                     "style": "capitals"
                 }
             ]
+        },
+        "world-oracle": {
+            "$ref": "#/$defs/defaultTileset",
+            "title": "World Oracle",
+            "abstract": "Tiles for world country boundaries from the Oracle source.",
+            "layers": [
+                {
+                    "layer": "world-oracle",
+                    "style": "world"
+                }
+            ]
+        },
+        "world-oracle-capitals": {
+            "$ref": "#/$defs/defaultTileset",
+            "title": "World Oracle and Capitals",
+            "abstract": "Tiles combining Oracle country boundaries and capital city labels.",
+            "layers": [
+                {
+                    "layer": "world-oracle",
+                    "style": "world"
+                },
+                {
+                    "layer": "capitals",
+                    "style": "capitals"
+                }
+            ]
         }
     },
     "projections": {
@@ -317,6 +345,33 @@
             },
             "batchSize": 500,
             "extentStrategy": "estimated"
+        },
+        "world-oracle": {
+            "type": "oracle",
+            "title": "World Oracle",
+            "abstract": "World country boundaries Oracle demo source.",
+            "connection": {
+                "host": "$s{GEOC_ORACLE_HOST|localhost}",
+                "port": "$i{GEOC_ORACLE_PORT|1521}",
+                "serviceName": "$s{GEOC_ORACLE_SERVICE|XEPDB1}",
+                "user": "$s{GEOC_ORACLE_USER|GEOCOMPOSER}",
+                "password": "$s{GEOC_ORACLE_PASSWORD|geocomposer}",
+                "poolMin": 0,
+                "poolMax": 4,
+                "queueTimeout": 30000,
+                "callTimeout": 30000
+            },
+            "schema": "$s{GEOC_ORACLE_SCHEMA|GEOCOMPOSER}",
+            "datasets": {
+                "world": {
+                    "tableName": "WORLD",
+                    "geometryColumn": "GEOM",
+                    "primaryKey": "ID",
+                    "srid": 4326
+                }
+            },
+            "batchSize": 500,
+            "extentStrategy": "metadata"
         }
     },
     "styles": {
@@ -382,6 +437,20 @@
             "abstract": "World country boundaries from the PostGIS demo dataset.",
             "source": "world-postgis",
             "dataset": "world"
+        },
+        "world-oracle": {
+            "$ref": "#/$defs/defaultLayer",
+            "title": "World Oracle",
+            "abstract": "World country boundaries from the Oracle demo dataset.",
+            "source": "world-oracle",
+            "dataset": "world",
+            "pointProperties": [
+                {
+                    "x": "LABEL_X",
+                    "y": "LABEL_Y",
+                    "crs": "EPSG:4326"
+                }
+            ]
         }
     }
 }
