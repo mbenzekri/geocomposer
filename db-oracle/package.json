@@ -1,0 +1,13 @@
+{
+  "name": "geocomposer-db-oracle",
+  "private": true,
+  "scripts": {
+    "up": "docker compose up -d",
+    "down": "docker compose down",
+    "logs": "docker compose logs -f",
+    "wait": "bash scripts/wait.sh",
+    "shell": "docker exec -it myproject-oracle-xe sqlplus GEOCOMPOSER/geocomposer@//localhost:1521/XEPDB1",
+    "sys-shell": "docker exec -it myproject-oracle-xe sqlplus system/oracle@//localhost:1521/XEPDB1",
+    "restore": "bash scripts/restore.sh"
+  }
+}

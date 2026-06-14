@@ -1,0 +1,21 @@
+services:
+  oracle:
+    image: gvenzl/oracle-xe:21.3.0
+    container_name: myproject-oracle-xe
+    environment:
+      ORACLE_PASSWORD: oracle
+      APP_USER: GEOCOMPOSER
+      APP_USER_PASSWORD: geocomposer
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+volumes:
+  oracle-data:

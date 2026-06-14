@@ -4,3 +4,4 @@ map.png
 style-smoke/
 cache/
 db/data/**
+db-oracle/data/**
