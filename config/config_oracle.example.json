@@ -20,7 +20,7 @@
         }
     },
     "sources": {
-        "world-oracle": {
+        "oracle-main": {
             "type": "oracle",
             "title": "World Oracle",
             "abstract": "World polygons from an Oracle MDSYS.SDO_GEOMETRY table.",
@@ -36,10 +36,9 @@
                 "callTimeout": 30000
             },
             "schema": "GEOCOMPOSER",
-            "tableName": "WORLD",
-            "geometryColumn": "GEOM",
-            "primaryKey": "ID",
-            "srid": 4326,
+            "datasets": {
+                "world": "WORLD"
+            },
             "batchSize": 500,
             "extentStrategy": "metadata"
         }
@@ -48,7 +47,8 @@
         "world-oracle": {
             "title": "World Oracle",
             "abstract": "World polygons from Oracle.",
-            "source": "world-oracle",
+            "source": "oracle-main",
+            "dataset": "world",
             "crs": "EPSG:4326",
             "extent": [-180, -90, 180, 90],
             "style": "default"

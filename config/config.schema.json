@@ -656,7 +656,8 @@
             "additionalProperties": false,
             "required": [
                 "type",
-                "path"
+                "path",
+                "datasets"
             ],
             "properties": {
                 "type": {
@@ -671,16 +672,51 @@
                 "path": {
                     "type": "string"
                 },
-                "tableName": {
-                    "type": "string"
-                },
-                "geometryColumn": {
-                    "type": "string"
-                },
-                "primaryKey": {
-                    "type": "string"
+                "datasets": {
+                    "$ref": "#/$defs/gpkgDatasets"
                 }
             }
+        },
+        "gpkgDatasets": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+                "$ref": "#/$defs/gpkgDataset"
+            }
+        },
+        "gpkgDataset": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "minLength": 1
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "tableName": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "geometryColumn": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "primaryKey": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "properties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "uniqueItems": true
+                        }
+                    }
+                }
+            ]
         },
         "postgisSource": {
             "type": "object",
@@ -688,7 +724,7 @@
             "required": [
                 "type",
                 "connection",
-                "tableName"
+                "datasets"
             ],
             "properties": {
                 "type": {
@@ -707,36 +743,8 @@
                     "type": "string",
                     "minLength": 1
                 },
-                "tableName": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "geometryColumn": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "primaryKey": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "srid": {
-                    "anyOf": [
-                        {
-                            "type": "integer",
-                            "minimum": 1
-                        },
-                        {
-                            "$ref": "#/$defs/envInteger"
-                        }
-                    ]
-                },
-                "properties": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "minLength": 1
-                    },
-                    "uniqueItems": true
+                "datasets": {
+                    "$ref": "#/$defs/sqlDatasets"
                 },
                 "batchSize": {
                     "anyOf": [
@@ -764,6 +772,62 @@
                     ]
                 }
             }
+        },
+        "sqlDatasets": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+                "$ref": "#/$defs/sqlDataset"
+            }
+        },
+        "sqlDataset": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "minLength": 1
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "tableName": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "geometryColumn": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "primaryKey": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "srid": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
+                        },
+                        "properties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "uniqueItems": true
+                        }
+                    }
+                }
+            ]
         },
         "postgisConnection": {
             "type": "object",
@@ -872,7 +936,7 @@
             "required": [
                 "type",
                 "connection",
-                "tableName"
+                "datasets"
             ],
             "properties": {
                 "type": {
@@ -891,36 +955,8 @@
                     "type": "string",
                     "minLength": 1
                 },
-                "tableName": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "geometryColumn": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "primaryKey": {
-                    "type": "string",
-                    "minLength": 1
-                },
-                "srid": {
-                    "anyOf": [
-                        {
-                            "type": "integer",
-                            "minimum": 1
-                        },
-                        {
-                            "$ref": "#/$defs/envInteger"
-                        }
-                    ]
-                },
-                "properties": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "minLength": 1
-                    },
-                    "uniqueItems": true
+                "datasets": {
+                    "$ref": "#/$defs/sqlDatasets"
                 },
                 "batchSize": {
                     "anyOf": [
@@ -1237,6 +1273,10 @@
                 },
                 "source": {
                     "type": "string"
+                },
+                "dataset": {
+                    "type": "string",
+                    "minLength": 1
                 },
                 "crs": {
                     "type": "string"

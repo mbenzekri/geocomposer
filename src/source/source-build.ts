@@ -16,6 +16,14 @@ export {
     hasSourceConfigType,
     toStream
 } from './source.js'
+export {
+    DbDataset,
+    DbDatasetCatalog
+} from './db-dataset.js'
+export type {
+    DbDatasetJson,
+    DbDatasetOptions
+} from './db-dataset.js'
 export type {
     FeatureTransform,
     QueryOptions,

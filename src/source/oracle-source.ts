@@ -6,6 +6,7 @@ import { Gt } from '../core/geotools.js'
 import { Props } from '../core/tools.js'
 import { DbSource, hasSourceConfigType, toStream, type FeatureTransform, type QueryOptions } from './source.js'
 import type { StreamOptions } from './source.js'
+import { DbDatasetCatalog, type DbDataset, type DbDatasetJson } from './db-dataset.js'
 import { AbortSignalGuard } from './source-utils.js'
 import { SdoGeometryReader } from './sdo-geometry-reader.js'
 
@@ -37,11 +38,7 @@ export type OracleConnectionOptions = {
 export type OracleSourceOptions = {
   connection: OracleConnectionOptions
   schema?: string
-  tableName: string
-  geometryColumn?: string
-  primaryKey?: string
-  srid?: number
-  properties?: string[]
+  datasets: Record<string, DbDatasetJson>
   batchSize?: number
   extentStrategy?: OracleExtentStrategy
   transformFeature?: FeatureTransform
@@ -51,13 +48,18 @@ export type OracleSourceJson = DescInfo & {
   type: 'oracle'
   connection: OracleConnectionOptions
   schema?: string
+  datasets: Record<string, DbDatasetJson>
+  batchSize?: number
+  extentStrategy?: OracleExtentStrategy
+}
+
+type OracleTableOptions = {
+  schema?: string
   tableName: string
   geometryColumn?: string
   primaryKey?: string
   srid?: number
   properties?: string[]
-  batchSize?: number
-  extentStrategy?: OracleExtentStrategy
 }
 
 type OracleColumnMeta = {
@@ -107,11 +109,7 @@ export class OracleSource extends DbSource {
     return new OracleSource(id, {
       connection: entry.connection,
       schema: entry.schema,
-      tableName: entry.tableName,
-      geometryColumn: entry.geometryColumn,
-      primaryKey: entry.primaryKey,
-      srid: entry.srid,
-      properties: entry.properties,
+      datasets: entry.datasets,
       batchSize: entry.batchSize,
       extentStrategy: entry.extentStrategy
     })
@@ -124,7 +122,9 @@ export class OracleSource extends DbSource {
     super(options.transformFeature)
 
     this.reader = new OracleReader(this.id, {
-      ...options,
+      connection: options.connection,
+      schema: options.schema,
+      datasets: DbDatasetCatalog.fromConfig(`Oracle source "${this.id}"`, options.datasets),
       batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
       extentStrategy: options.extentStrategy ?? DEFAULT_EXTENT_STRATEGY
     })
@@ -159,7 +159,7 @@ export class OracleSource extends DbSource {
 
   override async getExtent(layer: Layer): Promise<BBox | null> {
     await this.open()
-    return this.reader.getExtent(layer)
+    return this.reader.getExtent(this.resolveDatasetId(layer))
   }
 
   override query(options: QueryOptions): ReadableStream<Feature> {
@@ -168,12 +168,12 @@ export class OracleSource extends DbSource {
 
   protected override async readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     await this.open()
-    return this.reader.read(sourceRef, options)
+    return this.reader.read(sourceRef, this.resolveDatasetId(options.layer), options)
   }
 
   protected override async *streamFeatures(options: StreamOptions): AsyncGenerator<Feature> {
     await this.open()
-    yield* this.reader.stream(options)
+    yield* this.reader.stream(this.resolveDatasetId(options.layer), options)
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
@@ -182,19 +182,24 @@ export class OracleSource extends DbSource {
 
   private async *queryFeatures(options: QueryOptions): AsyncGenerator<Feature> {
     await this.open()
-    yield* this.mapFeatures(this.reader.query(options), options)
+    yield* this.mapFeatures(this.reader.query(this.resolveDatasetId(options.layer), options), options)
   }
 }
 
 class OracleReader {
   private pool: oracledb.Pool | null = null
-  private meta: OracleTableMeta | null = null
+  private readonly metas = new Map<string, OracleTableMeta>()
   private readonly geometryReader = new SdoGeometryReader()
 
   constructor(
     private readonly sourceId: string,
-    private readonly options: Required<Pick<OracleSourceOptions, 'connection' | 'tableName' | 'batchSize' | 'extentStrategy'>>
-      & Pick<OracleSourceOptions, 'schema' | 'geometryColumn' | 'primaryKey' | 'srid' | 'properties'>
+    private readonly options: {
+      connection: OracleConnectionOptions
+      schema?: string
+      datasets: DbDatasetCatalog
+      batchSize: number
+      extentStrategy: OracleExtentStrategy
+    }
   ) {}
 
   async open(): Promise<void> {
@@ -209,7 +214,9 @@ class OracleReader {
       const connection = await this.getConnection(pool)
       try {
         await connection.execute('SELECT 1 FROM dual')
-        this.meta = await resolveTableMeta(connection, this.options)
+        for (const dataset of this.options.datasets.all) {
+          this.metas.set(dataset.id, await resolveTableMeta(connection, this.tableOptions(dataset)))
+        }
       } finally {
         await connection.close()
       }
@@ -222,59 +229,84 @@ class OracleReader {
   async close(): Promise<void> {
     const pool = this.pool
     this.pool = null
-    this.meta = null
+    this.metas.clear()
     if (pool) await pool.close(0)
   }
 
-  async getExtent(_: Layer): Promise<BBox | null> {
+  async getExtent(datasetId: string): Promise<BBox | null> {
     const state = this.requireOpen()
+    const meta = this.metaForDataset(datasetId)
 
     switch (this.options.extentStrategy) {
       case 'none':
         return null
 
       case 'metadata':
-        return state.meta.metadataExtent
+        return meta.metadataExtent
 
       case 'exact':
-        return this.queryExactExtent(state)
+        return this.queryExactExtent(state.pool, meta)
     }
   }
 
-  async *stream(options: StreamOptions): AsyncGenerator<Feature> {
+  async *stream(datasetId: string, options: StreamOptions): AsyncGenerator<Feature> {
     const state = this.requireOpen()
-    const query = this.selectSql(state.meta, {})
-    yield* this.featuresFromQuery(state, query, options)
+    const meta = this.metaForDataset(datasetId)
+    const query = this.selectSql(meta, {})
+    yield* this.featuresFromQuery({ pool: state.pool, meta }, query, options)
   }
 
-  async *query(options: QueryOptions): AsyncGenerator<Feature> {
+  async *query(datasetId: string, options: QueryOptions): AsyncGenerator<Feature> {
     const state = this.requireOpen()
-    const query = this.selectSql(state.meta, {
+    const meta = this.metaForDataset(datasetId)
+    const query = this.selectSql(meta, {
       bbox: options.bbox,
       properties: options.properties,
       crs: options.layer.crs
     })
-    yield* this.featuresFromQuery(state, query, options)
+    yield* this.featuresFromQuery({ pool: state.pool, meta }, query, options)
   }
 
-  async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+  async read(sourceRef: SourceRef, datasetId: string, options: StreamOptions): Promise<Feature | null> {
     const state = this.requireOpen()
-    const ref = this.toDbRef(sourceRef, state.meta)
-    const query = this.selectOneSql(state.meta, ref)
+    const meta = this.metaForDataset(datasetId)
+    const ref = this.toDbRef(sourceRef, meta)
+    const query = this.selectOneSql(meta, ref)
     const rows = await this.executeRows(state.pool, query.sql, query.binds)
     const row = rows[0]
     if (!row) return null
-    return this.toFeature(state.meta, query.properties, row, ref.recordIndex ?? 0, options.layer)
+    return this.toFeature(meta, query.properties, row, ref.recordIndex ?? 0, options.layer)
   }
 
-  private requireOpen(): { pool: oracledb.Pool, meta: OracleTableMeta } {
-    if (!this.pool || !this.meta) {
+  private requireOpen(): { pool: oracledb.Pool } {
+    if (!this.pool) {
       throw new Error('Oracle source is not opened')
     }
 
     return {
-      pool: this.pool,
-      meta: this.meta
+      pool: this.pool
+    }
+  }
+
+  private metaForDataset(datasetId: string): OracleTableMeta {
+    this.options.datasets.get(datasetId)
+    const meta = this.metas.get(datasetId)
+
+    if (!meta) {
+      throw new Error(`Oracle source "${this.sourceId}" dataset "${datasetId}" is not opened`)
+    }
+
+    return meta
+  }
+
+  private tableOptions(dataset: DbDataset): OracleTableOptions {
+    return {
+      schema: dataset.schema ?? this.options.schema,
+      tableName: dataset.tableName,
+      geometryColumn: dataset.geometryColumn,
+      primaryKey: dataset.primaryKey,
+      srid: dataset.srid,
+      properties: dataset.properties
     }
   }
 
@@ -496,13 +528,13 @@ class OracleReader {
     }))
   }
 
-  private async queryExactExtent(state: { pool: oracledb.Pool, meta: OracleTableMeta }): Promise<BBox | null> {
+  private async queryExactExtent(pool: oracledb.Pool, meta: OracleTableMeta): Promise<BBox | null> {
     const sql = [
-      `SELECT SDO_AGGR_MBR(${quoteOracleIdentifier(state.meta.geometryColumn)}) AS ${quoteOracleIdentifier('__extent__')}`,
-      `FROM ${qualifiedTableName(state.meta)}`,
-      `WHERE ${quoteOracleIdentifier(state.meta.geometryColumn)} IS NOT NULL`
+      `SELECT SDO_AGGR_MBR(${quoteOracleIdentifier(meta.geometryColumn)}) AS ${quoteOracleIdentifier('__extent__')}`,
+      `FROM ${qualifiedTableName(meta)}`,
+      `WHERE ${quoteOracleIdentifier(meta.geometryColumn)} IS NOT NULL`
     ].join(' ')
-    const row = (await this.executeRows(state.pool, sql))[0]
+    const row = (await this.executeRows(pool, sql))[0]
     const geometry = this.parseGeometry(row?.__extent__)
 
     return geometry ? Gt.bbox(geometry) : null
@@ -531,9 +563,7 @@ class OracleReader {
 
 async function resolveTableMeta(
   connection: oracledb.Connection,
-  options: Pick<OracleSourceOptions, 'schema' | 'geometryColumn' | 'primaryKey' | 'srid' | 'properties'> & {
-    tableName: string
-  }
+  options: OracleTableOptions
 ): Promise<OracleTableMeta> {
   const schemaName = await resolveSchemaName(connection, options.schema)
   const tableName = await resolveTableName(connection, schemaName, options.tableName)

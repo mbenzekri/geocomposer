@@ -287,8 +287,12 @@
             "title": "World GeoPackage",
             "abstract": "World country boundaries GeoPackage demo source.",
             "path": "../data/world.gpkg",
-            "tableName": "world",
-            "geometryColumn": "geom"
+            "datasets": {
+                "world": {
+                    "tableName": "world",
+                    "geometryColumn": "geom"
+                }
+            }
         },
         "world-postgis": {
             "type": "postgis",
@@ -303,10 +307,14 @@
                 "applicationName": "geocomposer"
             },
             "schema": "public",
-            "tableName": "world",
-            "geometryColumn": "wkb_geometry",
-            "primaryKey": "ogc_fid",
-            "srid": 4326,
+            "datasets": {
+                "world": {
+                    "tableName": "world",
+                    "geometryColumn": "wkb_geometry",
+                    "primaryKey": "ogc_fid",
+                    "srid": 4326
+                }
+            },
             "batchSize": 500,
             "extentStrategy": "estimated"
         }
@@ -365,13 +373,15 @@
             "$ref": "#/$defs/defaultLayer",
             "title": "World GeoPackage",
             "abstract": "World country boundaries from the GeoPackage demo dataset.",
-            "source": "world-gpkg"
+            "source": "world-gpkg",
+            "dataset": "world"
         },
         "world-postgis": {
             "$ref": "#/$defs/defaultLayer",
             "title": "World PostGIS",
             "abstract": "World country boundaries from the PostGIS demo dataset.",
-            "source": "world-postgis"
+            "source": "world-postgis",
+            "dataset": "world"
         }
     }
 }

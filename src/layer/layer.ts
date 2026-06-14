@@ -23,6 +23,7 @@ export type PointPropertiesJson = {
 
 export type LayerJson = DescInfo & {
     source: string
+    dataset?: string
     crs: string
     extent?: BBox
     style?: string
@@ -34,6 +35,7 @@ export type LayerOptions = {
     title?: string
     summary?: string
     source: Source
+    dataset?: string
     crs: CrsCode
     extent?: BBox
     styles: NamedStyle[]
@@ -50,6 +52,7 @@ export class Layer {
     readonly title?: string
     readonly summary?: string
     readonly source: Source
+    readonly dataset?: string
     readonly crs: CrsCode
     readonly extent?: BBox
     readonly styles: readonly NamedStyle[]
@@ -66,6 +69,7 @@ export class Layer {
         this.title = options.title
         this.summary = options.summary
         this.source = options.source
+        this.dataset = options.dataset
         this.crs = options.crs
         this.extent = options.extent
         this.styles = options.styles
@@ -112,6 +116,7 @@ export class Layer {
             title: entry.title,
             summary: entry.abstract,
             source,
+            dataset: entry.dataset,
             crs,
             extent: Gt.normalize(entry.extent, name),
             styles: [...layerStyles.values()],

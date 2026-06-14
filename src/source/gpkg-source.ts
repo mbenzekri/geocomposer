@@ -6,23 +6,27 @@ import type { Geometry, BBox } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { DbSource, hasSourceConfigType, type FeatureTransform } from './source.js'
 import type { StreamOptions } from './source.js'
+import { DbDatasetCatalog, type DbDataset, type DbDatasetJson } from './db-dataset.js'
 import { AbortSignalGuard } from './source-utils.js'
 import { Props } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
 
 export type GpkgSourceOptions = {
-  tableName?: string
-  geometryColumn?: string
-  primaryKey?: string
+  datasets: Record<string, DbDatasetJson>
   transformFeature?: FeatureTransform
 }
 
 export type GpkgSourceJson = DescInfo & {
   type: 'gpkg'
   path: string
-  tableName?: string
+  datasets: Record<string, DbDatasetJson>
+}
+
+type GpkgTableOptions = {
+  tableName: string
   geometryColumn?: string
   primaryKey?: string
+  properties?: string[]
 }
 
 type SqliteDatabase = {
@@ -59,23 +63,19 @@ export class GpkgSource extends DbSource {
     baseDir: string
   ): GpkgSource {
     return new GpkgSource(id, resolve(baseDir, entry.path), {
-      tableName: entry.tableName,
-      geometryColumn: entry.geometryColumn,
-      primaryKey: entry.primaryKey
+      datasets: entry.datasets
     })
   }
 
   constructor(
     readonly id: string,
     private readonly filePath: PathLike,
-    options: GpkgSourceOptions = {}
+    options: GpkgSourceOptions
   ) {
     super(options.transformFeature)
 
     this.reader = new GpkgReader(this.id, this.filePath, {
-      tableName: options.tableName,
-      geometryColumn: options.geometryColumn,
-      primaryKey: options.primaryKey
+      datasets: DbDatasetCatalog.fromConfig(`GeoPackage source "${this.id}"`, options.datasets)
     })
   }
 
@@ -106,14 +106,19 @@ export class GpkgSource extends DbSource {
     this.opened = false
   }
 
+  override async getExtent(layer: Layer): Promise<BBox | null> {
+    await this.open()
+    return this.reader.getExtent(this.resolveDatasetId(layer))
+  }
+
   protected override async readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     await this.open()
-    return this.reader.read(sourceRef, options)
+    return this.reader.read(sourceRef, this.resolveDatasetId(options.layer), options)
   }
 
   protected override async *streamFeatures(options: StreamOptions): AsyncGenerator<Feature> {
     await this.open()
-    yield* this.reader.stream(options)
+    yield* this.reader.stream(this.resolveDatasetId(options.layer), options)
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
@@ -123,58 +128,88 @@ export class GpkgSource extends DbSource {
 
 class GpkgReader {
   private db: SqliteDatabase | null = null
-  private meta: GeoPackageTableMeta | null = null
+  private readonly metas = new Map<string, GeoPackageTableMeta>()
 
   constructor(
     private readonly sourceId: string,
     private readonly filePath: PathLike,
-    private readonly options: Pick<GpkgSourceOptions, 'tableName' | 'geometryColumn' | 'primaryKey'>
+    private readonly options: {
+      datasets: DbDatasetCatalog
+    }
   ) {}
 
   async open(): Promise<void> {
     await access(this.filePath, constants.R_OK)
 
     this.db = await openGeoPackageDatabase(this.filePath)
-    this.meta = resolveTableMeta(this.db, {
-      tableName: this.options.tableName,
-      geometryColumn: this.options.geometryColumn,
-      primaryKey: this.options.primaryKey
-    })
+    try {
+      for (const dataset of this.options.datasets.all) {
+        this.metas.set(dataset.id, resolveTableMeta(this.db, this.tableOptions(dataset)))
+      }
+    } catch (error) {
+      await this.close()
+      throw error
+    }
   }
 
   async close(): Promise<void> {
     this.db?.close()
     this.db = null
-    this.meta = null
+    this.metas.clear()
   }
 
-  async *stream(options: StreamOptions): AsyncGenerator<Feature> {
+  getExtent(datasetId: string): BBox | null {
+    return this.metaForDataset(datasetId).extent
+  }
+
+  async *stream(datasetId: string, options: StreamOptions): AsyncGenerator<Feature> {
     const state = this.requireOpen()
-    const rows = state.db.prepare(this.selectAllSql(state.meta)).all()
+    const meta = this.metaForDataset(datasetId)
+    const rows = state.db.prepare(this.selectAllSql(meta)).all()
     const signal = options.signal
 
     for (let index = 0; index < rows.length; index += 1) {
       AbortSignalGuard.throwIfAborted(signal, 'GeoPackage stream aborted')
-      yield this.toFeature(state.meta, rows[index], index, options.layer)
+      yield this.toFeature(meta, rows[index], index, options.layer)
     }
   }
 
-  async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+  async read(sourceRef: SourceRef, datasetId: string, options: StreamOptions): Promise<Feature | null> {
     const state = this.requireOpen()
-    const ref = this.toDbRef(sourceRef, state.meta)
-    const row = state.db.prepare(this.selectOneSql(state.meta)).get(ref.rowId)
+    const meta = this.metaForDataset(datasetId)
+    const ref = this.toDbRef(sourceRef, meta)
+    const row = state.db.prepare(this.selectOneSql(meta)).get(ref.rowId)
     if (!row) return null
-    return this.toFeature(state.meta, row, ref.recordIndex ?? 0, options.layer)
+    return this.toFeature(meta, row, ref.recordIndex ?? 0, options.layer)
   }
 
-  private requireOpen(): { db: SqliteDatabase, meta: GeoPackageTableMeta } {
-    if (!this.db || !this.meta) {
+  private requireOpen(): { db: SqliteDatabase } {
+    if (!this.db) {
       throw new Error('GeoPackage source is not opened')
     }
 
     return {
-      db: this.db,
-      meta: this.meta
+      db: this.db
+    }
+  }
+
+  private metaForDataset(datasetId: string): GeoPackageTableMeta {
+    this.options.datasets.get(datasetId)
+    const meta = this.metas.get(datasetId)
+
+    if (!meta) {
+      throw new Error(`GeoPackage source "${this.sourceId}" dataset "${datasetId}" is not opened`)
+    }
+
+    return meta
+  }
+
+  private tableOptions(dataset: DbDataset): GpkgTableOptions {
+    return {
+      tableName: dataset.tableName,
+      geometryColumn: dataset.geometryColumn,
+      primaryKey: dataset.primaryKey,
+      properties: dataset.properties
     }
   }
 
@@ -288,7 +323,7 @@ async function openGeoPackageDatabase(path: PathLike): Promise<SqliteDatabase> {
 
 function resolveTableMeta(
   db: SqliteDatabase,
-  options: Pick<GpkgSourceOptions, 'tableName' | 'geometryColumn' | 'primaryKey'>
+  options: GpkgTableOptions
 ): GeoPackageTableMeta {
   let sql = [
     'SELECT',
@@ -349,10 +384,25 @@ function resolveTableMeta(
     tableName,
     geometryColumn,
     primaryKey,
-    propertyColumns: tableColumns.filter((column) => column !== geometryColumn),
+    propertyColumns: resolvePropertyColumns({
+      configuredProperties: options.properties,
+      tableColumns,
+      geometryColumn
+    }),
     extent: toOptionalBBox(selected.min_x, selected.min_y, selected.max_x, selected.max_y),
     srsId
   }
+}
+
+function resolvePropertyColumns(options: {
+  configuredProperties?: string[]
+  tableColumns: string[]
+  geometryColumn: string
+}): string[] {
+  const columns = options.configuredProperties
+    ?? options.tableColumns.filter((column) => column !== options.geometryColumn)
+
+  return columns.map((column) => requireKnownColumn(column, options.tableColumns, 'property column'))
 }
 
 function parseGeoPackageGeometry(value: unknown): Geometry | null {
@@ -471,6 +521,18 @@ function quoteSqlIdentifier(identifier: string): string {
 
 function quoteSqlString(value: string): string {
   return `'${value.replace(/'/g, "''")}'`
+}
+
+function requireKnownColumn(column: string, columns: string[], label: string): string {
+  if (column.trim() === '') {
+    throw new Error(`GeoPackage ${label} must not be empty`)
+  }
+
+  if (!columns.includes(column)) {
+    throw new Error(`Invalid GeoPackage source: ${label} "${column}" was not found`)
+  }
+
+  return column
 }
 
 function normalizePropertyValue(value: unknown): unknown {

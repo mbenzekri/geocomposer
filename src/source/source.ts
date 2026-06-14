@@ -141,6 +141,10 @@ export abstract class DbSource extends FeatureSource {
   protected constructor(transformFeature?: FeatureTransform) {
     super(transformFeature)
   }
+
+  protected resolveDatasetId(layer: Layer): string {
+    return layer.dataset ?? layer.name
+  }
 }
 
 export function hasSourceConfigType(entry: unknown, type: string): entry is { type: string } {

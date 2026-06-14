@@ -5,6 +5,7 @@ import type { DbRef, DescInfo, Feature, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
 import { DbSource, hasSourceConfigType, toStream, type FeatureTransform, type QueryOptions } from './source.js'
 import type { StreamOptions } from './source.js'
+import { DbDatasetCatalog, type DbDataset, type DbDatasetJson } from './db-dataset.js'
 import { AbortSignalGuard } from './source-utils.js'
 import { Props } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
@@ -30,11 +31,7 @@ export type PostgisConnectionOptions = {
 export type PostgisSourceOptions = {
   connection: PostgisConnectionOptions
   schema?: string
-  tableName: string
-  geometryColumn?: string
-  primaryKey?: string
-  srid?: number
-  properties?: string[]
+  datasets: Record<string, DbDatasetJson>
   batchSize?: number
   extentStrategy?: PostgisExtentStrategy
   transformFeature?: FeatureTransform
@@ -44,13 +41,18 @@ export type PostgisSourceJson = DescInfo & {
   type: 'postgis'
   connection: PostgisConnectionOptions
   schema?: string
+  datasets: Record<string, DbDatasetJson>
+  batchSize?: number
+  extentStrategy?: PostgisExtentStrategy
+}
+
+type PostgisTableOptions = {
+  schema: string
   tableName: string
   geometryColumn?: string
   primaryKey?: string
   srid?: number
   properties?: string[]
-  batchSize?: number
-  extentStrategy?: PostgisExtentStrategy
 }
 
 type PostgisTableMeta = {
@@ -92,11 +94,7 @@ export class PostgisSource extends DbSource {
     return new PostgisSource(id, {
       connection: entry.connection,
       schema: entry.schema,
-      tableName: entry.tableName,
-      geometryColumn: entry.geometryColumn,
-      primaryKey: entry.primaryKey,
-      srid: entry.srid,
-      properties: entry.properties,
+      datasets: entry.datasets,
       batchSize: entry.batchSize,
       extentStrategy: entry.extentStrategy
     })
@@ -109,8 +107,9 @@ export class PostgisSource extends DbSource {
     super(options.transformFeature)
 
     this.reader = new PostgisReader(this.id, {
-      ...options,
+      connection: options.connection,
       schema: options.schema ?? DEFAULT_SCHEMA,
+      datasets: DbDatasetCatalog.fromConfig(`PostGIS source "${this.id}"`, options.datasets),
       batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
       extentStrategy: options.extentStrategy ?? DEFAULT_EXTENT_STRATEGY
     })
@@ -145,7 +144,7 @@ export class PostgisSource extends DbSource {
 
   override async getExtent(layer: Layer): Promise<BBox | null> {
     await this.open()
-    return this.reader.getExtent(layer)
+    return this.reader.getExtent(this.resolveDatasetId(layer))
   }
 
   override query(options: QueryOptions): ReadableStream<Feature> {
@@ -154,12 +153,12 @@ export class PostgisSource extends DbSource {
 
   protected override async readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     await this.open()
-    return this.reader.read(sourceRef, options)
+    return this.reader.read(sourceRef, this.resolveDatasetId(options.layer), options)
   }
 
   protected override async *streamFeatures(options: StreamOptions): AsyncGenerator<Feature> {
     await this.open()
-    yield* this.reader.stream(options)
+    yield* this.reader.stream(this.resolveDatasetId(options.layer), options)
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
@@ -168,18 +167,23 @@ export class PostgisSource extends DbSource {
 
   private async *queryFeatures(options: QueryOptions): AsyncGenerator<Feature> {
     await this.open()
-    yield* this.mapFeatures(this.reader.query(options), options)
+    yield* this.mapFeatures(this.reader.query(this.resolveDatasetId(options.layer), options), options)
   }
 }
 
 class PostgisReader {
   private pool: PgPool | null = null
-  private meta: PostgisTableMeta | null = null
+  private readonly metas = new Map<string, PostgisTableMeta>()
 
   constructor(
     private readonly sourceId: string,
-    private readonly options: Required<Pick<PostgisSourceOptions, 'connection' | 'schema' | 'tableName' | 'batchSize' | 'extentStrategy'>>
-      & Pick<PostgisSourceOptions, 'geometryColumn' | 'primaryKey' | 'srid' | 'properties'>
+    private readonly options: {
+      connection: PostgisConnectionOptions
+      schema: string
+      datasets: DbDatasetCatalog
+      batchSize: number
+      extentStrategy: PostgisExtentStrategy
+    }
   ) {}
 
   async open(): Promise<void> {
@@ -189,7 +193,9 @@ class PostgisReader {
       const client = await this.pool.connect()
       try {
         await client.query('SELECT 1')
-        this.meta = await resolveTableMeta(client, this.options)
+        for (const dataset of this.options.datasets.all) {
+          this.metas.set(dataset.id, await resolveTableMeta(client, this.tableOptions(dataset)))
+        }
       } finally {
         client.release()
       }
@@ -203,63 +209,88 @@ class PostgisReader {
   async close(): Promise<void> {
     const pool = this.pool
     this.pool = null
-    this.meta = null
+    this.metas.clear()
     if (pool) await pool.end()
   }
 
-  async getExtent(_: Layer): Promise<BBox | null> {
+  async getExtent(datasetId: string): Promise<BBox | null> {
     const state = this.requireOpen()
+    const meta = this.metaForDataset(datasetId)
 
     switch (this.options.extentStrategy) {
       case 'none':
         return null
 
       case 'exact':
-        return this.queryExtent(state, this.exactExtentSql(state.meta), [])
+        return this.queryExtent(state.pool, this.exactExtentSql(meta), [])
 
       case 'estimated':
-        return this.queryExtent(state, this.estimatedExtentSql(), [
-          state.meta.schemaName,
-          state.meta.tableName,
-          state.meta.geometryColumn
+        return this.queryExtent(state.pool, this.estimatedExtentSql(), [
+          meta.schemaName,
+          meta.tableName,
+          meta.geometryColumn
         ])
     }
   }
 
-  async *stream(options: StreamOptions): AsyncGenerator<Feature> {
+  async *stream(datasetId: string, options: StreamOptions): AsyncGenerator<Feature> {
     const state = this.requireOpen()
-    const query = this.selectSql(state.meta, {})
-    yield* this.featuresFromQuery(state, query, options)
+    const meta = this.metaForDataset(datasetId)
+    const query = this.selectSql(meta, {})
+    yield* this.featuresFromQuery({ pool: state.pool, meta }, query, options)
   }
 
-  async *query(options: QueryOptions): AsyncGenerator<Feature> {
+  async *query(datasetId: string, options: QueryOptions): AsyncGenerator<Feature> {
     const state = this.requireOpen()
-    const query = this.selectSql(state.meta, {
+    const meta = this.metaForDataset(datasetId)
+    const query = this.selectSql(meta, {
       bbox: options.bbox,
       properties: options.properties,
       crs: options.layer.crs
     })
-    yield* this.featuresFromQuery(state, query, options)
+    yield* this.featuresFromQuery({ pool: state.pool, meta }, query, options)
   }
 
-  async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+  async read(sourceRef: SourceRef, datasetId: string, options: StreamOptions): Promise<Feature | null> {
     const state = this.requireOpen()
-    const ref = this.toDbRef(sourceRef, state.meta)
-    const query = this.selectOneSql(state.meta, ref)
+    const meta = this.metaForDataset(datasetId)
+    const ref = this.toDbRef(sourceRef, meta)
+    const query = this.selectOneSql(meta, ref)
     const result = await state.pool.query(query.sql, query.params)
     const row = result.rows[0]
     if (!row) return null
-    return this.toFeature(state.meta, query.properties, row, ref.recordIndex ?? 0, options.layer)
+    return this.toFeature(meta, query.properties, row, ref.recordIndex ?? 0, options.layer)
   }
 
-  private requireOpen(): { pool: PgPool, meta: PostgisTableMeta } {
-    if (!this.pool || !this.meta) {
+  private requireOpen(): { pool: PgPool } {
+    if (!this.pool) {
       throw new Error('PostGIS source is not opened')
     }
 
     return {
-      pool: this.pool,
-      meta: this.meta
+      pool: this.pool
+    }
+  }
+
+  private metaForDataset(datasetId: string): PostgisTableMeta {
+    this.options.datasets.get(datasetId)
+    const meta = this.metas.get(datasetId)
+
+    if (!meta) {
+      throw new Error(`PostGIS source "${this.sourceId}" dataset "${datasetId}" is not opened`)
+    }
+
+    return meta
+  }
+
+  private tableOptions(dataset: DbDataset): PostgisTableOptions {
+    return {
+      schema: dataset.schema ?? this.options.schema,
+      tableName: dataset.tableName,
+      geometryColumn: dataset.geometryColumn,
+      primaryKey: dataset.primaryKey,
+      srid: dataset.srid,
+      properties: dataset.properties
     }
   }
 
@@ -421,11 +452,11 @@ class PostgisReader {
   }
 
   private async queryExtent(
-    state: { pool: PgPool, meta: PostgisTableMeta },
+    pool: PgPool,
     sql: string,
     params: unknown[]
   ): Promise<BBox | null> {
-    const row = (await state.pool.query(sql, params)).rows[0]
+    const row = (await pool.query(sql, params)).rows[0]
     return row ? toOptionalBBox(row.min_x, row.min_y, row.max_x, row.max_y) : null
   }
 
@@ -478,10 +509,7 @@ class PostgisReader {
 
 async function resolveTableMeta(
   client: PoolClient,
-  options: Pick<PostgisSourceOptions, 'geometryColumn' | 'primaryKey' | 'srid' | 'properties'> & {
-    schema: string
-    tableName: string
-  }
+  options: PostgisTableOptions
 ): Promise<PostgisTableMeta> {
   const schemaName = requireNonEmptyString(options.schema, 'PostGIS schema')
   const tableName = requireNonEmptyString(options.tableName, 'PostGIS tableName')

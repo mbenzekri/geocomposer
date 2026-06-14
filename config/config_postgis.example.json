@@ -20,7 +20,7 @@
         }
     },
     "sources": {
-        "roads-postgis": {
+        "postgis-main": {
             "type": "postgis",
             "title": "Roads PostGIS",
             "abstract": "Road network from a PostGIS table.",
@@ -33,10 +33,9 @@
                 "applicationName": "geocomposer"
             },
             "schema": "public",
-            "tableName": "roads",
-            "geometryColumn": "geom",
-            "primaryKey": "id",
-            "srid": 4326,
+            "datasets": {
+                "roads": "roads"
+            },
             "batchSize": 500,
             "extentStrategy": "estimated"
         }
@@ -45,7 +44,7 @@
         "roads": {
             "title": "Roads",
             "abstract": "Roads from PostGIS.",
-            "source": "roads-postgis",
+            "source": "postgis-main",
             "crs": "EPSG:4326",
             "extent": [-180, -90, 180, 90],
             "style": "default"
