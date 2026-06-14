@@ -10,18 +10,23 @@ class SqlSpatialArrayTransformer {
   }
 
   replaceConstructor(sql, sourceName, targetName) {
-    const needle = `${sourceName}(`
     let output = ''
     let cursor = 0
 
     while (cursor < sql.length) {
-      const start = sql.indexOf(needle, cursor)
+      const start = sql.indexOf(sourceName, cursor)
       if (start === -1) {
         output += sql.slice(cursor)
         break
       }
 
-      const openParen = start + needle.length - 1
+      const openParen = this.skipWhitespace(sql, start + sourceName.length)
+      if (sql[openParen] !== '(') {
+        output += sql.slice(cursor, start + sourceName.length)
+        cursor = start + sourceName.length
+        continue
+      }
+
       const closeParen = this.findMatchingParen(sql, openParen)
 
       output += sql.slice(cursor, start)
@@ -30,6 +35,14 @@ class SqlSpatialArrayTransformer {
     }
 
     return output
+  }
+
+  skipWhitespace(sql, start) {
+    let index = start
+    while (sql[index] === ' ' || sql[index] === '\t' || sql[index] === '\n' || sql[index] === '\r') {
+      index += 1
+    }
+    return index
   }
 
   findMatchingParen(sql, openParen) {

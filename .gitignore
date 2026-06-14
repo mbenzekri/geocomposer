@@ -1,7 +1,6 @@
-node_modules/
-dist/
-map.png
-style-smoke/
 cache/
-db/data/**
-db-oracle/data/**
+db/*/data/
+dist/
+node_modules/
+style-smoke/
+map.png

@@ -4,7 +4,7 @@ Ce repertoire contient une base Oracle XE locale pour les tests GeoComposer.
 Le jeu de donnees de reference est le script SQL `init/world.sql`.
 
 Toutes les commandes ci-dessous sont a executer depuis le repertoire
-`db-oracle`.
+`db/oracle`.
 
 ## Prerequis
 
@@ -26,7 +26,7 @@ npm --version
 ## Structure
 
 ```txt
-db-oracle/
+db/oracle/
 ├── package.json
 ├── docker-compose.yml
 │
@@ -42,7 +42,7 @@ db-oracle/
 ```
 
 La persistance Oracle est portee par le volume Docker nomme
-`db-oracle_oracle-data`.
+`oracle_oracle-data`.
 
 ## Scripts npm
 

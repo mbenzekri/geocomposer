@@ -9,8 +9,8 @@
 
 ## Installation Ubuntu
 
-Pour travailler avec PostGIS voir ``db/README.md``
-Pour travailler avec Oracle XE voir ``db-oracle/README.md``
+Pour travailler avec PostGIS voir ``db/postgis/README.md``
+Pour travailler avec Oracle XE voir ``db/oracle/README.md``
 
 ```bash
 sudo apt update

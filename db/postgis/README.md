@@ -2,7 +2,7 @@
 
 Ce répertoire contient la configuration d'une base de données PostGIS locale utilisée pour le développement et les tests.
 
-Toutes les commandes ci-dessous sont à exécuter depuis le répertoire `db`.
+Toutes les commandes ci-dessous sont à exécuter depuis le répertoire `db/postgis`.
 
 ## Prérequis
 
@@ -27,31 +27,31 @@ npm --version
 
 ```txt
 db/
-├── package.json
-├── docker-compose.yml
-│
-├── data/
-│   └── données PostgreSQL locales
-│
-├── dumps/
-│   └── seed.dump
-│
-├── init/
-│   └── 01-postgis.sql
-│
-└── scripts/
-    ├── dump.sh
-    └── restore.sh
+└── postgis/
+    ├── package.json
+    ├── docker-compose.yml
+    ├── init/
+    │   └── 01-enable-postgis.sql
+    ├── dumps/
+    │   └── seed.dump
+    └── scripts/
+        ├── dump.sh
+        ├── reset.sh
+        ├── restore.sh
+        └── wait.sh
 ```
+
+Les données PostgreSQL sont conservées dans le volume Docker nommé
+`postgis_postgis-data`.
 
 ---
 
 ## Vérification des scripts npm
 
-Se placer dans le répertoire `db` :
+Se placer dans le répertoire `db/postgis` :
 
 ```bash
-cd db
+cd db/postgis
 ```
 
 Afficher les scripts disponibles :
@@ -66,6 +66,7 @@ Le fichier `package.json` doit exposer les scripts utilisés dans ce README :
 up
 down
 logs
+wait
 shell
 dump
 restore
@@ -196,7 +197,7 @@ npm run reset
 Cette commande doit :
 
 1. Arrêter le conteneur
-2. Supprimer les données PostgreSQL locales
+2. Supprimer le volume Docker PostgreSQL
 3. Redémarrer PostGIS
 4. Restaurer `dumps/seed.dump`
 
@@ -228,10 +229,10 @@ dumps/seed.dump
 data/
 ```
 
-Ajouter dans `.gitignore` du répertoire `db` :
+Ajouter dans le `.gitignore` du projet :
 
 ```gitignore
-data/
+db/*/data/
 ```
 
 ---
@@ -255,6 +256,9 @@ git commit -m "Update PostGIS test dataset"
 
 ## Principe
 
-Le répertoire `data/` contient les fichiers internes PostgreSQL générés localement par Docker. Il dépend de la machine locale et ne doit pas être utilisé comme source de vérité.
+Le répertoire `data/` peut exister sur un poste ayant utilisé une ancienne
+configuration par bind mount. La configuration actuelle utilise le volume Docker
+nommé `postgis_postgis-data`; `data/` ne doit pas être utilisé comme source de
+vérité.
 
 Le fichier `dumps/seed.dump` est la référence officielle du jeu de données de test. C'est ce fichier qui doit être utilisé pour reconstruire la base sur un autre poste ou dans un environnement de test.
