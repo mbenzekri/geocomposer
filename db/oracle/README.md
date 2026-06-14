@@ -126,6 +126,16 @@ Exemple JDBC :
 jdbc:oracle:thin:@//localhost:1521/XEPDB1
 ```
 
+## Utilisation avec GeoComposer
+
+La configuration d'exemple GeoComposer est disponible dans
+`config/config_oracle.example.json`.
+
+Elle utilise le driver Node.js `oracledb` en mode thin, sans Oracle Instant
+Client. GeoComposer lit la colonne `MDSYS.SDO_GEOMETRY` comme objet Oracle natif
+et convertit la geometrie cote serveur, au lieu de demander a Oracle de produire
+du GeoJSON.
+
 ## Restaurer le jeu de donnees
 
 ```bash

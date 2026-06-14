@@ -1,0 +1,57 @@
+{
+    "$schema": "./config.schema.json",
+    "server": {
+        "port": 3000
+    },
+    "services": {
+        "wms": {
+            "path": "/wms",
+            "title": "GeoComposer Oracle WMS",
+            "abstract": "Minimal WMS server backed by an Oracle SDO_GEOMETRY source.",
+            "layers": ["world-oracle"]
+        }
+    },
+    "projections": {
+        "EPSG:4326": {
+            "title": "WGS84"
+        },
+        "EPSG:3857": {
+            "title": "Web Mercator"
+        }
+    },
+    "sources": {
+        "world-oracle": {
+            "type": "oracle",
+            "title": "World Oracle",
+            "abstract": "World polygons from an Oracle MDSYS.SDO_GEOMETRY table.",
+            "connection": {
+                "host": "localhost",
+                "port": 1521,
+                "serviceName": "XEPDB1",
+                "user": "GEOCOMPOSER",
+                "password": "geocomposer",
+                "poolMin": 0,
+                "poolMax": 4,
+                "queueTimeout": 30000,
+                "callTimeout": 30000
+            },
+            "schema": "GEOCOMPOSER",
+            "tableName": "WORLD",
+            "geometryColumn": "GEOM",
+            "primaryKey": "ID",
+            "srid": 4326,
+            "batchSize": 500,
+            "extentStrategy": "metadata"
+        }
+    },
+    "layers": {
+        "world-oracle": {
+            "title": "World Oracle",
+            "abstract": "World polygons from Oracle.",
+            "source": "world-oracle",
+            "crs": "EPSG:4326",
+            "extent": [-180, -90, 180, 90],
+            "style": "default"
+        }
+    }
+}

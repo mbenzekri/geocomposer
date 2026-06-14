@@ -3,6 +3,7 @@ import { GeoJsonSource, type GeoJsonSourceJson } from './geojson-source.js'
 import { GmlSource, type GmlSourceJson } from './gml-source.js'
 import { GpkgSource, type GpkgSourceJson } from './gpkg-source.js'
 import { MemSource, type MemSourceJson } from './mem-source.js'
+import { OracleSource, type OracleSourceJson } from './oracle-source.js'
 import { PostgisSource, type PostgisSourceJson } from './postgis-source.js'
 import { ShpSource, type ShpSourceJson } from './shp-source.js'
 import { Source } from './source.js'
@@ -29,6 +30,7 @@ export type {
     GmlSourceJson,
     GpkgSourceJson,
     MemSourceJson,
+    OracleSourceJson,
     PostgisSourceJson,
     ShpSourceJson
 }
@@ -39,6 +41,7 @@ export type SourceJson =
     | ShpSourceJson
     | GpkgSourceJson
     | PostgisSourceJson
+    | OracleSourceJson
     | MemSourceJson
 
 Source.build = function createAll(
@@ -64,6 +67,7 @@ Source.create = function create(
     if (ShpSource.acceptsConfig(entry)) return ShpSource.fromConfig(name, entry, baseDir)
     if (GpkgSource.acceptsConfig(entry)) return GpkgSource.fromConfig(name, entry, baseDir)
     if (PostgisSource.acceptsConfig(entry)) return PostgisSource.fromConfig(name, entry)
+    if (OracleSource.acceptsConfig(entry)) return OracleSource.fromConfig(name, entry)
     if (MemSource.acceptsConfig(entry)) return MemSource.fromConfig(name, entry)
 
     const type = typeof entry === 'object' && entry !== null && !Array.isArray(entry)
