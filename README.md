@@ -21,6 +21,35 @@ npm run demo
 
 La démo produit `map.png` à la racine du projet.
 
+## Tests
+
+Le projet utilise Vitest pour eviter de reconstruire un outillage de test autour
+de `node:test`. Le runner couvre les tests unitaires et contractuels, le mode
+watch et la couverture V8.
+
+```bash
+npm test
+```
+
+`npm test` lance la compilation de production, le type-check des tests, puis les
+tests unitaires. Pour iterer plus vite sur les tests seuls :
+
+```bash
+npm run test:unit
+```
+
+Pour lancer le mode watch ou la couverture :
+
+```bash
+npm run test:watch
+npm run test:coverage
+```
+
+Les premiers tests couvrent les contrats de non-regression des `sourceRef`
+fichier, le chargement et l'ouverture des sources avec une configuration sans
+service externe, et un premier cas de rendu dynamique par verification de
+pixels.
+
 ## Services
 
 Le serveur GeoComposer charge `config/config.json` une seule fois et expose les

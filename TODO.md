@@ -537,8 +537,8 @@ C'est probablement l'angle le plus original aujourd'hui : la plupart des serveur
 
 ### A decider - indexation et acces aleatoire
 
-- [ ] Ajouter des tests de round-trip `sourceRef -> read(sourceRef)` pour GeoJSON, GML, Shapefile/DBF, GeoPackage et MemSource.
-- [ ] Verifier par tests que les slices `sourceRef` GeoJSON et GML sont directement parseables, et que le `sourceRef` Shapefile inclut bien les 8 octets d'en-tete SHP plus le record DBF complet.
+- [x] Ajouter des tests de round-trip `sourceRef -> read(sourceRef)` pour GeoJSON, GML et Shapefile/DBF. Reste GeoPackage et MemSource.
+- [x] Verifier par tests que les slices `sourceRef` GeoJSON et GML sont directement parseables, et que le `sourceRef` Shapefile inclut bien les 8 octets d'en-tete SHP plus le record DBF complet.
 - [ ] Formaliser un `SourceRefValidator` ou une suite d'assertions partagee pour eviter que les transform streams perdent `sourceRef`, `related` ou `recordIndex`.
 - [ ] Preparer l'API d'index spatial/R-tree pour les `FileSource` avec `sourceRef` byte-range, sans melanger avec `DbSource`/GeoPackage.
 - [ ] Optimiser `Layer.query()` quand le CRS demande differe du CRS source: transformer la bbox de requete vers le CRS source avant de streamer toute la source, quand c'est possible.
@@ -553,7 +553,7 @@ C'est probablement l'angle le plus original aujourd'hui : la plupart des serveur
 
 ### A decider - tests et validation
 
-- [ ] Ajouter un vrai runner de tests (`node:test`, Vitest ou equivalent) au lieu de demos seulement; garder les demos comme smoke visuel.
+- [x] Ajouter un vrai runner de tests (Vitest) au lieu de demos seulement; garder les demos comme smoke visuel.
 - [ ] Ajouter des tests unitaires pour GeoJSON/GML/Shapefile/GeoPackage parsers, WKB, DBF, axes GML, bbox/hit-test et reprojection.
 - [ ] Ajouter des tests de contrats OGC: WMS `GetCapabilities`, `GetMap`, `GetFeatureInfo`, ordre d'axes EPSG:4326 en WMS 1.3.0, erreurs XML, HEAD/OPTIONS.
 - [ ] Ajouter des tests XYZ/WMTS: limites z/x/y, `@2x`, cache, `GetCapabilities`, `GetTile`, styles de tilesets multi-couches.

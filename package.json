@@ -5,6 +5,11 @@
   "private": true,
   "scripts": {
     "build": "tsc",
+    "test": "npm run build && npm run test:typecheck && npm run test:unit",
+    "test:typecheck": "tsc -p tsconfig.test.json",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "serve": "tsx src/geo-composer.ts -cc",
     "demo:styles": "tsx src/example/demo-styles.ts",
     "demo:dynstyle": "tsx src/example/demo-dynstyle.ts",
@@ -24,7 +29,9 @@
     "@types/oracledb": "^7.0.1",
     "@types/pg": "^8.20.0",
     "@types/pg-cursor": "^2.7.2",
+    "@vitest/coverage-v8": "^4.1.8",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.8"
   }
 }
