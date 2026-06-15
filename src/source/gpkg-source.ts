@@ -6,9 +6,9 @@ import type { Geometry, BBox } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import { DbSource, hasSourceConfigType, type FeatureTransform } from './source.js'
 import type { StreamOptions } from './source.js'
-import { DbDatasetCatalog, type DbDataset, type DbDatasetJson } from './db-dataset.js'
+import { DbDataset, type DbDatasetJson } from './db-dataset.js'
 import { AbortSignalGuard } from './source-utils.js'
-import { Props } from '../core/tools.js'
+import { type Props, type Registry } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
 
 export type GpkgSourceOptions = {
@@ -75,7 +75,7 @@ export class GpkgSource extends DbSource {
     super(options.transformFeature)
 
     this.reader = new GpkgReader(this.id, this.filePath, {
-      datasets: DbDatasetCatalog.fromConfig(`GeoPackage source "${this.id}"`, options.datasets)
+      datasets: DbDataset.build(`GeoPackage source "${this.id}"`, options.datasets)
     })
   }
 
@@ -134,7 +134,7 @@ class GpkgReader {
     private readonly sourceId: string,
     private readonly filePath: PathLike,
     private readonly options: {
-      datasets: DbDatasetCatalog
+      datasets: Registry<DbDataset>
     }
   ) {}
 

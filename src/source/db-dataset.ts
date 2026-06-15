@@ -1,3 +1,5 @@
+import { Registry } from '../core/tools.js'
+
 export type DbDatasetJson = string | {
   schema?: string
   tableName?: string
@@ -37,7 +39,22 @@ export class DbDataset {
     )
   }
 
-  static fromJson(id: string, entry: DbDatasetJson): DbDataset {
+  static build(label: string, entries: Record<string, DbDatasetJson>): Registry<DbDataset> {
+    const registry = new Registry<DbDataset>(label)
+
+    for (const [id, entry] of Object.entries(entries)) {
+      const dataset = DbDataset.fromConfig(id, entry)
+      registry.set(dataset.id, dataset)
+    }
+
+    if (registry.all.length === 0) {
+      throw new Error(`${label} must define at least one dataset`)
+    }
+
+    return registry
+  }
+
+  static fromConfig(id: string, entry: DbDatasetJson): DbDataset {
     if (typeof entry === 'string') {
       return new DbDataset(id, { tableName: entry })
     }
@@ -47,48 +64,6 @@ export class DbDataset {
     }
 
     return new DbDataset(id, entry)
-  }
-}
-
-export class DbDatasetCatalog {
-  private readonly byId: Map<string, DbDataset>
-
-  constructor(
-    readonly label: string,
-    datasets: DbDataset[]
-  ) {
-    this.byId = new Map()
-
-    for (const dataset of datasets) {
-      if (this.byId.has(dataset.id)) {
-        throw new Error(`${label} defines duplicate dataset "${dataset.id}"`)
-      }
-      this.byId.set(dataset.id, dataset)
-    }
-
-    if (this.byId.size === 0) {
-      throw new Error(`${label} must define at least one dataset`)
-    }
-  }
-
-  static fromConfig(label: string, entries: Record<string, DbDatasetJson>): DbDatasetCatalog {
-    const datasets = Object.entries(entries).map(([id, entry]) => DbDataset.fromJson(id, entry))
-    return new DbDatasetCatalog(label, datasets)
-  }
-
-  get all(): readonly DbDataset[] {
-    return [...this.byId.values()]
-  }
-
-  get(id: string): DbDataset {
-    const datasetId = requireNonEmptyString(id, 'database dataset id')
-    const dataset = this.byId.get(datasetId)
-
-    if (!dataset) {
-      throw new Error(`${this.label} has no dataset "${datasetId}"`)
-    }
-
-    return dataset
   }
 }
 

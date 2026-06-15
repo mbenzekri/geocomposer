@@ -5,9 +5,9 @@ import type { DbRef, DescInfo, Feature, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
 import { DbSource, hasSourceConfigType, toStream, type FeatureTransform, type QueryOptions } from './source.js'
 import type { StreamOptions } from './source.js'
-import { DbDatasetCatalog, type DbDataset, type DbDatasetJson } from './db-dataset.js'
+import { DbDataset, type DbDatasetJson } from './db-dataset.js'
 import { AbortSignalGuard } from './source-utils.js'
-import { Props } from '../core/tools.js'
+import { type Props, type Registry } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
 
 export type PostgisExtentStrategy = 'estimated' | 'exact' | 'none'
@@ -109,7 +109,7 @@ export class PostgisSource extends DbSource {
     this.reader = new PostgisReader(this.id, {
       connection: options.connection,
       schema: options.schema ?? DEFAULT_SCHEMA,
-      datasets: DbDatasetCatalog.fromConfig(`PostGIS source "${this.id}"`, options.datasets),
+      datasets: DbDataset.build(`PostGIS source "${this.id}"`, options.datasets),
       batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
       extentStrategy: options.extentStrategy ?? DEFAULT_EXTENT_STRATEGY
     })
@@ -180,7 +180,7 @@ class PostgisReader {
     private readonly options: {
       connection: PostgisConnectionOptions
       schema: string
-      datasets: DbDatasetCatalog
+      datasets: Registry<DbDataset>
       batchSize: number
       extentStrategy: PostgisExtentStrategy
     }

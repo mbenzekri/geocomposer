@@ -17,8 +17,7 @@ export {
     toStream
 } from './source.js'
 export {
-    DbDataset,
-    DbDatasetCatalog
+    DbDataset
 } from './db-dataset.js'
 export type {
     DbDatasetJson,
