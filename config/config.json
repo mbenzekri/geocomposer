@@ -70,6 +70,18 @@
             "maxWidth": 4096,
             "maxHeight": 4096
         },
+        "api": {
+            "path": "/api",
+            "title": "GeoComposer OGC API Features",
+            "abstract": "Feature API backed by GeoComposer layers.",
+            "onlineResource": "http://localhost:3000/api",
+            "defaultLimit": 100,
+            "maxLimit": 10000,
+            "supportedCrs": [
+                "EPSG:4326",
+                "EPSG:3857"
+            ]
+        },
         "xyz": {
             "path": "/tiles",
             "maxScaleFactor": 4,

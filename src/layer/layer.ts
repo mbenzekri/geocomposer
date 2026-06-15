@@ -4,6 +4,7 @@ import { Source, type QueryOptions, type StreamOptions } from '../source/source-
 import { Style, type NamedStyle } from '../style/style.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
+import { PageFilter } from '../stream/page-filter.js'
 import { Reproject } from '../stream/reproject.js'
 import { Gt } from '../core/geotools.js'
 import { Dict, Registry } from '../core/tools.js'
@@ -144,6 +145,8 @@ export class Layer {
                 bbox: options.bbox,
                 signal: options.signal,
                 properties: options.properties,
+                limit: options.limit,
+                offset: options.offset,
                 layer: this
             })
         }
@@ -159,9 +162,18 @@ export class Layer {
         })
 
         const reprojected = input.pipeThrough(new Reproject(this.crs, crs))
-        return options.bbox
+        let output = options.bbox
             ? reprojected.pipeThrough(new BboxFilter(options.bbox))
             : reprojected
+
+        if (options.offset !== undefined || options.limit !== undefined) {
+            output = output.pipeThrough(new PageFilter({
+                offset: options.offset,
+                limit: options.limit
+            }))
+        }
+
+        return output
     }
 
     resolveStyle(name: string | undefined): StyleFn {

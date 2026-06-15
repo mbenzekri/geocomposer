@@ -1,8 +1,10 @@
 import type { PathLike } from 'node:fs'
 import type { BBox } from '../core/geometry.js'
 import type { Feature, SourceRef } from '../core/feature.js'
+import { FeatureIdentity } from '../core/feature-id.js'
 import { Gt } from '../core/geotools.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
+import { PageFilter } from '../stream/page-filter.js'
 import type { Layer } from '../layer/layer.js'
 import { Registry } from '../core/tools.js'
 
@@ -23,6 +25,8 @@ export type StreamOptions = {
 export type QueryOptions = StreamOptions & {
   bbox?: BBox
   properties?: string[]
+  limit?: number
+  offset?: number
 }
 
 export type FeatureTransform = (feature: Feature, index: number) => Feature | Promise<Feature>
@@ -58,14 +62,38 @@ export abstract class Source {
   abstract stream(options: StreamOptions): ReadableStream<Feature>
   abstract read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null>
 
-  query(options: QueryOptions): ReadableStream<Feature> {
-    const input = this.stream(options)
+  async readById(featureId: string, options: StreamOptions): Promise<Feature | null> {
+    const reader = this.stream(options).getReader()
 
-    if (!options.bbox) {
-      return input
+    try {
+      for (;;) {
+        const result = await reader.read()
+        if (result.done) return null
+
+        if (FeatureIdentity.fromFeature(result.value) === featureId) {
+          return result.value
+        }
+      }
+    } finally {
+      await reader.cancel().catch(() => undefined)
+    }
+  }
+
+  query(options: QueryOptions): ReadableStream<Feature> {
+    let input = this.stream(options)
+
+    if (options.bbox) {
+      input = input.pipeThrough(new BboxFilter(options.bbox))
     }
 
-    return input.pipeThrough(new BboxFilter(options.bbox))
+    if (options.offset !== undefined || options.limit !== undefined) {
+      input = input.pipeThrough(new PageFilter({
+        offset: options.offset,
+        limit: options.limit
+      }))
+    }
+
+    return input
   }
 }
 
@@ -121,6 +149,11 @@ export abstract class FeatureSource extends Source {
       layer,
       crs: layer.crs,
       sourceRef: feature.sourceRef
+        ? {
+          ...feature.sourceRef,
+          recordIndex: feature.sourceRef.recordIndex ?? index
+        }
+        : undefined
     }
   }
 }
@@ -140,6 +173,10 @@ export abstract class DbSource extends FeatureSource {
 
   protected constructor(transformFeature?: FeatureTransform) {
     super(transformFeature)
+  }
+
+  override async readById(_featureId: string, _options: StreamOptions): Promise<Feature | null> {
+    throw new Error(`${this.type} source must implement readById without a full scan`)
   }
 
   protected resolveDatasetId(layer: Layer): string {

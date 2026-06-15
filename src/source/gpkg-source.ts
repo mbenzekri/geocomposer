@@ -105,6 +105,11 @@ export class GpkgSource extends DbSource {
     return this.reader.getExtent(this.resolveDatasetId(layer))
   }
 
+  override async readById(featureId: string, options: StreamOptions): Promise<Feature | null> {
+    await this.open()
+    return this.reader.readById(featureId, this.resolveDatasetId(options.layer), options)
+  }
+
   protected override async readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     await this.open()
     return this.reader.read(sourceRef, this.resolveDatasetId(options.layer), options)
@@ -175,6 +180,14 @@ class GpkgReader {
     const row = state.db.prepare(this.selectOneSql(meta)).get(ref.rowId)
     if (!row) return null
     return this.toFeature(meta, row, ref.recordIndex ?? 0, options.layer)
+  }
+
+  async readById(featureId: string, datasetId: string, options: StreamOptions): Promise<Feature | null> {
+    const state = this.requireOpen()
+    const meta = this.metaForDataset(datasetId)
+    const row = state.db.prepare(this.selectOneSql(meta)).get(featureId)
+    if (!row) return null
+    return this.toFeature(meta, row, 0, options.layer)
   }
 
   private requireOpen(): { db: SqliteDatabase } {

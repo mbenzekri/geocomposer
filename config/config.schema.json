@@ -108,6 +108,9 @@
                 "wms": {
                     "$ref": "#/$defs/wms"
                 },
+                "api": {
+                    "$ref": "#/$defs/api"
+                },
                 "xyz": {
                     "$ref": "#/$defs/xyz"
                 },
@@ -147,6 +150,63 @@
                     ]
                 },
                 "maxHeight": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "supportedCrs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                }
+            }
+        },
+        "api": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "title"
+            ],
+            "properties": {
+                "path": {
+                    "$ref": "#/$defs/path"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "onlineResource": {
+                    "type": "string"
+                },
+                "defaultLimit": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "maxLimit": {
                     "anyOf": [
                         {
                             "type": "integer",

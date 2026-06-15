@@ -1,4 +1,5 @@
 import type { Registry } from '../core/tools.js'
+import { OgcFeatures, type OgcFeaturesJson } from './ogc-features.js'
 import { Service } from './service.js'
 import { Wms, type WmsJson } from './wms.js'
 import { Wmts, type WmtsJson } from './wmts.js'
@@ -8,6 +9,7 @@ export { Service } from './service.js'
 
 export type ServicesJson = {
     wms: WmsJson
+    api?: OgcFeaturesJson
     xyz?: XyzJson
     wmts?: WmtsJson
 }
@@ -16,6 +18,11 @@ Service.build = function build(services: ServicesJson,baseDir: string): Registry
 
     const wms = Wms.fromConfig(services.wms)
     Service.registry.set('wms', wms)
+
+    if (services.api) {
+        const api = OgcFeatures.fromConfig(services.api)
+        Service.registry.set('api', api)
+    }
 
     if (services.xyz) {
         const xyz = Xyz.fromConfig(services.xyz, baseDir)

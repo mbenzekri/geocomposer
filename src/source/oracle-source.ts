@@ -166,6 +166,11 @@ export class OracleSource extends DbSource {
     return toStream(this.queryFeatures(options), options, (signal) => this.abortReason(signal))
   }
 
+  override async readById(featureId: string, options: StreamOptions): Promise<Feature | null> {
+    await this.open()
+    return this.reader.readById(featureId, this.resolveDatasetId(options.layer), options)
+  }
+
   protected override async readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     await this.open()
     return this.reader.read(sourceRef, this.resolveDatasetId(options.layer), options)
@@ -262,7 +267,9 @@ class OracleReader {
     const query = this.selectSql(meta, {
       bbox: options.bbox,
       properties: options.properties,
-      crs: options.layer.crs
+      crs: options.layer.crs,
+      limit: options.limit,
+      offset: options.offset
     })
     yield* this.featuresFromQuery({ pool: state.pool, meta }, query, options)
   }
@@ -276,6 +283,24 @@ class OracleReader {
     const row = rows[0]
     if (!row) return null
     return this.toFeature(meta, query.properties, row, ref.recordIndex ?? 0, options.layer)
+  }
+
+  async readById(featureId: string, datasetId: string, options: StreamOptions): Promise<Feature | null> {
+    const state = this.requireOpen()
+    const meta = this.metaForDataset(datasetId)
+    const query = this.selectOneSql(meta, {
+      storage: 'database',
+      sourceId: this.sourceId,
+      schemaName: meta.schemaName,
+      tableName: meta.tableName,
+      rowId: featureId,
+      primaryKey: meta.primaryKey === ROWID_PRIMARY_KEY ? undefined : meta.primaryKey,
+      geometryColumn: meta.geometryColumn
+    })
+    const rows = await this.executeRows(state.pool, query.sql, query.binds)
+    const row = rows[0]
+    if (!row) return null
+    return this.toFeature(meta, query.properties, row, 0, options.layer)
   }
 
   private requireOpen(): { pool: oracledb.Pool } {
@@ -452,7 +477,7 @@ class OracleReader {
 
   private selectSql(
     meta: OracleTableMeta,
-    options: { bbox?: BBox, properties?: string[], crs?: CrsCode }
+    options: { bbox?: BBox, properties?: string[], crs?: CrsCode, limit?: number, offset?: number }
   ): OracleQuery {
     const binds: OracleBinds = {}
     const where: string[] = []
@@ -483,7 +508,8 @@ class OracleReader {
       `SELECT ${this.selectColumns(meta, properties).join(', ')}`,
       `FROM ${qualifiedTableName(meta)}`,
       where.length > 0 ? `WHERE ${where.join(' AND ')}` : '',
-      `ORDER BY ${orderExpression(meta)}`
+      `ORDER BY ${orderExpression(meta)}`,
+      paginationClause(options, binds)
     ].filter(Boolean).join(' ')
 
     return { sql, binds, properties }
@@ -822,6 +848,27 @@ async function executeRows<T extends Props>(
   })
 
   return result.rows ?? []
+}
+
+function paginationClause(
+  options: { limit?: number, offset?: number },
+  binds: OracleBinds
+): string {
+  const clauses: string[] = []
+
+  if (options.offset !== undefined) {
+    binds.pageOffset = options.offset
+    clauses.push('OFFSET :pageOffset ROWS')
+  }
+
+  if (options.limit !== undefined) {
+    binds.pageLimit = options.limit
+    clauses.push(options.offset === undefined
+      ? 'FETCH FIRST :pageLimit ROWS ONLY'
+      : 'FETCH NEXT :pageLimit ROWS ONLY')
+  }
+
+  return clauses.join(' ')
 }
 
 function createPoolAttributes(options: OracleConnectionOptions): oracledb.PoolAttributes {

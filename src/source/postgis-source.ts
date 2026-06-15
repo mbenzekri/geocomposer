@@ -151,6 +151,11 @@ export class PostgisSource extends DbSource {
     return toStream(this.queryFeatures(options), options, (signal) => this.abortReason(signal))
   }
 
+  override async readById(featureId: string, options: StreamOptions): Promise<Feature | null> {
+    await this.open()
+    return this.reader.readById(featureId, this.resolveDatasetId(options.layer), options)
+  }
+
   protected override async readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     await this.open()
     return this.reader.read(sourceRef, this.resolveDatasetId(options.layer), options)
@@ -246,7 +251,9 @@ class PostgisReader {
     const query = this.selectSql(meta, {
       bbox: options.bbox,
       properties: options.properties,
-      crs: options.layer.crs
+      crs: options.layer.crs,
+      limit: options.limit,
+      offset: options.offset
     })
     yield* this.featuresFromQuery({ pool: state.pool, meta }, query, options)
   }
@@ -260,6 +267,24 @@ class PostgisReader {
     const row = result.rows[0]
     if (!row) return null
     return this.toFeature(meta, query.properties, row, ref.recordIndex ?? 0, options.layer)
+  }
+
+  async readById(featureId: string, datasetId: string, options: StreamOptions): Promise<Feature | null> {
+    const state = this.requireOpen()
+    const meta = this.metaForDataset(datasetId)
+    const query = this.selectOneSql(meta, {
+      storage: 'database',
+      sourceId: this.sourceId,
+      schemaName: meta.schemaName,
+      tableName: meta.tableName,
+      rowId: featureId,
+      primaryKey: meta.primaryKey,
+      geometryColumn: meta.geometryColumn
+    })
+    const result = await state.pool.query(query.sql, query.params)
+    const row = result.rows[0]
+    if (!row) return null
+    return this.toFeature(meta, query.properties, row, 0, options.layer)
   }
 
   private requireOpen(): { pool: PgPool } {
@@ -384,7 +409,7 @@ class PostgisReader {
 
   private selectSql(
     meta: PostgisTableMeta,
-    options: { bbox?: BBox, properties?: string[], crs?: CrsCode }
+    options: { bbox?: BBox, properties?: string[], crs?: CrsCode, limit?: number, offset?: number }
   ): PostgisQuery {
     const params: unknown[] = []
     const where: string[] = []
@@ -400,11 +425,19 @@ class PostgisReader {
 
     const idExpression = quoteSqlIdentifier(meta.primaryKey)
     const properties = this.propertyAliases(meta, options.properties)
+    const limitClause = options.limit === undefined
+      ? ''
+      : `LIMIT $${pushParam(params, options.limit)}`
+    const offsetClause = options.offset === undefined
+      ? ''
+      : `OFFSET $${pushParam(params, options.offset)}`
     const sql = [
       `SELECT ${this.selectColumns(meta, properties).join(', ')}`,
       `FROM ${qualifiedTableName(meta)}`,
       where.length > 0 ? `WHERE ${where.join(' AND ')}` : '',
-      `ORDER BY ${idExpression}`
+      `ORDER BY ${idExpression}`,
+      limitClause,
+      offsetClause
     ].filter(Boolean).join(' ')
 
     return { sql, params, properties }
@@ -697,6 +730,11 @@ function createPoolConfig(options: PostgisConnectionOptions): PoolConfig {
     query_timeout: options.queryTimeoutMillis,
     application_name: options.applicationName
   }
+}
+
+function pushParam(params: unknown[], value: unknown): number {
+  params.push(value)
+  return params.length
 }
 
 function parsePostgisGeometry(value: unknown): Geometry | null {
