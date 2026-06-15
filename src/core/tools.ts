@@ -1,10 +1,15 @@
 import path from "node:path"
+import { fileURLToPath } from 'node:url'
 import { LogLevel } from "./log-level.js"
-import { measureMemory } from "node:vm"
+import fs from "fs"
 export type Constructor<T> = abstract new (...args: any[]) => T
 export type Props = Record<string, unknown>
 export type Dict<T> = Record<string, T>
 
+
+export function isMain(metaurl: string): boolean {
+    return process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
+}
 
 export type Args = {
     configPath: string
@@ -123,6 +128,18 @@ export class Registry<T>  {
   has(name: string): boolean {
     return this.reg.has(name)
   }
+}
+
+export function assertExistsFile(path: string | undefined ) {
+    if(path == null) return
+    if (!fs.existsSync(path)) throw new Error(`File not found: ${path}`)
+    if (!fs.statSync(path).isFile()) throw new Error(`Not a file: ${path}`)            
+}
+export function assertExistsCreateDir(path: string | undefined ) {
+    if(path == null) return
+    try { fs.mkdirSync(path,{recursive: true}) } catch(e) { throw new Error(`Unable to create Directory: ${path}`) }
+    if (!fs.existsSync(path)) throw new Error(`Directory not found: ${path}`)
+    if (!fs.statSync(path).isDirectory()) throw new Error(`Not a directory: ${path}`)
 }
 
 

@@ -17,7 +17,7 @@ export class JsonValidator<T> {
         this.schemaName = name
         const document = this.load(schema)
         if (!isPlainObject(document)) {
-            throw new Error(`Invalid JSON Schema in ${document.label}: expected an object`)
+            throw new Error(`Invalid ${this.schemaName} JSON Schema in ${document.label}: expected an object`)
         }
 
         const ajv = new Ajv2020({
@@ -48,35 +48,34 @@ export class JsonValidator<T> {
     private load(input: unknown): any {
         let value: any
         let text: string
+
+        if (isPlainObject(input)) {
+            console.log(`[CONFIG]: loaded builtin json ${JSON.stringify(input).substring(0,100).replace(/[ \r\n]+/g,' ')}`)
+            // already loaded
+            return input
+        }
+
         if (typeof input === 'string' && input.length <= 2048) {
-            //const fullpath = path.resolve(process.cwd(),input)
-            const fullpath = input
+            const fullpath = path.resolve(process.cwd(),input)
+            //const fullpath = input
             if (fs.existsSync(fullpath)) {
                 // string is path 
                 try {
                     text = fs.readFileSync(fullpath, 'utf8')
+                    console.log(`[CONFIG]: read json file ${fullpath} => ${text.substring(0,100).replace(/[ \r\n]+/g,' ')}...`)
                 } catch(e:any) {
-                    throw new Error(`ERROR: unable to read ${fullpath} JSON file due to ${String(e)}`)
+                    throw new Error(`[CONFIG]: ERROR unable to read ${fullpath} JSON file due to ${String(e)}`)
                 }
                 try {
                     value = JSON.parse(text)
+                    console.log(`[CONFIG]: parsed json ${fullpath}`)
                     return value
                 } catch(e:any) {
-                    throw new Error(`ERROR: unable to parse ${fullpath} JSON file due to ${String(e)}`)
-                }
-            } else {
-                // string is JSON
-                try {
-                    value = JSON.parse(input)
-                    return value
-                } catch(e:any) {
-                    throw new Error(`ERROR: unable to parse ${input.substring(0,100)} JSON text due to ${String(e)}`)
+                    throw new Error(`[CONFIG]: ERROR unable to parse ${fullpath} JSON file due to ${String(e)}`)
                 }
             }
-        } else {
-            // already loaded
-            return input
         }
+        throw `[CONFIG]: unable to load json ${input}`
 
     }
 

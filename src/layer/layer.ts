@@ -42,10 +42,7 @@ export class Layer {
     readonly styles: readonly NamedStyle[]
     readonly pointProperties: Array<PointProperties & { crs: CrsCode }>
 
-    constructor(
-        readonly name: string,
-        entry: LayerJson
-    ) {
+    constructor(readonly name: string, entry: LayerJson ) {
         if (!Source.registry.has(entry.source)) {
             throw new Error(`Unknown source "${entry.source}" in layer "${name}"`)
         }
@@ -70,14 +67,10 @@ export class Layer {
 
     static build(layerEntries: Dict<LayerJson>): Registry<Layer> {
         for (const [name, entry] of Object.entries(layerEntries)) {
-            const layer = Layer.create(name, entry)
+            const layer = new Layer(name, entry)
             Layer.registry.set(layer.name, layer)
         }
         return Layer.registry
-    }
-
-    static create(name: string,entry: LayerJson): Layer {
-        return new Layer(name, entry)
     }
 
     private static resolveStyles(name: string, entry: LayerJson): NamedStyle[] {

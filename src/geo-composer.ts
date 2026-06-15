@@ -1,8 +1,7 @@
 import './core/log-level.js'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
-import { Args, DEFAULT_CONFIG_PATH, parseArgs, parsePort } from './core/tools.js'
+import { Args, DEFAULT_CONFIG_PATH, isMain, parseArgs, parsePort } from './core/tools.js'
 import { Config } from './config/config.js'
 import { Service } from './service/service-build.js'
 import { Source } from './source/source-build.js'
@@ -29,13 +28,36 @@ export class GeoComposer {
     static async from(args: Partial<Args> = {}): Promise<GeoComposer> {
         const configPath = path.resolve(process.cwd(), args.configPath ?? process.env.CONFIG ?? DEFAULT_CONFIG_PATH)
         const port = parsePort(process.env.PORT, args.port)
-        const config = await Config.load(configPath,port)
+        const config = await Config.load(configPath, port)
 
         if (args.clearTileCache) {
             await Promise.all(Service.registry.all.map(service => service.clearCache()))
         }
 
         return new GeoComposer(config)
+    }
+
+    static async launch() {
+        const args = parseArgs()
+        let geoc: GeoComposer
+        try {
+            // Init GeoComposer from Conf
+            geoc = await GeoComposer.from(args)
+            try {
+                // Run server and handle requests
+                await geoc.run()
+            } catch (error) {
+                // runtime error caught
+                console.error(`[GeoComposer] Runtime failure`)
+                console.error(String(error))
+            }
+        } catch (error) {
+            // Initialisation error caught
+            process.exitCode = 1
+            console.error(`[GeoComposer] Initialisation failure`)
+            console.error(String(error))
+        }
+        process.exitCode = 0
     }
 
     async open(): Promise<void> {
@@ -124,6 +146,21 @@ export class GeoComposer {
         }
     }
 
+    async closeSources(sources: Iterable<Source>): Promise<void> {
+        let firstError: unknown
+
+        for (const source of sources) {
+            try {
+                await source.close()
+            } catch (error) {
+                firstError ??= error
+            }
+        }
+
+        if (firstError) throw firstError
+    }
+
+
     private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const url = new URL(req.url ?? '/', 'http://localhost')
         const service = Service.registry.all.find((entry) => entry.matches(url.pathname))
@@ -166,47 +203,12 @@ export class GeoComposer {
         )
     }
 
-    async closeSources(sources: Iterable<Source>): Promise<void> {
-        let firstError: unknown
 
-        for (const source of sources) {
-            try {
-                await source.close()
-            } catch (error) {
-                firstError ??= error
-            }
-        }
+}
 
-        if (firstError) throw firstError
-    }
-
+if (isMain(import.meta.url)) {
+    await GeoComposer.launch()
 }
 
 
 
-if (isMain()) {
-    const args = parseArgs()
-    let geoc: GeoComposer
-    try {
-        // Init GeoComposer from Conf
-        geoc = await GeoComposer.from(args)
-        try {
-            // Run server and handle requests
-            await geoc.run()
-        } catch (error) {
-            // runtime error caught
-            console.error(`[GeoComposer] Runtime failure`)
-            console.error(String(error))
-        }
-    } catch (error) {
-        // Initialisation error caught
-        process.exitCode = 1
-        console.error(`[GeoComposer] Initialisation failure`)
-        console.error(String(error))
-    }
-    process.exitCode = 0
-}
-
-function isMain(): boolean {
-    return process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
-}

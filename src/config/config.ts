@@ -1,5 +1,5 @@
 import { dirname, resolve } from 'node:path'
-import { Dict, isPlainObject, Singleton } from '../core/tools.js'
+import { Dict, Singleton } from '../core/tools.js'
 
 import { LogLevel} from "../core/log-level.js"
 import { Crs, type CrsJson } from '../core/crs.js'
@@ -14,6 +14,7 @@ import { JsonValidator } from '../core/json-validator.js'
 import { EnvSolver } from './env-solver.js'
 import { DefsSolver } from './defs-solver.js'
 import configSchema from './config.schema.json' with { type: 'json' }
+import { PathsSolver } from './path-solver.js'
 
 
 class ConfigValidator extends JsonValidator<GeoComposerJson> {
@@ -22,9 +23,10 @@ class ConfigValidator extends JsonValidator<GeoComposerJson> {
     }
 
     protected transform(document: unknown): unknown {
-        const envSolved = new EnvSolver().solve(document)
-        const defsAndEnvSolved = new DefsSolver().solve(envSolved)
-        return resolveConfigPaths(defsAndEnvSolved, this.baseDir)
+        let solved = new EnvSolver().solve(document)
+        solved = new DefsSolver().solve(solved)
+        solved = new PathsSolver(this.baseDir).solve(solved)
+        return solved
     }
 }
 
@@ -47,105 +49,6 @@ export type GeoComposerJson = {
     tilesets?: Dict<TilesetJson>
 }
 
-function resolveConfigPaths(document: unknown, baseDir: string): unknown {
-    if (!isPlainObject(document)) return document
-
-    const resolved: Record<string, unknown> = { ...document }
-    if (Object.hasOwn(document, 'services')) {
-        resolved.services = resolveServicePaths(document.services, baseDir)
-    }
-    if (Object.hasOwn(document, 'sources')) {
-        resolved.sources = resolveSourcePaths(document.sources, baseDir)
-    }
-    if (Object.hasOwn(document, 'styles')) {
-        resolved.styles = resolveStylePaths(document.styles, baseDir)
-    }
-
-    return resolved
-}
-
-function resolveServicePaths(services: unknown, baseDir: string): unknown {
-    if (!isPlainObject(services)) return services
-
-    const resolved: Record<string, unknown> = { ...services }
-    if (Object.hasOwn(services, 'xyz')) {
-        resolved.xyz = resolveKnownPathFields(services.xyz, baseDir, ['cache'])
-    }
-    if (Object.hasOwn(services, 'wmts')) {
-        resolved.wmts = resolveKnownPathFields(services.wmts, baseDir, ['cache'])
-    }
-
-    return resolved
-}
-
-function resolveSourcePaths(sources: unknown, baseDir: string): unknown {
-    if (!isPlainObject(sources)) return sources
-
-    const resolved: Record<string, unknown> = {}
-    for (const [name, entry] of Object.entries(sources)) {
-        resolved[name] = resolveSourceEntryPaths(entry, baseDir)
-    }
-
-    return resolved
-}
-
-function resolveSourceEntryPaths(entry: unknown, baseDir: string): unknown {
-    if (!isPlainObject(entry)) return entry
-
-    switch (entry.type) {
-        case 'geojson':
-        case 'gml':
-        case 'gpkg':
-            return resolveKnownPathFields(entry, baseDir, ['path'])
-
-        case 'shp':
-            return resolveKnownPathFields(entry, baseDir, ['shpPath', 'dbfPath'])
-
-        case 'oracle':
-            return resolveOracleConnectionPaths(entry, baseDir)
-
-        default:
-            return entry
-    }
-}
-
-function resolveOracleConnectionPaths(entry: Record<string, unknown>, baseDir: string): Record<string, unknown> {
-    if (!isPlainObject(entry.connection)) return entry
-
-    return {
-        ...entry,
-        connection: resolveKnownPathFields(entry.connection, baseDir, ['walletLocation', 'configDir'])
-    }
-}
-
-function resolveStylePaths(styles: unknown, baseDir: string): unknown {
-    if (!isPlainObject(styles)) return styles
-
-    const resolved: Record<string, unknown> = {}
-    for (const [name, entry] of Object.entries(styles)) {
-        resolved[name] = isPlainObject(entry) && entry.type === 'dynamic'
-            ? resolveKnownPathFields(entry, baseDir, ['path'])
-            : entry
-    }
-
-    return resolved
-}
-
-function resolveKnownPathFields(entry: unknown, baseDir: string, fields: string[]): unknown {
-    if (!isPlainObject(entry)) return entry
-
-    let resolved: Record<string, unknown> | undefined
-    for (const field of fields) {
-        const value = entry[field]
-        if (typeof value !== 'string') continue
-
-        resolved ??= { ...entry }
-        resolved[field] = resolve(baseDir, value)
-    }
-
-    return resolved ?? entry
-}
-
 export class Config extends Singleton {
 
     readonly path: string
@@ -159,6 +62,9 @@ export class Config extends Singleton {
         this.path = resolve(configPath)
         this.dir = dirname(this.path)
         this._port = port
+        console.log(`[CONFIG]: Base dir is ${this.dir}`)
+        console.log(`[CONFIG]: file is ${this.path}`)
+
     }
 
 
@@ -175,7 +81,7 @@ export class Config extends Singleton {
         }
 
         if (this.loaded) return this
-        console.log(`[CONFIG]: ${this.path} loading`)
+        console.log(`[CONFIG]: loading ${this.path}`)
 
         // loading json and validating syntax of the config file
         const configValidator = new ConfigValidator(configSchema, "Configuration Schema", this.dir)
