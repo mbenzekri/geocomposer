@@ -52,13 +52,12 @@ export type SourceJson =
     | MemSourceJson
 
 Source.build = function createAll(
-    sourceEntries: Record<string, unknown>,
-    baseDir: string
+    sourceEntries: Record<string, unknown>
 ): Registry<Source> {
     for (const [name,entry] of Object.entries(sourceEntries)) {
         const existing = Source.registry.has(name)
         if (existing) continue
-        const source = Source.create(name, entry, baseDir)
+        const source = Source.create(name, entry)
         Source.registry.set(name, source)
     }
     return Source.registry
@@ -66,13 +65,12 @@ Source.build = function createAll(
 
 Source.create = function create(
     name: string,
-    entry: unknown,
-    baseDir: string
+    entry: unknown
 ): Source {
-    if (GeoJsonSource.acceptsConfig(entry)) return GeoJsonSource.fromConfig(name, entry, baseDir)
-    if (GmlSource.acceptsConfig(entry)) return GmlSource.fromConfig(name, entry, baseDir)
-    if (ShpSource.acceptsConfig(entry)) return ShpSource.fromConfig(name, entry, baseDir)
-    if (GpkgSource.acceptsConfig(entry)) return GpkgSource.fromConfig(name, entry, baseDir)
+    if (GeoJsonSource.acceptsConfig(entry)) return GeoJsonSource.fromConfig(name, entry)
+    if (GmlSource.acceptsConfig(entry)) return GmlSource.fromConfig(name, entry)
+    if (ShpSource.acceptsConfig(entry)) return ShpSource.fromConfig(name, entry)
+    if (GpkgSource.acceptsConfig(entry)) return GpkgSource.fromConfig(name, entry)
     if (PostgisSource.acceptsConfig(entry)) return PostgisSource.fromConfig(name, entry)
     if (OracleSource.acceptsConfig(entry)) return OracleSource.fromConfig(name, entry)
     if (MemSource.acceptsConfig(entry)) return MemSource.fromConfig(name, entry)

@@ -1,6 +1,5 @@
 import { constants, type PathLike } from 'node:fs'
 import { access } from 'node:fs/promises'
-import { resolve } from 'node:path'
 import type { DbRef, DescInfo, Feature, SourceRef} from '../core/feature.js'
 import type { Geometry, BBox } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
@@ -54,10 +53,9 @@ export class GpkgSource extends DbSource {
 
   static fromConfig(
     id: string,
-    entry: GpkgSourceJson,
-    baseDir: string
+    entry: GpkgSourceJson
   ): GpkgSource {
-    return new GpkgSource(id, resolve(baseDir, entry.path), entry.datasets)
+    return new GpkgSource(id, entry.path, entry.datasets)
   }
 
   constructor(

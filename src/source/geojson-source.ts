@@ -1,6 +1,5 @@
 import { createReadStream, type PathLike } from 'node:fs'
 import { open } from 'node:fs/promises'
-import { resolve } from 'node:path'
 import type { DescInfo, Feature, FileRef, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
 import { FileSource, hasSourceConfigType, type FeatureTransform } from './source.js'
@@ -25,10 +24,9 @@ export class GeoJsonSource extends FileSource {
 
   static fromConfig(
     id: string,
-    entry: GeoJsonSourceJson,
-    baseDir: string
+    entry: GeoJsonSourceJson
   ): GeoJsonSource {
-    return new GeoJsonSource(id, resolve(baseDir, entry.path), entry.encoding, entry.highWaterMark)
+    return new GeoJsonSource(id, entry.path, entry.encoding, entry.highWaterMark)
   }
 
   constructor(

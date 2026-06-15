@@ -14,7 +14,7 @@ export type ServicesJson = {
     wmts?: WmtsJson
 }
 
-Service.build = function build(services: ServicesJson,baseDir: string): Registry<Service> {
+Service.build = function build(services: ServicesJson): Registry<Service> {
 
     const wms = Wms.fromConfig(services.wms)
     Service.registry.set('wms', wms)
@@ -25,12 +25,12 @@ Service.build = function build(services: ServicesJson,baseDir: string): Registry
     }
 
     if (services.xyz) {
-        const xyz = Xyz.fromConfig(services.xyz, baseDir)
+        const xyz = Xyz.fromConfig(services.xyz)
         Service.registry.set('xyz', xyz)
     }
 
     if (services.wmts) {
-        const wmts = Wmts.fromConfig(services.wmts, baseDir)
+        const wmts = Wmts.fromConfig(services.wmts)
         Service.registry.set('wmts', wmts)
     }
     

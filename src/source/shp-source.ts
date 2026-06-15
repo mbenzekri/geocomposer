@@ -1,6 +1,5 @@
 import { constants, createReadStream, type PathLike } from 'node:fs'
 import { access, open, readFile, type FileHandle } from 'node:fs/promises'
-import { resolve } from 'node:path'
 import type { DescInfo, Feature, ByteRange, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
@@ -49,12 +48,9 @@ export class ShpSource extends FileSource {
 
   static fromConfig(
     id: string,
-    entry: ShpSourceJson,
-    baseDir: string
+    entry: ShpSourceJson
   ): ShpSource {
-    const shppath = resolve(baseDir, entry.shpPath)
-    const dbfpath = resolve(baseDir, entry.dbfPath)
-    return new ShpSource(id, shppath, dbfpath, entry.dbfEncoding, entry.highWaterMark)
+    return new ShpSource(id, entry.shpPath, entry.dbfPath, entry.dbfEncoding, entry.highWaterMark)
   }
 
   constructor(

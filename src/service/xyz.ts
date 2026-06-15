@@ -1,5 +1,4 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { resolve } from 'node:path'
 import type { BBox } from '../core/geometry.js'
 import { getMap } from '../ogc/get-map.js'
 import { type TileOutput, Tileset, tileFormatFromExtension } from '../tileset/tileset.js'
@@ -44,11 +43,8 @@ export class Xyz extends Service {
         this.tilesetByName = new Map(this.tilesets.map((tileset) => [tileset.name, tileset]))
     }
 
-    static fromConfig(entry: XyzJson, baseDir: string): Xyz {
-        return new Xyz({
-            ...entry,
-            cache: entry.cache ? resolve(baseDir, entry.cache) : undefined
-        })
+    static fromConfig(entry: XyzJson): Xyz {
+        return new Xyz(entry)
     }
 
     matches(pathname: string): boolean {

@@ -40,7 +40,6 @@ export abstract class Source {
 
   static build(
     _sourceEntries: Record<string, unknown>,
-    _baseDir: string,
   ): Registry<Source>{
     throw new Error('Source.build is not initialized')
   }
@@ -48,7 +47,6 @@ export abstract class Source {
   static create(
     _name: string,
     _entry: unknown,
-    _baseDir: string,
   ): Source {
     throw new Error('Source.create is not initialized')
   }

@@ -32,7 +32,6 @@ export abstract class Service {
 
     static build(
         services: unknown,
-        baseDir: string,
     ): Registry<Service> {
         throw new Error('Service.build is not initialized')
     }

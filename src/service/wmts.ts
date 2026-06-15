@@ -1,5 +1,4 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { resolve } from 'node:path'
 import { escape, nonNegativeInteger, paramsFromUrl, Props } from '../core/tools.js'
 import { MarkupTemplate } from '../core/template.js'
 import { getMap } from '../ogc/get-map.js'
@@ -120,11 +119,8 @@ export class Wmts extends Service {
         validateWmtsTilesets(tilesets)
     }
 
-    static fromConfig(entry: WmtsJson, baseDir: string): Wmts {
-        return new Wmts({
-            ...entry,
-            cache: entry.cache ? resolve(baseDir, entry.cache) : undefined
-        })
+    static fromConfig(entry: WmtsJson): Wmts {
+        return new Wmts(entry)
     }
 
     get tilesets(): Tileset[] {

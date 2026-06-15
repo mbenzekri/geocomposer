@@ -47,7 +47,7 @@ export class Style {
     const styleValidator = new StyleValidator(fullpath, 'Dynamic Style Schema')
 
     for (const [name, entry] of Object.entries(styleEntries)) {
-        const style = await Style.create(name, entry, baseDir, styleValidator)
+        const style = await Style.create(name, entry, styleValidator)
         Style.registry.set(name, style)
     }
     return Style.registry
@@ -56,7 +56,6 @@ export class Style {
   static async create(
     name: string,
     entry: StyleJson,
-    baseDir: string,
     dynamicStyleValidator: JsonValidator<DynamicStyleJson>
   ): Promise<NamedStyle> {
     switch (entry.type) {
@@ -73,7 +72,7 @@ export class Style {
         }
 
       case 'dynamic': {
-        const stylePath = resolve(baseDir, entry.path)
+        const stylePath = entry.path
 
         try {
           const json = dynamicStyleValidator.validate(stylePath)

@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { describe, expect, test } from 'vitest'
 import { GeoComposer } from '../../src/geo-composer.js'
 import { Service } from '../../src/service/service-build.js'
+import { Source } from '../../src/source/source-build.js'
 
 describe('configuration and startup', () => {
   test('config_red validates and opens/closes sources without external services', async () => {
@@ -16,6 +17,9 @@ describe('configuration and startup', () => {
 
       expect(Service.registry.has('wms')).toBe(true)
       expect(Service.registry.has('api')).toBe(true)
+      expect(Service.registry.get('api').path).toBe('/api')
+      expect(sourceFilePath('world')).toBe(resolve('data/world.geojson'))
+      expect(sourceFilePath('capitals')).toBe(resolve('data/capitals.geojson'))
 
       const collections = await requestJson('/api/collections')
       expect(collections.collections).toEqual(expect.arrayContaining([
@@ -51,6 +55,11 @@ describe('configuration and startup', () => {
     expect(app.server.listening).toBe(false)
   })
 })
+
+function sourceFilePath(name: string): string {
+  const source = Source.registry.get(name) as unknown as { getFiles(): readonly { path: unknown }[] }
+  return String(source.getFiles()[0]?.path)
+}
 
 async function requestJson(url: string): Promise<Record<string, unknown>> {
   const response = await requestApi(url)

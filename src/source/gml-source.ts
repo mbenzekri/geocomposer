@@ -1,6 +1,5 @@
 import { createReadStream, type PathLike } from 'node:fs'
 import { open } from 'node:fs/promises'
-import { resolve } from 'node:path'
 import type { DescInfo, Feature, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
@@ -84,10 +83,9 @@ export class GmlSource extends FileSource {
 
   static fromConfig(
     id: string,
-    entry: GmlSourceJson,
-    baseDir: string
+    entry: GmlSourceJson
   ): GmlSource {
-    return new GmlSource(id, resolve(baseDir, entry.path), {
+    return new GmlSource(id, entry.path, {
       encoding: entry.encoding,
       highWaterMark: entry.highWaterMark,
       featureElementNames: entry.featureElementNames,
