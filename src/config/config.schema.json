@@ -1,0 +1,1452 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://geocomposer.local/config.schema.json",
+    "title": "GeoComposer config",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "services",
+        "sources",
+        "layers"
+    ],
+    "properties": {
+        "$schema": {
+            "type": "string"
+        },
+        "$defs": {
+            "$ref": "#/$defs/configDefinitions"
+        },
+        "server": {
+            "$ref": "#/$defs/server"
+        },
+        "services": {
+            "$ref": "#/$defs/services"
+        },
+        "tilesets": {
+            "$ref": "#/$defs/tilesets"
+        },
+        "projections": {
+            "$ref": "#/$defs/projections"
+        },
+        "sources": {
+            "$ref": "#/$defs/sources"
+        },
+        "styles": {
+            "$ref": "#/$defs/styles"
+        },
+        "layers": {
+            "$ref": "#/$defs/layers"
+        }
+    },
+    "$defs": {
+        "configDefinitions": {
+            "type": "object",
+            "additionalProperties": true
+        },
+        "configDefinitionPointer": {
+            "type": "string",
+            "pattern": "^#/\\$defs/.+"
+        },
+        "envString": {
+            "type": "string",
+            "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(\\|[^}]*)?\\}"
+        },
+        "envInteger": {
+            "type": "string",
+            "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(\\|[^}]*)?\\}$"
+        },
+        "envNumber": {
+            "type": "string",
+            "pattern": "^\\$[if]\\{[A-Za-z_][A-Za-z0-9_]*(\\|[^}]*)?\\}$"
+        },
+        "envBoolean": {
+            "type": "string",
+            "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(\\|[^}]*)?\\}$"
+        },
+        "server": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "port": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "logLevel": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "enum": [
+                                "DEBUG",
+                                "LOG",
+                                "WARN",
+                                "ERROR",
+                                "NONE"
+                            ]
+                        },
+                        {
+                            "$ref": "#/$defs/envString"
+                        }
+                    ]
+                }
+            }
+        },
+        "services": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "wms"
+            ],
+            "properties": {
+                "wms": {
+                    "$ref": "#/$defs/wms"
+                },
+                "api": {
+                    "$ref": "#/$defs/api"
+                },
+                "xyz": {
+                    "$ref": "#/$defs/xyz"
+                },
+                "wmts": {
+                    "$ref": "#/$defs/wmts"
+                }
+            }
+        },
+        "wms": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "title"
+            ],
+            "properties": {
+                "path": {
+                    "$ref": "#/$defs/path"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "onlineResource": {
+                    "type": "string"
+                },
+                "maxWidth": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "maxHeight": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "supportedCrs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                }
+            }
+        },
+        "api": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "title"
+            ],
+            "properties": {
+                "path": {
+                    "$ref": "#/$defs/path"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "onlineResource": {
+                    "type": "string"
+                },
+                "defaultLimit": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "maxLimit": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "supportedCrs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                }
+            }
+        },
+        "xyz": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "path": {
+                    "$ref": "#/$defs/path"
+                },
+                "maxScaleFactor": {
+                    "anyOf": [
+                        {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envNumber"
+                        }
+                    ]
+                },
+                "cache": {
+                    "type": "string"
+                },
+                "tilesets": {
+                    "$ref": "#/$defs/tilesetRefs"
+                }
+            }
+        },
+        "wmts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "title"
+            ],
+            "properties": {
+                "path": {
+                    "$ref": "#/$defs/path"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "onlineResource": {
+                    "type": "string"
+                },
+                "cache": {
+                    "type": "string"
+                },
+                "tilesets": {
+                    "$ref": "#/$defs/tilesetRefs"
+                }
+            }
+        },
+        "tilesetRefs": {
+            "anyOf": [
+                {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                },
+                {
+                    "$ref": "#/$defs/configDefinitionPointer"
+                }
+            ]
+        },
+        "tilesets": {
+            "type": "object",
+            "minProperties": 0,
+            "additionalProperties": {
+                "$ref": "#/$defs/tileset"
+            }
+        },
+        "tileset": {
+            "type": "object",
+            "additionalProperties": false,
+            "anyOf": [
+                {
+                    "required": [
+                        "$ref"
+                    ]
+                },
+                {
+                    "required": [
+                        "formats",
+                        "layers"
+                    ]
+                }
+            ],
+            "properties": {
+                "$ref": {
+                    "$ref": "#/$defs/configDefinitionPointer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "tileMatrixSet": {
+                    "anyOf": [
+                        {
+                            "enum": [
+                                "WebMercatorQuad"
+                            ]
+                        },
+                        {
+                            "$ref": "#/$defs/envString"
+                        }
+                    ]
+                },
+                "formats": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "anyOf": [
+                            {
+                                "enum": [
+                                    "image/png",
+                                    "application/geo+json",
+                                    "application/vnd.mapbox-vector-tile"
+                                ]
+                            },
+                            {
+                                "$ref": "#/$defs/envString"
+                            }
+                        ]
+                    }
+                },
+                "tileSize": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "minZoom": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "maxZoom": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "cacheControl": {
+                    "type": "string"
+                },
+                "vector": {
+                    "$ref": "#/$defs/vectorTileOptions"
+                },
+                "layers": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/$defs/tilesetLayer"
+                    }
+                }
+            }
+        },
+        "vectorTileOptions": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "extent": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "buffer": {
+                    "anyOf": [
+                        {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envNumber"
+                        }
+                    ]
+                },
+                "generalization": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "tolerance": {
+                            "anyOf": [
+                                {
+                                    "type": "number",
+                                    "minimum": 0
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
+                        }
+                    }
+                },
+                "geojsonPrecision": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "maxFeatures": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                }
+            }
+        },
+        "tilesetLayer": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "layer"
+            ],
+            "properties": {
+                "layer": {
+                    "type": "string"
+                },
+                "style": {
+                    "type": "string"
+                }
+            }
+        },
+        "projections": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/$defs/projection"
+            }
+        },
+        "projection": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "title"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "sources": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+                "$ref": "#/$defs/source"
+            }
+        },
+        "source": {
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/geojsonSource"
+                },
+                {
+                    "$ref": "#/$defs/gmlSource"
+                },
+                {
+                    "$ref": "#/$defs/shpSource"
+                },
+                {
+                    "$ref": "#/$defs/gpkgSource"
+                },
+                {
+                    "$ref": "#/$defs/postgisSource"
+                },
+                {
+                    "$ref": "#/$defs/oracleSource"
+                },
+                {
+                    "$ref": "#/$defs/memSource"
+                }
+            ]
+        },
+        "sourceBase": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                }
+            }
+        },
+        "geojsonSource": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/sourceBase"
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "path"
+                    ],
+                    "properties": {
+                        "type": {
+                            "const": "geojson"
+                        },
+                        "title": {
+                            "type": "string"
+                        },
+                        "abstract": {
+                            "type": "string"
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "encoding": {
+                            "type": "string"
+                        },
+                        "highWaterMark": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        "gmlSource": {
+            "allOf": [
+                {
+                    "$ref": "#/$defs/sourceBase"
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "type",
+                        "path"
+                    ],
+                    "properties": {
+                        "type": {
+                            "const": "gml"
+                        },
+                        "title": {
+                            "type": "string"
+                        },
+                        "abstract": {
+                            "type": "string"
+                        },
+                        "path": {
+                            "type": "string"
+                        },
+                        "encoding": {
+                            "type": "string"
+                        },
+                        "highWaterMark": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
+                        },
+                        "featureElementNames": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "geometryPropertyNames": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "axisOrder": {
+                            "anyOf": [
+                                {
+                                    "enum": [
+                                        "auto",
+                                        "xy",
+                                        "yx"
+                                    ]
+                                },
+                                {
+                                    "$ref": "#/$defs/envString"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        "shpSource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "type",
+                "shpPath",
+                "dbfPath"
+            ],
+            "properties": {
+                "type": {
+                    "const": "shp"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "shpPath": {
+                    "type": "string"
+                },
+                "dbfPath": {
+                    "type": "string"
+                },
+                "dbfEncoding": {
+                    "type": "string"
+                },
+                "highWaterMark": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                }
+            }
+        },
+        "gpkgSource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "type",
+                "path",
+                "datasets"
+            ],
+            "properties": {
+                "type": {
+                    "const": "gpkg"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "datasets": {
+                    "$ref": "#/$defs/gpkgDatasets"
+                }
+            }
+        },
+        "gpkgDatasets": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+                "$ref": "#/$defs/gpkgDataset"
+            }
+        },
+        "gpkgDataset": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "minLength": 1
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "tableName": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "geometryColumn": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "primaryKey": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "properties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "uniqueItems": true
+                        }
+                    }
+                }
+            ]
+        },
+        "postgisSource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "type",
+                "connection",
+                "datasets"
+            ],
+            "properties": {
+                "type": {
+                    "const": "postgis"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "connection": {
+                    "$ref": "#/$defs/postgisConnection"
+                },
+                "schema": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "datasets": {
+                    "$ref": "#/$defs/sqlDatasets"
+                },
+                "batchSize": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "extentStrategy": {
+                    "anyOf": [
+                        {
+                            "enum": [
+                                "estimated",
+                                "exact",
+                                "none"
+                            ]
+                        },
+                        {
+                            "$ref": "#/$defs/envString"
+                        }
+                    ]
+                }
+            }
+        },
+        "sqlDatasets": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+                "$ref": "#/$defs/sqlDataset"
+            }
+        },
+        "sqlDataset": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "minLength": 1
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "tableName": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "geometryColumn": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "primaryKey": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "srid": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
+                        },
+                        "properties": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "uniqueItems": true
+                        }
+                    }
+                }
+            ]
+        },
+        "postgisConnection": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "connectionString": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "port": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "database": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "ssl": {
+                    "anyOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "$ref": "#/$defs/envBoolean"
+                        }
+                    ]
+                },
+                "max": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "connectionTimeoutMillis": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "idleTimeoutMillis": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "statementTimeoutMillis": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "queryTimeoutMillis": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "applicationName": {
+                    "type": "string"
+                }
+            }
+        },
+        "oracleSource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "type",
+                "connection",
+                "datasets"
+            ],
+            "properties": {
+                "type": {
+                    "const": "oracle"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "connection": {
+                    "$ref": "#/$defs/oracleConnection"
+                },
+                "schema": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "datasets": {
+                    "$ref": "#/$defs/sqlDatasets"
+                },
+                "batchSize": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "extentStrategy": {
+                    "anyOf": [
+                        {
+                            "enum": [
+                                "metadata",
+                                "exact",
+                                "none"
+                            ]
+                        },
+                        {
+                            "$ref": "#/$defs/envString"
+                        }
+                    ]
+                }
+            }
+        },
+        "oracleConnection": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "connectionString": {
+                    "type": "string"
+                },
+                "connectString": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "port": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "serviceName": {
+                    "type": "string"
+                },
+                "sid": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "externalAuth": {
+                    "anyOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "$ref": "#/$defs/envBoolean"
+                        }
+                    ]
+                },
+                "homogeneous": {
+                    "anyOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "$ref": "#/$defs/envBoolean"
+                        }
+                    ]
+                },
+                "poolMin": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "poolMax": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "poolIncrement": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "poolTimeout": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "queueTimeout": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "stmtCacheSize": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "callTimeout": {
+                    "anyOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        {
+                            "$ref": "#/$defs/envInteger"
+                        }
+                    ]
+                },
+                "walletLocation": {
+                    "type": "string"
+                },
+                "walletPassword": {
+                    "type": "string"
+                },
+                "configDir": {
+                    "type": "string"
+                }
+            }
+        },
+        "memSource": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "type",
+                "source"
+            ],
+            "properties": {
+                "type": {
+                    "const": "mem"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                }
+            }
+        },
+        "styles": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#/$defs/style"
+            }
+        },
+        "style": {
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/builtinStyle"
+                },
+                {
+                    "$ref": "#/$defs/dynamicStyle"
+                }
+            ]
+        },
+        "builtinStyle": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "type": {
+                    "const": "builtin"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                }
+            }
+        },
+        "dynamicStyle": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "type",
+                "path"
+            ],
+            "properties": {
+                "type": {
+                    "const": "dynamic"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "units": {
+                            "anyOf": [
+                                {
+                                    "enum": [
+                                        "m",
+                                        "dd"
+                                    ]
+                                },
+                                {
+                                    "$ref": "#/$defs/envString"
+                                }
+                            ]
+                        },
+                        "dotsPerInch": {
+                            "anyOf": [
+                                {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "layers": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+                "$ref": "#/$defs/layer"
+            }
+        },
+        "layer": {
+            "type": "object",
+            "additionalProperties": false,
+            "anyOf": [
+                {
+                    "required": [
+                        "source",
+                        "crs"
+                    ]
+                },
+                {
+                    "required": [
+                        "$ref"
+                    ]
+                }
+            ],
+            "properties": {
+                "$ref": {
+                    "$ref": "#/$defs/configDefinitionPointer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "abstract": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "dataset": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "crs": {
+                    "type": "string"
+                },
+                "extent": {
+                    "$ref": "#/$defs/bbox"
+                },
+                "style": {
+                    "type": "string"
+                },
+                "styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                },
+                "pointProperties": {
+                    "description": "Array for attributes to be considered as coordinates to be projected in target map projection if necessary",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "x",
+                            "y"
+                        ],
+                        "properties": {
+                            "x": {
+                                "description": "property name of x-coordinate to be reprojected",
+                                "type": "string"
+                            },
+                            "y": {
+                                "description": "property name of y-coordinate to be reprojected",
+                                "type": "string"
+                            },
+                            "crs": {
+                                "description": "crs of the (x,y) properties to be reprojected (if not provided same as layer crs)",
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "bbox": {
+            "oneOf": [
+                {
+                    "type": "array",
+                    "prefixItems": [
+                        {
+                            "anyOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
+                        },
+                        {
+                            "anyOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
+                        },
+                        {
+                            "anyOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
+                        },
+                        {
+                            "anyOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "$ref": "#/$defs/envNumber"
+                                }
+                            ]
+                        }
+                    ],
+                    "items": false,
+                    "minItems": 4,
+                    "maxItems": 4
+                },
+                {
+                    "$ref": "#/$defs/configDefinitionPointer"
+                }
+            ]
+        },
+        "path": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "pattern": "^/"
+                },
+                {
+                    "$ref": "#/$defs/envString"
+                }
+            ]
+        }
+    }
+}

@@ -13,6 +13,7 @@ import { Tileset, type TilesetJson } from '../tileset/tileset.js'
 import { JsonValidator } from '../core/json-validator.js'
 import { EnvSolver } from './env-solver.js'
 import { DefsSolver } from './defs-solver.js'
+import configSchema from './config.schema.json' with { type: 'json' }
 
 
 class ConfigValidator extends JsonValidator<GeoComposerJson> {
@@ -45,8 +46,6 @@ export type GeoComposerJson = {
     layers: Dict<LayerJson>
     tilesets?: Dict<TilesetJson>
 }
-
-const CONFIG_SCHEMA_FILE = 'config.schema.json'
 
 function resolveConfigPaths(document: unknown, baseDir: string): unknown {
     if (!isPlainObject(document)) return document
@@ -179,8 +178,7 @@ export class Config extends Singleton {
         console.log(`[CONFIG]: ${this.path} loading`)
 
         // loading json and validating syntax of the config file
-        const fullpath = resolve(this.dir, CONFIG_SCHEMA_FILE) 
-        const configValidator = new ConfigValidator(fullpath, "Configuration Schema", this.dir)
+        const configValidator = new ConfigValidator(configSchema, "Configuration Schema", this.dir)
         const json = configValidator.validate(this.path)
 
         // set LogLevel and PORT from Args/Config
@@ -194,7 +192,7 @@ export class Config extends Singleton {
         // creating all app objects in their registries
         Crs.build(json.projections ?? {})
         Source.build(json.sources)
-        await Style.build(json.styles ?? {}, this.dir)
+        await Style.build(json.styles ?? {})
         Layer.build(json.layers)
         Tileset.build(json.tilesets ?? {})
         Service.build(json.services)

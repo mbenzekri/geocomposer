@@ -1,4 +1,3 @@
-import { resolve } from 'node:path'
 import type { DescInfo } from '../core/feature.js'
 import { JsonValidator } from '../core/json-validator.js'
 import { Dict, Registry } from '../core/tools.js'
@@ -6,8 +5,7 @@ import { DefsSolver } from '../config/defs-solver.js'
 import { createDynamicStyleFn, type DynamicStyleJson } from './dynamic-style.js'
 import { defaultStyleFn } from './default-style.js'
 import type { StyleFn } from './style-fn.js'
-
-const DYNAMIC_STYLE_SCHEMA_FILE = 'dynstyle.schema.json'
+import dynamicStyleSchema from './dynstyle.schema.json' with { type: 'json' }
 
 const BUILTIN_STYLES: Dict<StyleFn> = {
   default: defaultStyleFn
@@ -40,11 +38,10 @@ export type StyleJson = BuiltinStyleJson | DynamicStyleFileJson
 export class Style {
   static readonly registry = new Registry<NamedStyle>('STYLE')
 
-  static async build(styleEntries: Dict<StyleJson>, baseDir: string): Promise<Registry<NamedStyle>> {
+  static async build(styleEntries: Dict<StyleJson>): Promise<Registry<NamedStyle>> {
 
     Style.registry.set('default',{ name: 'default',title: 'Default',style: defaultStyleFn })
-    const fullpath = resolve(baseDir, DYNAMIC_STYLE_SCHEMA_FILE)
-    const styleValidator = new StyleValidator(fullpath, 'Dynamic Style Schema')
+    const styleValidator = new StyleValidator(dynamicStyleSchema, 'Dynamic Style Schema')
 
     for (const [name, entry] of Object.entries(styleEntries)) {
         const style = await Style.create(name, entry, styleValidator)

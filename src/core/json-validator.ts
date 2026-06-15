@@ -49,7 +49,8 @@ export class JsonValidator<T> {
         let value: any
         let text: string
         if (typeof input === 'string' && input.length <= 2048) {
-            const fullpath = path.resolve(process.cwd(),input)
+            //const fullpath = path.resolve(process.cwd(),input)
+            const fullpath = input
             if (fs.existsSync(fullpath)) {
                 // string is path 
                 try {

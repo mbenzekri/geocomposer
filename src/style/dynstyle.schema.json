@@ -1,0 +1,1157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geocomposer.local/dynstyle.schema.json",
+  "title": "GeoComposer dynamic style",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$defs": {
+      "$ref": "#/$defs/dynamicStyleDefinitions"
+    },
+    "constants": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      }
+    },
+    "definitions": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/definitionValue"
+      }
+    },
+    "debug": {
+      "type": "boolean"
+    },
+    "format": {
+      "type": "string"
+    },
+    "group": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "id": {
+      "type": ["string", "null"]
+    },
+    "crs": {
+      "type": "string"
+    },
+    "scales": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "cacheKey": {
+      "$ref": "#/$defs/jsonValue"
+    },
+    "visible": {
+      "type": "boolean"
+    },
+    "static": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/styleObject"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/styleObject"
+          }
+        }
+      ]
+    },
+    "dynamic": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dynamicPatch"
+      }
+    }
+  },
+  "$defs": {
+    "dynamicStyleDefinitions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "dynamicStyleDefinitionPointer": {
+      "type": "string",
+      "pattern": "^#/\\$defs/.+"
+    },
+    "dynamicPatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pointer", "value"],
+      "properties": {
+        "pointer": {
+          "type": "string",
+          "pattern": "^#/(?:\\*|(?:[^/~]|~[01])+)(?:/(?:[^/~]|~[01])+)+$"
+        },
+        "value": {
+          "$ref": "#/$defs/jsonValue"
+        }
+      }
+    },
+    "condition": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "expression": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^\\s*=>"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "contains": {
+            "type": "string",
+            "pattern": "^\\s*(\\?|default\\s*=>)"
+          },
+          "items": {
+            "type": "string",
+            "pattern": "^\\s*$|^\\s*(\\?|default\\s*=>)"
+          }
+        }
+      ]
+    },
+    "definitionValue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/expression"
+        },
+        {
+          "$ref": "#/$defs/stylePart"
+        },
+        {
+          "$ref": "#/$defs/colorSource"
+        },
+        {
+          "$ref": "#/$defs/jsonScalar"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "not": {
+            "required": ["type"]
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        }
+      ]
+    },
+    "styleObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
+        "type": {
+          "const": "Style"
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "fill": {
+          "$ref": "#/$defs/fillLike"
+        },
+        "stroke": {
+          "$ref": "#/$defs/strokeLike"
+        },
+        "image": {
+          "$ref": "#/$defs/imageLike"
+        },
+        "text": {
+          "$ref": "#/$defs/textLike"
+        },
+        "geometry": {
+          "$ref": "#/$defs/geometryValue"
+        },
+        "zIndex": {
+          "$ref": "#/$defs/numberValue"
+        }
+      }
+    },
+    "stylePart": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/expression"
+        },
+        {
+          "$ref": "#/$defs/fillLike"
+        },
+        {
+          "$ref": "#/$defs/strokeLike"
+        },
+        {
+          "$ref": "#/$defs/imageLike"
+        },
+        {
+          "$ref": "#/$defs/textLike"
+        },
+        {
+          "$ref": "#/$defs/styleObject"
+        },
+        {
+          "const": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "fillLike": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/expression"
+        },
+        {
+          "$ref": "#/$defs/fill"
+        },
+        {
+          "const": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "fill": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
+        "type": {
+          "const": "Fill"
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "color": {
+          "$ref": "#/$defs/colorValue"
+        }
+      }
+    },
+    "strokeLike": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/expression"
+        },
+        {
+          "$ref": "#/$defs/stroke"
+        },
+        {
+          "const": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stroke": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
+        "type": {
+          "const": "Stroke"
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "color": {
+          "$ref": "#/$defs/colorValue"
+        },
+        "lineCap": {
+          "$ref": "#/$defs/lineCapValue"
+        },
+        "lineJoin": {
+          "$ref": "#/$defs/lineJoinValue"
+        },
+        "lineDash": {
+          "$ref": "#/$defs/numberArrayValue"
+        },
+        "lineDashOffset": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "miterLimit": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "offset": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "width": {
+          "$ref": "#/$defs/numberValue"
+        }
+      }
+    },
+    "imageLike": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/expression"
+        },
+        {
+          "$ref": "#/$defs/icon"
+        },
+        {
+          "$ref": "#/$defs/regularShape"
+        },
+        {
+          "$ref": "#/$defs/circle"
+        },
+        {
+          "const": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "icon": {
+      "type": "object",
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": ["$ref"]
+        },
+        {
+          "required": ["type"]
+        },
+        {
+          "required": ["src"]
+        },
+        {
+          "required": ["img"]
+        }
+      ],
+      "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
+        "type": {
+          "const": "Icon"
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "anchor": {
+          "$ref": "#/$defs/numberPairValue"
+        },
+        "anchorOrigin": {
+          "$ref": "#/$defs/iconOriginValue"
+        },
+        "anchorXUnits": {
+          "$ref": "#/$defs/iconAnchorUnitsValue"
+        },
+        "anchorYUnits": {
+          "$ref": "#/$defs/iconAnchorUnitsValue"
+        },
+        "color": {
+          "$ref": "#/$defs/colorValue"
+        },
+        "crossOrigin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/expression"
+            }
+          ]
+        },
+        "referrerPolicy": {
+          "$ref": "#/$defs/stringValue"
+        },
+        "src": {
+          "$ref": "#/$defs/stringValue"
+        },
+        "img": {
+          "$ref": "#/$defs/iconImageValue"
+        },
+        "displacement": {
+          "$ref": "#/$defs/numberPairValue"
+        },
+        "opacity": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "width": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "height": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "scale": {
+          "$ref": "#/$defs/scaleValue"
+        },
+        "rotateWithView": {
+          "$ref": "#/$defs/booleanValue"
+        },
+        "rotation": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "offset": {
+          "$ref": "#/$defs/numberPairValue"
+        },
+        "offsetOrigin": {
+          "$ref": "#/$defs/iconOriginValue"
+        },
+        "size": {
+          "$ref": "#/$defs/numberPairValue"
+        },
+        "declutterMode": {
+          "$ref": "#/$defs/declutterModeValue"
+        }
+      }
+    },
+    "iconImageValue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/stringValue"
+        },
+        {
+          "$ref": "#/$defs/iconImageDescriptor"
+        }
+      ]
+    },
+    "iconImageDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["src"],
+      "properties": {
+        "src": {
+          "$ref": "#/$defs/stringValue"
+        },
+        "width": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "height": {
+          "$ref": "#/$defs/numberValue"
+        }
+      }
+    },
+    "regularShape": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["points", "radius"],
+      "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
+        "type": {
+          "const": "RegularShape"
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "fill": {
+          "$ref": "#/$defs/fillLike"
+        },
+        "points": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "radius": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "radius2": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "angle": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "displacement": {
+          "$ref": "#/$defs/numberPairValue"
+        },
+        "stroke": {
+          "$ref": "#/$defs/strokeLike"
+        },
+        "rotation": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "rotateWithView": {
+          "$ref": "#/$defs/booleanValue"
+        },
+        "scale": {
+          "$ref": "#/$defs/scaleValue"
+        },
+        "declutterMode": {
+          "$ref": "#/$defs/declutterModeValue"
+        }
+      }
+    },
+    "circle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["radius"],
+      "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
+        "type": {
+          "const": "Circle"
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "fill": {
+          "$ref": "#/$defs/fillLike"
+        },
+        "radius": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "stroke": {
+          "$ref": "#/$defs/strokeLike"
+        },
+        "displacement": {
+          "$ref": "#/$defs/numberPairValue"
+        },
+        "scale": {
+          "$ref": "#/$defs/scaleValue"
+        },
+        "rotation": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "rotateWithView": {
+          "$ref": "#/$defs/booleanValue"
+        },
+        "declutterMode": {
+          "$ref": "#/$defs/declutterModeValue"
+        }
+      }
+    },
+    "textLike": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/expression"
+        },
+        {
+          "$ref": "#/$defs/text"
+        },
+        {
+          "const": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "text": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$ref": {
+          "$ref": "#/$defs/dynamicStyleDefinitionPointer"
+        },
+        "type": {
+          "const": "Text"
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "step": {
+          "$ref": "#/$defs/textRenderStepValue"
+        },
+        "declutter": {
+          "$ref": "#/$defs/textDeclutterValue"
+        },
+        "rank": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "font": {
+          "$ref": "#/$defs/stringValue"
+        },
+        "maxAngle": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "offsetX": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "offsetY": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "overflow": {
+          "$ref": "#/$defs/booleanValue"
+        },
+        "placement": {
+          "$ref": "#/$defs/textPlacementValue"
+        },
+        "repeat": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "scale": {
+          "$ref": "#/$defs/scaleValue"
+        },
+        "rotateWithView": {
+          "$ref": "#/$defs/booleanValue"
+        },
+        "keepUpright": {
+          "$ref": "#/$defs/booleanValue"
+        },
+        "rotation": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "text": {
+          "$ref": "#/$defs/textContentValue"
+        },
+        "textAlign": {
+          "$ref": "#/$defs/textAlignValue"
+        },
+        "justify": {
+          "$ref": "#/$defs/textJustifyValue"
+        },
+        "textBaseline": {
+          "$ref": "#/$defs/textBaselineValue"
+        },
+        "fill": {
+          "$ref": "#/$defs/fillLike"
+        },
+        "stroke": {
+          "$ref": "#/$defs/strokeLike"
+        },
+        "backgroundFill": {
+          "$ref": "#/$defs/fillLike"
+        },
+        "backgroundStroke": {
+          "$ref": "#/$defs/strokeLike"
+        },
+        "padding": {
+          "$ref": "#/$defs/paddingValue"
+        },
+        "declutterMode": {
+          "$ref": "#/$defs/declutterModeValue"
+        },
+        "color": {
+          "$ref": "#/$defs/colorValue"
+        }
+      }
+    },
+    "colorValue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/expression"
+        },
+        {
+          "$ref": "#/$defs/cssColor"
+        },
+        {
+          "$ref": "#/$defs/colorArray"
+        },
+        {
+          "$ref": "#/$defs/colorSource"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "colorSource": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/linearGradient"
+        },
+        {
+          "$ref": "#/$defs/radialGradient"
+        },
+        {
+          "$ref": "#/$defs/conicGradient"
+        },
+        {
+          "$ref": "#/$defs/canvasPattern"
+        },
+        {
+          "$ref": "#/$defs/patternDescriptor"
+        }
+      ]
+    },
+    "linearGradient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "x0", "y0", "x1", "y1", "colorStops"],
+      "properties": {
+        "type": {
+          "const": "LinearGradient"
+        },
+        "x0": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "y0": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "x1": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "y1": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "colorStops": {
+          "$ref": "#/$defs/colorStopsValue"
+        }
+      }
+    },
+    "radialGradient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "x0", "y0", "r0", "x1", "y1", "r1", "colorStops"],
+      "properties": {
+        "type": {
+          "const": "RadialGradient"
+        },
+        "x0": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "y0": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "r0": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "x1": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "y1": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "r1": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "colorStops": {
+          "$ref": "#/$defs/colorStopsValue"
+        }
+      }
+    },
+    "conicGradient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "startAngle", "x", "y", "colorStops"],
+      "properties": {
+        "type": {
+          "const": "ConicGradient"
+        },
+        "startAngle": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "x": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "y": {
+          "$ref": "#/$defs/numberValue"
+        },
+        "colorStops": {
+          "$ref": "#/$defs/colorStopsValue"
+        }
+      }
+    },
+    "canvasPattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "anyOf": [
+        {
+          "required": ["image"]
+        },
+        {
+          "required": ["img"]
+        }
+      ],
+      "properties": {
+        "type": {
+          "const": "CanvasPattern"
+        },
+        "image": {
+          "$ref": "#/$defs/stringValue"
+        },
+        "img": {
+          "$ref": "#/$defs/stringValue"
+        },
+        "repetition": {
+          "$ref": "#/$defs/canvasPatternRepetitionValue"
+        }
+      }
+    },
+    "patternDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["src"],
+      "properties": {
+        "src": {
+          "$ref": "#/$defs/stringValue"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/cssColor"
+            },
+            {
+              "$ref": "#/$defs/colorArray"
+            },
+            {
+              "$ref": "#/$defs/expression"
+            }
+          ]
+        },
+        "size": {
+          "$ref": "#/$defs/numberPairValue"
+        },
+        "offset": {
+          "$ref": "#/$defs/numberPairValue"
+        }
+      }
+    },
+    "colorStopsValue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/expression"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/colorStop"
+          }
+        }
+      ]
+    },
+    "colorStop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["offset", "color"],
+      "properties": {
+        "offset": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "color": {
+          "$ref": "#/$defs/cssColor"
+        }
+      }
+    },
+    "geometryValue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/expression"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/geoJsonGeometry"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "geoJsonGeometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "Point",
+            "LineString",
+            "Polygon",
+            "MultiPoint",
+            "MultiLineString",
+            "MultiPolygon",
+            "GeometryCollection"
+          ]
+        },
+        "coordinates": {
+          "$ref": "#/$defs/jsonValue"
+        },
+        "geometries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/geoJsonGeometry"
+          }
+        }
+      }
+    },
+    "numberValue": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "booleanValue": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "stringValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "numberArrayValue": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "numberPairValue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/numberPair"
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "paddingValue": {
+      "anyOf": [
+        {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "number"
+          }
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "scaleValue": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "#/$defs/numberPair"
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "textContentValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "lineCapValue": {
+      "anyOf": [
+        {
+          "enum": ["butt", "round", "square"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "lineJoinValue": {
+      "anyOf": [
+        {
+          "enum": ["bevel", "round", "miter"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "declutterModeValue": {
+      "anyOf": [
+        {
+          "enum": ["declutter", "obstacle", "none"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "iconOriginValue": {
+      "anyOf": [
+        {
+          "enum": ["bottom-left", "bottom-right", "top-left", "top-right"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "iconAnchorUnitsValue": {
+      "anyOf": [
+        {
+          "enum": ["fraction", "pixels"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "textRenderStepValue": {
+      "anyOf": [
+        {
+          "enum": ["layer", "map", "overlay"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "textDeclutterValue": {
+      "anyOf": [
+        {
+          "enum": ["none", "first", "rank"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "textPlacementValue": {
+      "anyOf": [
+        {
+          "enum": ["point", "line"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "textAlignValue": {
+      "anyOf": [
+        {
+          "enum": ["left", "right", "center", "end", "start"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "textJustifyValue": {
+      "anyOf": [
+        {
+          "enum": ["left", "center", "right"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "textBaselineValue": {
+      "anyOf": [
+        {
+          "enum": ["bottom", "top", "middle", "alphabetic", "hanging", "ideographic"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "canvasPatternRepetitionValue": {
+      "anyOf": [
+        {
+          "enum": ["repeat", "repeat-x", "repeat-y", "no-repeat"]
+        },
+        {
+          "$ref": "#/$defs/expression"
+        }
+      ]
+    },
+    "cssColor": {
+      "type": "string"
+    },
+    "colorArray": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 4,
+      "items": {
+        "type": "number"
+      }
+    },
+    "numberPair": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "number"
+      }
+    },
+    "jsonValue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/jsonScalar"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        }
+      ]
+    },
+    "jsonScalar": {
+      "type": ["string", "number", "integer", "boolean", "null"]
+    }
+  }
+}
