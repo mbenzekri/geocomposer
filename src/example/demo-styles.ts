@@ -2,11 +2,14 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { createCanvas } from 'canvas'
 import '../render/openlayers-node-shim.js'
+import { Crs } from '../core/crs.js'
 import type { Feature } from '../core/feature.js'
 import { Layer } from '../layer/layer.js'
 import { getMap } from '../ogc/get-map.js'
 import { MemSource } from '../source/mem-source.js'
+import { Source } from '../source/source-build.js'
 import { createDynamicStyleFn, type DynamicStyleJson } from '../style/dynamic-style.js'
+import { Style } from '../style/style.js'
 
 const pngIconPath = resolve('style-smoke/icon-source.png')
 const svgIconPath = resolve('style-smoke/icon-source.svg')
@@ -254,14 +257,13 @@ for (const smokeCase of smokeCases) {
   try {
     const source = new MemSource(smokeCase.name, (layer) => [smokeCase.feature(layer)])
     const style = await smokeCase.createStyle()
+    const styleName = `${smokeCase.name}-style`
+    registerLayerDependencies(smokeCase.name, source, styleName, style)
+
     const layer = new Layer(smokeCase.name, {
-      source,
+      source: smokeCase.name,
       crs: 'EPSG:4326',
-      styles: [{
-        name: 'default',
-        style
-      }],
-      pointProperties: []
+      style: styleName
     })
 
     const image = await getMap({
@@ -284,6 +286,20 @@ for (const smokeCase of smokeCases) {
 
 if (failed) {
   process.exitCode = 1
+}
+
+function registerLayerDependencies(
+  sourceName: string,
+  source: Source,
+  styleName: string,
+  style: Awaited<ReturnType<typeof createDynamicStyleFn>>
+): void {
+  if (!Crs.registry.has('EPSG:4326')) {
+    Crs.registry.set('EPSG:4326', new Crs('EPSG:4326', 'WGS 84', 'WGS 84'))
+  }
+
+  Source.registry.set(sourceName, source)
+  Style.registry.set(styleName, { name: styleName, style })
 }
 
 function createIconCanvas(): ReturnType<typeof createCanvas> {

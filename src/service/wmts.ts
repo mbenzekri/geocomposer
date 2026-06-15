@@ -11,11 +11,6 @@ import { DescInfo, ServiceInfo } from '../core/feature.js'
 
 const WMTS_VERSION = '1.0.0'
 
-export type WmtsOptions = DescInfo & ServiceInfo & {
-    tilesets: Tileset[]
-    cache?: string
-}
-
 export type WmtsJson = DescInfo & ServiceInfo & {
     cache?: string
     tilesets?: string[]
@@ -117,21 +112,18 @@ export class Wmts extends Service {
     private readonly tilesetByName: Map<string, Tileset>
     private nextTraceId = 1
 
-    constructor(private readonly opts: WmtsOptions) {
+    constructor(opts: WmtsJson) {
         super('wmts', opts.title, opts.abstract, opts.path ?? '/wmts', opts.onlineResource, opts.cache)
 
-        this.tilesetByName = new Map(opts.tilesets.map((tileset) => [tileset.name, tileset]))
-        validateWmtsTilesets(opts.tilesets)
+        const tilesets = Tileset.select(opts.tilesets, 'WMTS')
+        this.tilesetByName = new Map(tilesets.map((tileset) => [tileset.name, tileset]))
+        validateWmtsTilesets(tilesets)
     }
 
     static fromConfig(entry: WmtsJson, baseDir: string): Wmts {
         return new Wmts({
-            title: entry.title,
-            abstract: entry.abstract,
-            path: entry.path,
-            onlineResource: entry.onlineResource,
-            cache: entry.cache ? resolve(baseDir, entry.cache) : undefined,
-            tilesets: Tileset.select(entry.tilesets, 'WMTS')
+            ...entry,
+            cache: entry.cache ? resolve(baseDir, entry.cache) : undefined
         })
     }
 
@@ -173,7 +165,7 @@ export class Wmts extends Service {
 
             const request = (params.get('REQUEST') ?? 'GetCapabilities').toUpperCase()
             if (request === 'GETCAPABILITIES') {
-                const xml = WmtsCapabilitiesBuilder.build(this, this.opts.tilesets, Service.serviceUrl(req, this.path))
+                const xml = WmtsCapabilitiesBuilder.build(this, this.tilesets, Service.serviceUrl(req, this.path))
                 Service.sendText(res, 200, xml, 'text/xml; charset=utf-8', req.method === 'HEAD')
                 return
             }

@@ -9,8 +9,7 @@ export type DescInfo = {
 }
 export type ServiceInfo = {
     path?: string
-    onlineResource?: string,
-    cache?: string
+    onlineResource?: string
 }
 
 export type FileRef = {

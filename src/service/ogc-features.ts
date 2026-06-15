@@ -13,13 +13,6 @@ const DEFAULT_LIMIT = 100
 const DEFAULT_MAX_LIMIT = 10_000
 const DEFAULT_CRS = 'EPSG:4326'
 
-export type OgcFeaturesOptions = DescInfo & ServiceInfo & {
-  layers: Layer[]
-  defaultLimit?: number
-  maxLimit?: number
-  supportedCrs?: CrsCode[]
-}
-
 export type OgcFeaturesJson = DescInfo & ServiceInfo & {
   layers?: string[]
   defaultLimit?: number
@@ -59,31 +52,25 @@ export class OgcFeatures extends Service {
   private readonly repository = new LayerFeatureRepository()
   private nextTraceId = 1
 
-  constructor(options: OgcFeaturesOptions) {
+  constructor(options: OgcFeaturesJson) {
     super('api', options.title, options.abstract, options.path ?? '/api', options.onlineResource)
-    this.layerByName = new Map(options.layers.map((layer) => [layer.name, layer]))
+    const layers = selectLayers(options.layers, 'API')
+    const supportedCrs = options.supportedCrs
+      ? options.supportedCrs.map((crs) => resolveCrs(crs, 'API supportedCrs'))
+      : Crs.registry.all.map((entry) => entry.code)
+
+    this.layerByName = new Map(layers.map((layer) => [layer.name, layer]))
     this.defaultLimit = options.defaultLimit ?? DEFAULT_LIMIT
     this.maxLimit = options.maxLimit ?? DEFAULT_MAX_LIMIT
-    this.supportedCrs = options.supportedCrs?.length
-      ? [...new Set(options.supportedCrs)]
+    this.supportedCrs = supportedCrs.length
+      ? [...new Set(supportedCrs)]
       : Crs.registry.all.map((entry) => entry.code)
 
     validateLimitConfig(this.defaultLimit, this.maxLimit)
   }
 
   static fromConfig(entry: OgcFeaturesJson): OgcFeatures {
-    return new OgcFeatures({
-      title: entry.title,
-      abstract: entry.abstract,
-      path: entry.path,
-      onlineResource: entry.onlineResource,
-      defaultLimit: entry.defaultLimit,
-      maxLimit: entry.maxLimit,
-      supportedCrs: entry.supportedCrs
-        ? entry.supportedCrs.map((crs) => resolveCrs(crs, 'API supportedCrs'))
-        : Crs.registry.all.map((entry) => entry.code),
-      layers: selectLayers(entry.layers, 'API')
-    })
+    return new OgcFeatures(entry)
   }
 
   matches(pathname: string): boolean {

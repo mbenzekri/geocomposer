@@ -1,10 +1,13 @@
 import { createCanvas, loadImage } from 'canvas'
 import { describe, expect, test } from 'vitest'
 import type { Feature } from '../../src/core/feature.js'
+import { Crs } from '../../src/core/crs.js'
 import { getMap } from '../../src/ogc/get-map.js'
 import { Layer } from '../../src/layer/layer.js'
 import { MemSource } from '../../src/source/mem-source.js'
+import { Source } from '../../src/source/source-build.js'
 import { createDynamicStyleFn, type DynamicStyleJson } from '../../src/style/dynamic-style.js'
+import { Style } from '../../src/style/style.js'
 
 describe('dynamic style rendering', () => {
   test('linear gradient fill renders a measurable color transition inside a polygon', async () => {
@@ -55,13 +58,33 @@ async function renderLayer(
 ): Promise<Layer> {
   const source = new MemSource(name, (layer) => [featureFactory(layer)])
   const style = await createDynamicStyleFn(name, styleJson)
+  const styleName = `${name}-style`
+  registerLayerDependencies(name, source, styleName, style)
 
   return new Layer(name, {
-    source,
+    source: name,
     crs: 'EPSG:4326',
-    styles: [{ name: 'default', style }],
-    pointProperties: []
+    style: styleName
   })
+}
+
+function registerLayerDependencies(
+  sourceName: string,
+  source: Source,
+  styleName: string,
+  style: Awaited<ReturnType<typeof createDynamicStyleFn>>
+): void {
+  if (!Crs.registry.has('EPSG:4326')) {
+    Crs.registry.set('EPSG:4326', new Crs('EPSG:4326', 'WGS 84', 'WGS 84'))
+  }
+
+  if (!Source.registry.has(sourceName)) {
+    Source.registry.set(sourceName, source)
+  }
+
+  if (!Style.registry.has(styleName)) {
+    Style.registry.set(styleName, { name: styleName, style })
+  }
 }
 
 function polygonFeature(layer: Layer): Feature {

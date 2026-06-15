@@ -1,8 +1,11 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { Crs } from '../core/crs.js'
 import { Layer } from '../layer/layer.js'
 import { getMap } from '../ogc/get-map.js'
 import { MemSource } from '../source/mem-source.js'
+import { Source } from '../source/source-build.js'
 import { createDynamicStyleFn } from '../style/dynamic-style.js'
+import { Style } from '../style/style.js'
 
 const source = new MemSource('dynamic-style-demo', (layer) => [
   {
@@ -94,14 +97,12 @@ const style = await createDynamicStyleFn('dynamic-demo', {
     { pointer: '#/*/text/text', value: '=> D.label' }
   ]
 })
+registerLayerDependencies('dynamic-style-demo', source, 'dynamic-style-demo-style', style)
+
 const layer = new Layer('dynamic-style-demo', {
-  source,
+  source: 'dynamic-style-demo',
   crs: 'EPSG:4326',
-  styles: [{
-    name: 'default',
-    style
-  }],
-  pointProperties: []
+  style: 'dynamic-style-demo-style'
 })
 
 await rm('style-smoke/dynamic-style.png', { force: true })
@@ -118,3 +119,17 @@ const image = await getMap({
 
 await writeFile('style-smoke/dynamic-style.png', image)
 console.log('style-smoke/dynamic-style.png generated')
+
+function registerLayerDependencies(
+  sourceName: string,
+  source: Source,
+  styleName: string,
+  style: Awaited<ReturnType<typeof createDynamicStyleFn>>
+): void {
+  if (!Crs.registry.has('EPSG:4326')) {
+    Crs.registry.set('EPSG:4326', new Crs('EPSG:4326', 'WGS 84', 'WGS 84'))
+  }
+
+  Source.registry.set(sourceName, source)
+  Style.registry.set(styleName, { name: styleName, style })
+}

@@ -13,12 +13,6 @@ import { Crs } from '../core/crs.js'
 export type PointProperties = {
     x: string
     y: string
-    crs: CrsCode
-}
-
-export type PointPropertiesJson = {
-    x: string
-    y: string
     crs?: string
 }
 
@@ -29,18 +23,7 @@ export type LayerJson = DescInfo & {
     extent?: BBox
     style?: string
     styles?: string[]
-    pointProperties?: PointPropertiesJson[]
-}
-
-export type LayerOptions = {
-    title?: string
-    summary?: string
-    source: Source
-    dataset?: string
-    crs: CrsCode
-    extent?: BBox
-    styles: NamedStyle[]
-    pointProperties: PointProperties[]
+    pointProperties?: PointProperties[]
 }
 
 export type LayerStreamOptions = Omit<StreamOptions, 'layer'>
@@ -57,24 +40,32 @@ export class Layer {
     readonly crs: CrsCode
     readonly extent?: BBox
     readonly styles: readonly NamedStyle[]
-    readonly pointProperties: PointProperties[]
+    readonly pointProperties: Array<PointProperties & { crs: CrsCode }>
 
     constructor(
         readonly name: string,
-        options: LayerOptions
+        entry: LayerJson
     ) {
-        if (options.styles.length === 0) {
+        if (!Source.registry.has(entry.source)) {
+            throw new Error(`Unknown source "${entry.source}" in layer "${name}"`)
+        }
+        const source = Source.registry.get(entry.source)
+        const styles = Layer.resolveStyles(name, entry)
+        const crs = Layer.resolveCrs(entry.crs, `Layer "${name}" crs`)
+        const pointProperties = Layer.resolvePointProperties(name, entry, crs)
+
+        if (styles.length === 0) {
             throw new Error(`Layer "${name}" must define at least one style`)
         }
 
-        this.title = options.title
-        this.summary = options.summary
-        this.source = options.source
-        this.dataset = options.dataset
-        this.crs = options.crs
-        this.extent = options.extent
-        this.styles = options.styles
-        this.pointProperties = options.pointProperties
+        this.title = entry.title
+        this.summary = entry.abstract
+        this.source = source
+        this.dataset = entry.dataset
+        this.crs = crs
+        this.extent = Gt.normalize(entry.extent, name)
+        this.styles = styles
+        this.pointProperties = pointProperties
     }
 
     static build(layerEntries: Dict<LayerJson>): Registry<Layer> {
@@ -86,22 +77,22 @@ export class Layer {
     }
 
     static create(name: string,entry: LayerJson): Layer {
-        if (!Source.registry.has(entry.source)) {
-            throw new Error(`Unknown source "${entry.source}" in layer "${name}"`)
-        }
-        const source = Source.registry.get(entry.source)
+        return new Layer(name, entry)
+    }
+
+    private static resolveStyles(name: string, entry: LayerJson): NamedStyle[] {
         const defaultStyleId = entry.style ?? entry.styles?.[0] ?? 'default'
         const styleIds = [...new Set([defaultStyleId, ...(entry.styles ?? [])])]
-        const layerStyles = styleIds.map((styleId) => {
+        return styleIds.map((styleId) => {
             if (!Style.registry.has(styleId)) {
                 throw new Error(`Unknown style "${styleId}" in layer "${name}"`)
             }
-            const style = Style.registry.get(styleId)
-            return style
+            return Style.registry.get(styleId)
         })
+    }
 
-        const crs = Layer.resolveCrs(entry.crs, `Layer "${name}" crs`)
-        const pointProperties: PointProperties[] = []
+    private static resolvePointProperties(name: string, entry: LayerJson, crs: CrsCode): Array<PointProperties & { crs: CrsCode }> {
+        const pointProperties: Array<PointProperties & { crs: CrsCode }> = []
         for (const pp of entry.pointProperties ?? []) {
             if (pp.x === pp.y) {
                 throw new Error(`Layer "${name}" pointProperties must use different x and y properties`)
@@ -113,16 +104,7 @@ export class Layer {
             })
         }
 
-        return new Layer(name, {
-            title: entry.title,
-            summary: entry.abstract,
-            source,
-            dataset: entry.dataset,
-            crs,
-            extent: Gt.normalize(entry.extent, name),
-            styles: [...layerStyles.values()],
-            pointProperties
-        })
+        return pointProperties
     }
 
     get style(): StyleFn {

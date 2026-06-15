@@ -25,6 +25,10 @@
 - Batch related file modifications into a single script execution.
 - Before editing many files, first analyze repository structure and conventions.
 
+## Test policy
+
+- Tests, fixtures, and demos must adapt to the current production API and configuration contract. Do not preserve compatibility shims, alternate constructors, or legacy options only to keep old tests working; keep backward compatibility only when it is required by real production users or documented public API.
+
 ## Token efficiency
 
 - If shell complexity increases, switch to Python scripting immediately.

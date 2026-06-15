@@ -16,13 +16,6 @@ const WMS_VERSION = '1.3.0'
 const WEB_MERCATOR_LATITUDE_LIMIT = 85.0511287798066
 
 
-export type WmsOptions = DescInfo & ServiceInfo & {
-    supportedCrs?: CrsCode[]
-    layers: Layer[]
-    maxWidth?: number
-    maxHeight?: number
-}
-
 export type WmsJson = DescInfo & ServiceInfo & {
     maxWidth?: number
     maxHeight?: number
@@ -40,28 +33,22 @@ export class Wms extends Service {
         return [...this.layerByName.values()]
     }
 
-    constructor(options: WmsOptions) {
-        super('wms', options.title, options.abstract, options.path ?? '/wms', options.onlineResource, options.cache)
+    constructor(options: WmsJson) {
+        super('wms', options.title, options.abstract, options.path ?? '/wms', options.onlineResource)
+        const layers = selectLayers(options.layers, 'WMS')
+        const supportedCrs = options.supportedCrs
+            ? options.supportedCrs.map((crs) => resolveCrs(crs, 'WMS supportedCrs'))
+            : Crs.registry.all.map((entry) => entry.code)
+
         this.maxWidth = options.maxWidth ?? 4096
         this.maxHeight = options.maxHeight ?? 4096
-        this.layerByName = new Map(options.layers.map((layer) => [layer.name, layer]))
-        const crslist = (options.supportedCrs?.length ?? 0 > 0) ? options.supportedCrs : options.layers.map((layer) => layer.crs)
+        this.layerByName = new Map(layers.map((layer) => [layer.name, layer]))
+        const crslist = supportedCrs.length > 0 ? supportedCrs : layers.map((layer) => layer.crs)
         this.supportedCrs = [...new Set(crslist)]
     }
 
     static fromConfig(entry: WmsJson): Wms {
-        return new Wms({
-            title: entry.title,
-            abstract: entry.abstract,
-            path: entry.path,
-            maxWidth: entry.maxWidth,
-            maxHeight: entry.maxHeight,
-            onlineResource: entry.onlineResource,
-            supportedCrs: entry.supportedCrs
-                ? entry.supportedCrs.map((crs) => resolveCrs(crs, 'WMS supportedCrs'))
-                : Crs.registry.all.map((entry) => entry.code),
-            layers: selectLayers(entry.layers, 'WMS')
-        })
+        return new Wms(entry)
     }
 
     async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {

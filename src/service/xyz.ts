@@ -10,11 +10,6 @@ import { DescInfo, ServiceInfo } from '../core/feature.js'
 
 const DEFAULT_MAX_SCALE_FACTOR = 4
 
-export type XyzOptions = DescInfo & ServiceInfo & {
-    tilesets: Tileset[]
-    maxScaleFactor?: number
-}
-
 export type XyzJson = DescInfo & ServiceInfo & {
     maxScaleFactor?: number
     cache?: string
@@ -39,25 +34,20 @@ export class Xyz extends Service {
     private readonly tilesetByName: Map<string, Tileset>
     private nextTraceId = 1
 
-    constructor(private readonly options: XyzOptions) {
+    constructor(options: XyzJson) {
         super('xyz', options.title, options.abstract, options.path ?? '/xyz',options.onlineResource,options.cache)
 
         this.maxScaleFactor = options.maxScaleFactor ?? DEFAULT_MAX_SCALE_FACTOR
         validateXyzOptions(this.maxScaleFactor)
 
-        this.tilesets = options.tilesets
+        this.tilesets = Tileset.select(options.tilesets, 'XYZ')
         this.tilesetByName = new Map(this.tilesets.map((tileset) => [tileset.name, tileset]))
     }
 
     static fromConfig(entry: XyzJson, baseDir: string): Xyz {
         return new Xyz({
-            title: entry.title,
-            abstract: entry.abstract,
-            path: entry.path,
-            onlineResource: entry.onlineResource,
-            maxScaleFactor: entry.maxScaleFactor,
-            cache: entry.cache ? resolve(baseDir, entry.cache) : undefined,
-            tilesets: Tileset.select(entry.tilesets, 'XYZ')
+            ...entry,
+            cache: entry.cache ? resolve(baseDir, entry.cache) : undefined
         })
     }
 

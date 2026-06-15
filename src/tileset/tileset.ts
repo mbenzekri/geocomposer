@@ -68,21 +68,6 @@ export type RequiredVectorTileOptions = {
     maxFeatures?: number
 }
 
-export type TilesetOptions = {
-    name: string
-    title?: string
-    summary?: string
-    tileMatrixSet?: string
-    formats: string[]
-    tileSize?: number
-    minZoom?: number
-    maxZoom?: number
-    cacheControl?: string
-    vector?: VectorTileOptions
-    layers: Layer[]
-    styles: Array<string | undefined>
-}
-
 export class Tileset {
     static readonly registry = new Registry<Tileset>('TILESET')
 
@@ -100,20 +85,22 @@ export class Tileset {
     readonly styles: StyleFn[]
     private readonly hasExplicitVectorOptions: boolean
 
-    constructor(options: TilesetOptions) {
-        this.name = options.name
-        this.title = options.title
-        this.summary = options.summary
-        this.tileMatrixSet = getTileMatrixSet(options.tileMatrixSet)
-        this.formats = normalizeTileFormats(options.formats)
-        this.tileSize = options.tileSize ?? DEFAULT_TILE_SIZE
-        this.minZoom = options.minZoom ?? DEFAULT_MIN_ZOOM
-        this.maxZoom = options.maxZoom ?? DEFAULT_MAX_ZOOM
-        this.cacheControl = options.cacheControl
-        this.hasExplicitVectorOptions = options.vector !== undefined
-        this.vector = normalizeVectorOptions(options.vector)
-        this.layers = options.layers
-        this.styles = options.styles.map((stylename, index) => this.layers[index].resolveStyle(stylename))
+    constructor(name: string, entry: TilesetJson) {
+        const layerRefs = normalizeTilesetLayers(name, entry)
+
+        this.name = name
+        this.title = entry.title
+        this.summary = entry.abstract
+        this.tileMatrixSet = getTileMatrixSet(entry.tileMatrixSet)
+        this.formats = normalizeTileFormats(entry.formats)
+        this.tileSize = entry.tileSize ?? DEFAULT_TILE_SIZE
+        this.minZoom = entry.minZoom ?? DEFAULT_MIN_ZOOM
+        this.maxZoom = entry.maxZoom ?? DEFAULT_MAX_ZOOM
+        this.cacheControl = entry.cacheControl
+        this.hasExplicitVectorOptions = entry.vector !== undefined
+        this.vector = normalizeVectorOptions(entry.vector)
+        this.layers = layerRefs.map((ref) => resolveTilesetLayer(ref, name))
+        this.styles = layerRefs.map((ref, index) => resolveTilesetStyle(this.layers[index], ref.style, name))
         this.validate()
     }
 
@@ -129,41 +116,7 @@ export class Tileset {
         name: string,
         entry: TilesetJson
     ): Tileset {
-        const layerRefs = normalizeTilesetLayers(name, entry)
-        if (layerRefs.length === 0) {
-            throw new Error(`Tileset "${name}" must reference at least one configured layer`)
-        }
-
-        return new Tileset({
-            name,
-            title: entry.title,
-            summary: entry.abstract,
-            tileMatrixSet: entry.tileMatrixSet,
-            formats: entry.formats,
-            tileSize: entry.tileSize,
-            minZoom: entry.minZoom,
-            maxZoom: entry.maxZoom,
-            cacheControl: entry.cacheControl,
-            vector: entry.vector,
-            layers: layerRefs.map((ref) => {
-                const layer = Layer.registry.get(ref.layer)
-                if (!layer) {
-                    throw new Error(`Unknown layer "${ref.layer}" in tileset "${name}"`)
-                }
-
-                validateTilesetNamedStyle(layer, ref.style, name)
-                return layer
-            }),
-            styles: layerRefs.map((ref) => {
-                const layer = Layer.registry.get(ref.layer)
-                if (!layer) {
-                    throw new Error(`Unknown layer "${ref.layer}" in tileset "${name}"`)
-                }
-
-                validateTilesetNamedStyle(layer, ref.style, name)
-                return ref.style
-            })
-        })
+        return new Tileset(name, entry)
     }
 
     static select(names: string[] | undefined, serviceName: string): Tileset[] {
@@ -353,9 +306,17 @@ function normalizeTilesetLayers(name: string, entry: TilesetJson): TilesetLayerJ
     }))
 }
 
-function validateTilesetNamedStyle(layer: Layer, styleName: string | undefined, tilesetName: string): void {
+function resolveTilesetLayer(ref: TilesetLayerJson, tilesetName: string): Layer {
+    if (!Layer.registry.has(ref.layer)) {
+        throw new Error(`Unknown layer "${ref.layer}" in tileset "${tilesetName}"`)
+    }
+
+    return Layer.registry.get(ref.layer)
+}
+
+function resolveTilesetStyle(layer: Layer, styleName: string | undefined, tilesetName: string): StyleFn {
     try {
-        layer.resolveStyle(styleName)
+        return layer.resolveStyle(styleName)
     } catch (error) {
         if (!styleName) throw error
         throw new Error(`Unknown style "${styleName}" for layer "${layer.name}" in tileset "${tilesetName}"`)
