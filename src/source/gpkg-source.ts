@@ -11,11 +11,6 @@ import { AbortSignalGuard } from './source-utils.js'
 import { type Props, type Registry } from '../core/tools.js'
 import { WkbReader } from './wkb-reader.js'
 
-export type GpkgSourceOptions = {
-  datasets: Record<string, DbDatasetJson>
-  transformFeature?: FeatureTransform
-}
-
 export type GpkgSourceJson = DescInfo & {
   type: 'gpkg'
   path: string
@@ -62,20 +57,19 @@ export class GpkgSource extends DbSource {
     entry: GpkgSourceJson,
     baseDir: string
   ): GpkgSource {
-    return new GpkgSource(id, resolve(baseDir, entry.path), {
-      datasets: entry.datasets
-    })
+    return new GpkgSource(id, resolve(baseDir, entry.path), entry.datasets)
   }
 
   constructor(
     readonly id: string,
     private readonly filePath: PathLike,
-    options: GpkgSourceOptions
+    datasets: Record<string, DbDatasetJson>,
+    transformFeature?: FeatureTransform
   ) {
-    super(options.transformFeature)
+    super(transformFeature)
 
     this.reader = new GpkgReader(this.id, this.filePath, {
-      datasets: DbDataset.build(`GeoPackage source "${this.id}"`, options.datasets)
+      datasets: DbDataset.build(`GeoPackage source "${this.id}"`, datasets)
     })
   }
 

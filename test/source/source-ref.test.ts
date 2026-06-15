@@ -22,7 +22,7 @@ const layer = {
 describe('file sourceRef contracts', () => {
   test('GeoJSON sourceRef byte range is a parseable feature and read() roundtrips it', async () => {
     const filePath = resolve(rootDir, 'data/world.geojson')
-    const source = new GeoJsonSource('world-geojson', filePath, { highWaterMark: 97 })
+    const source = new GeoJsonSource('world-geojson', filePath, undefined, 97)
     const feature = await readFirst(source.stream({ layer }))
     const sourceRef = assertFileRef(feature, 'world-geojson')
     const slice = await readSlice(filePath, sourceRef)
@@ -62,7 +62,7 @@ describe('file sourceRef contracts', () => {
   test('Shapefile sourceRef covers the full SHP record and related DBF record', async () => {
     const shpPath = resolve(rootDir, 'data/shapefile/world.shp')
     const dbfPath = resolve(rootDir, 'data/shapefile/world.dbf')
-    const source = new ShpSource('world-shp', shpPath, dbfPath, { highWaterMark: 29 })
+    const source = new ShpSource('world-shp', shpPath, dbfPath, undefined, 29)
 
     await source.open()
     try {

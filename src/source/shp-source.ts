@@ -9,12 +9,6 @@ import type { StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 import { Props } from '../core/tools.js'
 
-export type ShpSourceOptions = {
-  dbfEncoding?: BufferEncoding
-  highWaterMark?: number
-  transformFeature?: FeatureTransform
-}
-
 export type ShpSourceJson = DescInfo & {
   type: 'shp'
   shpPath: string
@@ -60,25 +54,22 @@ export class ShpSource extends FileSource {
   ): ShpSource {
     const shppath = resolve(baseDir, entry.shpPath)
     const dbfpath = resolve(baseDir, entry.dbfPath)
-    return new ShpSource(id, shppath, dbfpath,
-      {
-        dbfEncoding: entry.dbfEncoding,
-        highWaterMark: entry.highWaterMark
-      }
-    )
+    return new ShpSource(id, shppath, dbfpath, entry.dbfEncoding, entry.highWaterMark)
   }
 
   constructor(
     readonly id: string,
     private readonly shpPath: PathLike,
     private readonly dbfPath: PathLike,
-    options: ShpSourceOptions = {}
+    dbfEncoding?: BufferEncoding,
+    highWaterMark?: number,
+    transformFeature?: FeatureTransform
   ) {
-    super(options.transformFeature)
+    super(transformFeature)
 
     this.reader = new ShpReader(this.id, this.shpPath, this.dbfPath, {
-      dbfEncoding: options.dbfEncoding,
-      highWaterMark: options.highWaterMark
+      dbfEncoding,
+      highWaterMark
     })
   }
 

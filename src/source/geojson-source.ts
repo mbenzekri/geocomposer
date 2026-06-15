@@ -7,12 +7,6 @@ import { FileSource, hasSourceConfigType, type FeatureTransform } from './source
 import type { StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 
-export type GeoJsonSourceOptions = {
-  encoding?: BufferEncoding
-  highWaterMark?: number
-  transformFeature?: FeatureTransform
-}
-
 export type GeoJsonSourceJson = DescInfo & {
   type: 'geojson'
   path: string
@@ -34,22 +28,21 @@ export class GeoJsonSource extends FileSource {
     entry: GeoJsonSourceJson,
     baseDir: string
   ): GeoJsonSource {
-    return new GeoJsonSource(id, resolve(baseDir, entry.path), {
-      encoding: entry.encoding,
-      highWaterMark: entry.highWaterMark
-    })
+    return new GeoJsonSource(id, resolve(baseDir, entry.path), entry.encoding, entry.highWaterMark)
   }
 
   constructor(
     readonly id: string,
     private readonly filePath: PathLike,
-    options: GeoJsonSourceOptions = {}
+    encoding: BufferEncoding = 'utf8',
+    highWaterMark?: number,
+    transformFeature?: FeatureTransform
   ) {
-    super(options.transformFeature)
+    super(transformFeature)
 
     this.reader = new GeoJsonReader(this.id, this.filePath, {
-      encoding: options.encoding ?? 'utf8',
-      highWaterMark: options.highWaterMark
+      encoding,
+      highWaterMark
     })
   }
 

@@ -9,13 +9,6 @@ export type CrsJson = {
 
 export type Proj4Projection = InstanceType<typeof proj4.Proj>
 
-export type CrsOptions = {
-    code: CrsCode
-    name?: string
-    title?: string
-    proj?: Proj4Projection
-}
-
 export class Crs {
     static readonly registry = new Registry<Crs>('CRS')
 
@@ -24,15 +17,20 @@ export class Crs {
     readonly title: string
     readonly proj: Proj4Projection
 
-    constructor(options: CrsOptions) {
-        if (!options.code) {
+    constructor(
+        code: CrsCode,
+        name?: string,
+        title?: string,
+        proj?: Proj4Projection
+    ) {
+        if (!code) {
             throw new Error('CRS code is required')
         }
 
-        this.code = options.code
-        this.name = options.name ?? options.code
-        this.title = options.title ?? this.name
-        this.proj = options.proj ?? new proj4.Proj(this.code)
+        this.code = code
+        this.name = name ?? code
+        this.title = title ?? this.name
+        this.proj = proj ?? new proj4.Proj(this.code)
     }
 
     static build(entries: Dict<CrsJson>): Registry<Crs> {
@@ -45,11 +43,7 @@ export class Crs {
     }
 
     static fromConfig(code: CrsCode, entry: CrsJson): Crs {
-        return new Crs({
-            code,
-            name: entry.name,
-            title: entry.title
-        })
+        return new Crs(code, entry.name, entry.title)
     }
 
     toString(): string {
