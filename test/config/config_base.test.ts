@@ -1,10 +1,11 @@
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import fs from 'fs'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { GeoComposer } from '../../src/geo-composer.js'
 import { Service } from '../../src/service/service.js'
 import { Source } from '../../src/source/source.js'
 import { PostgisSource } from '../../src/source/postgis-source.js'
+import { OracleSource } from '../../src/source/oracle-source.js'
 import { Layer } from '../../src/layer/layer.js'
 import { Style } from '../../src/style/style.js'
 import { Feature } from '../../src/core/feature.js'
@@ -15,13 +16,10 @@ import { Config } from '../../src/config/config.js'
 const datasets_gpkg = {
     "world": {
         "tableName": "world",
-        // "geometryColumn": "geom"
     }
 }
 const source_postgis = {
     "type": "postgis",
-    "title": "World PostGIS",
-    "abstract": "World country boundaries PostGIS demo source.",
     "connection": "postgres://postgres:$s{GEOC_PGPWD|postgres}@localhost:5432/postgres",
     "datasets": {
         "world": {
@@ -33,30 +31,15 @@ const source_oracle = {
     "type": "oracle",
     "title": "World Oracle",
     "abstract": "World country boundaries Oracle demo source.",
-    "connection": {
-        "host": "localhost",
-        "port": 1521,
-        "serviceName": "XEPDB1",
-        "user": "GEOCOMPOSER",
-        "password": "geocomposer",
-        "poolMin": 0,
-        "poolMax": 4,
-        "queueTimeout": 30000,
-        "callTimeout": 30000
-    },
-    "schema": "GEOCOMPOSER",
+    "connection": "GEOCOMPOSER/geocomposer@localhost:1521/XEPDB1",
     "datasets": {
         "world": {
             "tableName": "WORLD",
-            "geometryColumn": "GEOM",
-            "primaryKey": "ID",
-            "srid": 4326
         }
-    },
-    "batchSize": 500,
-    "extentStrategy": "metadata"
+    }
 }
 function writeConf(path: string, conf: Props) {
+    fs.mkdirSync(dirname(path), { recursive: true })
     fs.writeFileSync(path, JSON.stringify(conf, undefined, 4))
 }
 
@@ -184,6 +167,23 @@ describe('test sources loading', () => {
         await GeoComposer.from({ configPath })
 
         expect(Source.registry.get('world')).toBeInstanceOf(PostgisSource)
+    })
+
+    test.each([
+        ['object', source_oracle.connection],
+        ['string', 'GEOCOMPOSER/geocomposer@localhost:1521/XEPDB1']
+    ])('oracle source accepts %s connection during configuration load', async (name, connection) => {
+        const configPath = resolve(`./test/temp/config_oracle_connection_${name}.json`)
+        const config = JSON.parse(JSON.stringify(baseconf))
+        config.sources.world = {
+            ...source_oracle,
+            connection
+        }
+        writeConf(configPath, config)
+
+        await GeoComposer.from({ configPath })
+
+        expect(Source.registry.get('world')).toBeInstanceOf(OracleSource)
     })
 
     test.each([

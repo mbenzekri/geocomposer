@@ -12,15 +12,8 @@ import { SdoGeometryReader } from './sdo-geometry-reader.js'
 
 export type OracleExtentStrategy = 'metadata' | 'exact' | 'none'
 
-export type OracleConnectionOptions = {
-  connectionString?: string
-  connectString?: string
-  host?: string
-  port?: number
-  serviceName?: string
-  sid?: string
-  user?: string
-  password?: string
+export type OracleConnectionObjectOptions = {
+  connectionString: string
   externalAuth?: boolean
   homogeneous?: boolean
   poolMin?: number
@@ -34,6 +27,8 @@ export type OracleConnectionOptions = {
   walletPassword?: string
   configDir?: string
 }
+
+export type OracleConnectionOptions = string | OracleConnectionObjectOptions
 
 export type OracleSourceOptions = {
   connection: OracleConnectionOptions
@@ -122,7 +117,7 @@ export class OracleSource extends DbSource {
     super(options.transformFeature)
 
     this.reader = new OracleReader(this.id, {
-      connection: options.connection,
+      connection: parseOracleConnectionOptions(options.connection),
       schema: options.schema,
       datasets: DbDataset.build(`Oracle source "${this.id}"`, options.datasets),
       batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
@@ -199,7 +194,7 @@ class OracleReader {
   constructor(
     private readonly sourceId: string,
     private readonly options: {
-      connection: OracleConnectionOptions
+      connection: OracleConnectionObjectOptions
       schema?: string
       datasets: Registry<DbDataset>
       batchSize: number
@@ -871,11 +866,34 @@ function paginationClause(
   return clauses.join(' ')
 }
 
-function createPoolAttributes(options: OracleConnectionOptions): oracledb.PoolAttributes {
+const ORACLE_GEOCOMPOSER_CONNECTION_PATTERN = /^([^/]+)\/([^@]+)@(.+)$/
+
+function parseOracleConnectionOptions(options: OracleConnectionOptions): OracleConnectionObjectOptions {
+  if (typeof options !== 'string') return options
+
+  return { connectionString: options }
+}
+
+function parseOracleConnectionString(connectionString: string): { user: string, password: string, connectString: string } {
+  const match = ORACLE_GEOCOMPOSER_CONNECTION_PATTERN.exec(connectionString)
+  if (!match) {
+    throw new Error('Invalid Oracle GeoComposer connection string: expected "user/password@host:port/service"')
+  }
+
   return {
-    connectString: createConnectString(options),
-    user: options.user,
-    password: options.password,
+    user: match[1],
+    password: match[2],
+    connectString: match[3]
+  }
+}
+
+function createPoolAttributes(options: OracleConnectionObjectOptions): oracledb.PoolAttributes {
+  const parsed = parseOracleConnectionString(options.connectionString)
+
+  return {
+    connectString: parsed.connectString,
+    user: parsed.user,
+    password: parsed.password,
     externalAuth: options.externalAuth,
     homogeneous: options.homogeneous,
     poolMin: options.poolMin,
@@ -888,24 +906,6 @@ function createPoolAttributes(options: OracleConnectionOptions): oracledb.PoolAt
     walletPassword: options.walletPassword,
     configDir: options.configDir
   }
-}
-
-function createConnectString(options: OracleConnectionOptions): string | undefined {
-  if (options.connectString) return options.connectString
-  if (options.connectionString) return options.connectionString
-  if (!options.host) return undefined
-
-  const port = options.port ?? 1521
-
-  if (options.serviceName) {
-    return `${options.host}:${port}/${options.serviceName}`
-  }
-
-  if (options.sid) {
-    return `(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=${options.host})(PORT=${port}))(CONNECT_DATA=(SID=${options.sid})))`
-  }
-
-  return `${options.host}:${port}`
 }
 
 function isSdoGeometryColumn(column: OracleColumnMeta): boolean {
