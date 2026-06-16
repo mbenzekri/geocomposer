@@ -1,0 +1,50 @@
+{
+    "$schema": "../../config/config.schema.json",
+    "server": {
+        "port": "$i{GEOC_PORT|3000}",
+        "logLevel": "LOG"
+    },
+    "services": {
+        "wms": {
+            "path": "/wms",
+            "title": "GeoComposer WMS",
+            "abstract": "Minimal WMS server backed by the GeoComposer render pipeline.",
+            "onlineResource": "http://localhost:3000/wms",
+            "maxWidth": 4096,
+            "maxHeight": 4096
+        }
+    },
+    "projections": {
+        "EPSG:4326": {
+            "title": "WGS84"
+        },
+        "EPSG:3857": {
+            "title": "Web Mercator"
+        }
+    },
+    "sources": {
+        "world": {
+            "type": "geojson",
+            "title": "World GeoJSON",
+            "abstract": "World country boundaries GeoJSON demo source.",
+            "path": "../../data/world.geojson"
+        }
+    },
+    "layers": {
+        "world": {
+            "title": "World GeoJSON",
+            "abstract": "World country boundaries from the GeoJSON demo dataset.",
+            "source": "world",
+            "crs": "EPSG:4326",
+            "extent": [ -180, -90, 180, 90 ],
+            "style": "default",
+            "pointProperties": [
+                {
+                    "x": "label_x",
+                    "y": "label_y",
+                    "crs": "EPSG:4326"
+                }
+            ]
+        }
+    }
+}

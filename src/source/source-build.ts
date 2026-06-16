@@ -1,4 +1,4 @@
-import type { Registry } from '../core/tools.js'
+import type { Props, Registry } from '../core/tools.js'
 import { GeoJsonSource, type GeoJsonSourceJson } from './geojson-source.js'
 import { GmlSource, type GmlSourceJson } from './gml-source.js'
 import { GpkgSource, type GpkgSourceJson } from './gpkg-source.js'
@@ -56,7 +56,17 @@ Source.build = function createAll(
 ): Registry<Source> {
     for (const [name,entry] of Object.entries(sourceEntries)) {
         const existing = Source.registry.has(name)
-        if (existing) continue
+        const type = (entry as Props)['type']
+        if (existing || type == 'mem' ) continue
+        console.log(`[SOURCE]: creating source ${type}/${name}`)
+        const source = Source.create(name, entry)
+        Source.registry.set(name, source)
+    }
+    for (const [name,entry] of Object.entries(sourceEntries)) {
+        const existing = Source.registry.has(name)
+        const type = (entry as Props)['type']
+        if (existing || type!= 'mem' ) continue
+        console.log(`[SOURCE]: creating source ${type}/${name}`)
         const source = Source.create(name, entry)
         Source.registry.set(name, source)
     }

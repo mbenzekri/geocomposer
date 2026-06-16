@@ -58,7 +58,7 @@ export class Config extends Singleton {
     private loaded = false
 
     constructor(configPath: string, port?: number) {
-        super()
+        super(Config)
         this.path = resolve(configPath)
         this.dir = dirname(this.path)
         this._port = port

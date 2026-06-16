@@ -8,7 +8,7 @@ export type Dict<T> = Record<string, T>
 
 
 export function isMain(metaurl: string): boolean {
-    return process.argv[1] !== undefined && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
+    return process.argv[1] !== undefined && fileURLToPath(metaurl) === path.resolve(process.argv[1])
 }
 
 export type Args = {
@@ -75,17 +75,17 @@ export function parseArgs(): Args {
 
 export abstract class Singleton {
   private static instances = new Map<Function, unknown>()
+  protected constructor(ctor: Function) {
 
-  protected constructor() {
-    const type = this.constructor
-
-    if (Singleton.instances.has(type)) {
-      throw new Error(`${type.name} already initialized`)
+    if (Singleton.instances.has(ctor)) {
+      throw new Error(`${ctor.name} already initialized`)
     }
 
-    Singleton.instances.set(type, this)
+    Singleton.instances.set(ctor, this)
   }
-
+  static delete(ctor: Function) {
+     Singleton.instances.delete(ctor)
+  }
   static instance<T>(
     this: abstract new (...args: any[]) => T
   ): T {
@@ -127,6 +127,9 @@ export class Registry<T>  {
 
   has(name: string): boolean {
     return this.reg.has(name)
+  }
+  clear() {
+    this.reg.clear()
   }
 }
 

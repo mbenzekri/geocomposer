@@ -5,6 +5,9 @@ import { Args, DEFAULT_CONFIG_PATH, isMain, parseArgs, parsePort } from './core/
 import { Config } from './config/config.js'
 import { Service } from './service/service-build.js'
 import { Source } from './source/source-build.js'
+import { Layer } from './layer/layer.js'
+import { Crs } from './core/crs.js'
+import { Style } from './style/style.js'
 
 
 export class GeoComposer {
@@ -12,7 +15,7 @@ export class GeoComposer {
     readonly server: Server
     private shuttingDown = false
     private opened = false
-
+    
     private constructor(config: Config) {
         this.port = config.port
 
@@ -37,8 +40,7 @@ export class GeoComposer {
         return new GeoComposer(config)
     }
 
-    static async launch() {
-        const args = parseArgs()
+    static async launch(args = parseArgs()) {
         let geoc: GeoComposer
         try {
             // Init GeoComposer from Conf
@@ -88,9 +90,19 @@ export class GeoComposer {
         try {
             await this.closeSources(Source.registry.all.reverse())
         } finally {
+            GeoComposer.clear()
             this.opened = false
         }
     }
+
+    static clear() {
+        Service.registry.clear()
+        Source.registry.clear()
+        Layer.registry.clear()
+        Crs.registry.clear()
+        Style.registry.clear()
+    }
+
     async run(): Promise<void> {
         process.once('SIGINT', () => this.shutdown('SIGINT'))
         process.once('SIGTERM', () => this.shutdown('SIGTERM'))

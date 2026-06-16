@@ -9,6 +9,8 @@
     "test:typecheck": "tsc -p tsconfig.test.json",
     "test:unit": "vitest run",
     "test:watch": "vitest",
+    "test:file": "npm run test:typecheck && vitest run",
+    "test:file:watch": "npm run test:typecheck && vitest",
     "test:coverage": "vitest run --coverage",
     "serve": "tsx src/geo-composer.ts -cc",
     "demo:styles": "tsx src/example/demo-styles.ts",
