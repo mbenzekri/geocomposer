@@ -29,9 +29,6 @@ export class Wms extends Service {
     private readonly layerByName: Map<string, Layer>
     private readonly supportedCrs: CrsCode[]
     private nextTraceId = 1
-    private get layers() {
-        return [...this.layerByName.values()]
-    }
 
     constructor(options: WmsJson) {
         super('wms', options.title, options.abstract, options.path ?? '/wms', options.onlineResource)
@@ -49,6 +46,14 @@ export class Wms extends Service {
 
     static fromConfig(entry: WmsJson): Wms {
         return new Wms(entry)
+    }
+
+    getLayers(): Layer[] {
+        return [...this.layerByName.values()]
+    }
+
+    getSupportedCrs(): CrsCode[] {
+        return [...this.supportedCrs]
     }
 
     async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -86,7 +91,7 @@ export class Wms extends Service {
             }
 
             if (request === 'GETCAPABILITIES') {
-                const xml = await WmsCapabilitiesBuilder.build(this, this.layers, this.path, this.supportedCrs)
+                const xml = await WmsCapabilitiesBuilder.build(this, this.getLayers(), this.path, this.supportedCrs)
                 Service.sendText(res, 200, xml, 'text/xml; charset=utf-8')
                 return
             }

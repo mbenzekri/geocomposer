@@ -8,11 +8,14 @@ import { Source } from './source/source-build.js'
 import { Layer } from './layer/layer.js'
 import { Crs } from './core/crs.js'
 import { Style } from './style/style.js'
+import { Tileset } from './tileset/tileset.js'
+import { CatalogPage } from './service/catalog-page.js'
 
 
 export class GeoComposer {
     readonly port: number
     readonly server: Server
+    private readonly catalogPage = new CatalogPage()
     private shuttingDown = false
     private opened = false
     
@@ -101,6 +104,7 @@ export class GeoComposer {
         Layer.registry.clear()
         Crs.registry.clear()
         Style.registry.clear()
+        Tileset.registry.clear()
     }
 
     async run(): Promise<void> {
@@ -182,6 +186,11 @@ export class GeoComposer {
             return
         }
 
+        if (this.catalogPage.matches(url.pathname)) {
+            await this.catalogPage.handle(req, res)
+            return
+        }
+
         Service.setCorsHeaders(res)
 
         if (req.method === 'OPTIONS') {
@@ -195,6 +204,7 @@ export class GeoComposer {
 
     private logListening(): void {
         const baseUrl = `http://localhost:${this.port}`
+        console.log(`[Catalog] landing page: ${baseUrl}/`)
         Service.registry.all.forEach(
             service => service.logListening(baseUrl)
         )
@@ -221,6 +231,5 @@ export class GeoComposer {
 if (isMain(import.meta.url)) {
     await GeoComposer.launch()
 }
-
 
 

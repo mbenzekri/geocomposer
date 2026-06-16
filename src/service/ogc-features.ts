@@ -73,6 +73,14 @@ export class OgcFeatures extends Service {
     return new OgcFeatures(entry)
   }
 
+  getLayers(): Layer[] {
+    return [...this.layerByName.values()]
+  }
+
+  getSupportedCrs(): CrsCode[] {
+    return [...this.supportedCrs]
+  }
+
   matches(pathname: string): boolean {
     return pathname === this.path || pathname.startsWith(`${this.path}/`)
   }
@@ -256,7 +264,7 @@ export class OgcFeatures extends Service {
       links: [
         this.link(req, `${this.path}/collections`, 'self', 'application/json', 'Collections')
       ],
-      collections: await Promise.all(this.layers.map((layer) => this.collectionView(req, layer)))
+      collections: await Promise.all(this.getLayers().map((layer) => this.collectionView(req, layer)))
     }
   }
 
@@ -398,10 +406,6 @@ export class OgcFeatures extends Service {
     const layer = this.layerByName.get(name)
     if (!layer) throw new NotFoundError(`Unknown collection: ${name}`)
     return layer
-  }
-
-  private get layers(): Layer[] {
-    return [...this.layerByName.values()]
   }
 
   private link(

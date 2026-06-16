@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { describe, expect, test } from 'vitest'
 import { GeoComposer } from '../../src/geo-composer.js'
 import { Service } from '../../src/service/service-build.js'
+import { CatalogPage } from '../../src/service/catalog-page.js'
 import { Source } from '../../src/source/source-build.js'
 
 describe('configuration and startup', () => {
@@ -20,6 +21,22 @@ describe('configuration and startup', () => {
       expect(Service.registry.get('api').path).toBe('/api')
       expect(sourceFilePath('world')).toBe(resolve('data/world.geojson'))
       expect(sourceFilePath('capitals')).toBe(resolve('data/capitals.geojson'))
+
+      const catalogResponse = await requestCatalog('/')
+      expect(catalogResponse.statusCode).toBe(200)
+      expect(catalogResponse.headers.get('content-type')).toContain('text/html')
+      expect(catalogResponse.body).toContain("Types d'objets")
+      expect(catalogResponse.body).toContain('data-type-id="services"')
+      expect(catalogResponse.body).toContain('data-object-id="wms"')
+      expect(catalogResponse.body).toContain('class="object-card"')
+      expect(catalogResponse.body).toContain('class="copy-button"')
+      expect(catalogResponse.body).toContain('URLs exemples')
+      expect(catalogResponse.body).toContain('/api/collections')
+      expect(catalogResponse.body).toContain('world')
+      expect(catalogResponse.body).toContain('World Red')
+      expect(catalogResponse.body).toContain('EPSG:4326')
+      expect(catalogResponse.body).not.toContain('data/world.geojson')
+      expect(catalogResponse.body).not.toContain('data/capitals.geojson')
 
       const collections = await requestJson('/api/collections')
       expect(collections.collections).toEqual(expect.arrayContaining([
@@ -80,6 +97,21 @@ async function requestApi(url: string): Promise<TestResponse> {
   const res = new TestResponse()
 
   await service.handle(req, res as unknown as ServerResponse)
+  return res
+}
+
+async function requestCatalog(url: string, method = 'GET'): Promise<TestResponse> {
+  const req = {
+    method,
+    url,
+    headers: {
+      host: 'localhost'
+    },
+    socket: {}
+  } as IncomingMessage
+  const res = new TestResponse()
+
+  await new CatalogPage().handle(req, res as unknown as ServerResponse)
   return res
 }
 
