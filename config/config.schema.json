@@ -542,9 +542,6 @@
                 },
                 {
                     "$ref": "#/$defs/oracleSource"
-                },
-                {
-                    "$ref": "#/$defs/memSource"
                 }
             ]
         },
@@ -1190,28 +1187,6 @@
                 }
             }
         },
-        "memSource": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-                "type",
-                "source"
-            ],
-            "properties": {
-                "type": {
-                    "const": "mem"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "abstract": {
-                    "type": "string"
-                },
-                "source": {
-                    "type": "string"
-                }
-            }
-        },
         "styles": {
             "type": "object",
             "additionalProperties": {
@@ -1308,12 +1283,36 @@
         "layer": {
             "type": "object",
             "additionalProperties": false,
-            "anyOf": [
+            "oneOf": [
                 {
                     "required": [
                         "source",
                         "crs"
-                    ]
+                    ],
+                    "not": {
+                        "required": [
+                            "layer"
+                        ]
+                    }
+                },
+                {
+                    "required": [
+                        "layer"
+                    ],
+                    "not": {
+                        "anyOf": [
+                            {
+                                "required": [
+                                    "source"
+                                ]
+                            },
+                            {
+                                "required": [
+                                    "dataset"
+                                ]
+                            }
+                        ]
+                    }
                 },
                 {
                     "required": [
@@ -1332,6 +1331,9 @@
                     "type": "string"
                 },
                 "source": {
+                    "type": "string"
+                },
+                "layer": {
                     "type": "string"
                 },
                 "dataset": {

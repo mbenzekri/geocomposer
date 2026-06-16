@@ -84,16 +84,112 @@ describe('test sources loading', () => {
         GeoComposer.clear()
     })
 
+    test('memory layer resolves its provider layer during configuration load', async () => {
+        const configPath = resolve('./test/temp/config_mem_missing_layer.json')
+        const config = JSON.parse(JSON.stringify(baseconf))
+        config.layers['world-mem'] = {
+            "title": "World Memory",
+            "abstract": "World country boundaries Memory demo layer",
+            "layer": "missing-layer"
+        }
+        writeConf(configPath, config)
+
+        await expect(GeoComposer.from({ configPath })).rejects.toThrow('missing-layer')
+    })
+
+    test('memory layer is configured without a declared memory source', async () => {
+        const configPath = resolve('./test/temp/config_mem_layer.json')
+        const config = JSON.parse(JSON.stringify(baseconf))
+        config.layers['world-mem'] = {
+            "title": "World Memory",
+            "abstract": "World country boundaries Memory demo layer",
+            "layer": "world"
+        }
+        writeConf(configPath, config)
+
+        const app = await GeoComposer.from({ configPath })
+        await app.open()
+
+        expect(Source.registry.has('world')).toBe(true)
+        expect(Source.registry.has('world-mem')).toBe(true)
+        expect(Source.registry.all.length).toBe(2)
+        expect(Layer.registry.has('world-mem')).toBe(true)
+        expect(Layer.registry.all.length).toBe(2)
+
+        const layer = Layer.registry.get('world-mem')
+        expect(layer.crs).toBe(Layer.registry.get('world').crs)
+        expect(layer.extent).toEqual(Layer.registry.get('world').extent)
+        expect(layer.styles.map((style) => style.name)).toEqual(['default'])
+        expect(layer.pointProperties).toEqual(Layer.registry.get('world').pointProperties)
+
+        const features = [] as Feature[]
+        for await (const feature of layer.stream({})) {
+            features.push(feature)
+        }
+        expect(features.length).toBe(175)
+
+        await app.close()
+    })
+
+    test('memory layer can override metadata and non-data rendering hints', async () => {
+        const configPath = resolve('./test/temp/config_mem_layer_overrides.json')
+        const config = JSON.parse(JSON.stringify(baseconf))
+        config.layers['world-mem'] = {
+            "title": "World Memory",
+            "abstract": "Custom memory layer abstract",
+            "layer": "world",
+            "extent": [-10, -10, 10, 10],
+            "pointProperties": []
+        }
+        writeConf(configPath, config)
+
+        const app = await GeoComposer.from({ configPath })
+        await app.open()
+
+        const layer = Layer.registry.get('world-mem')
+        expect(layer.title).toBe('World Memory')
+        expect(layer.summary).toBe('Custom memory layer abstract')
+        expect(layer.crs).toBe('EPSG:4326')
+        expect(layer.extent).toEqual([-10, -10, 10, 10])
+        expect(layer.pointProperties).toEqual([])
+        expect(layer.styles.map((style) => style.name)).toEqual(['default'])
+
+        await app.close()
+    })
+
+    test('memory layer cannot override provider crs', async () => {
+        const configPath = resolve('./test/temp/config_mem_crs_override.json')
+        const config = JSON.parse(JSON.stringify(baseconf))
+        config.layers['world-mem'] = {
+            "layer": "world",
+            "crs": "EPSG:3857"
+        }
+        writeConf(configPath, config)
+
+        await expect(GeoComposer.from({ configPath })).rejects.toThrow('cannot override crs')
+    })
+
+    test('memory layer cannot override provider dataset', async () => {
+        const configPath = resolve('./test/temp/config_mem_dataset_override.json')
+        const config = JSON.parse(JSON.stringify(baseconf))
+        config.layers['world-mem'] = {
+            "layer": "world",
+            "dataset": "other"
+        }
+        writeConf(configPath, config)
+
+        await expect(GeoComposer.from({ configPath })).rejects.toThrow()
+    })
+
     test.each([
-        // name, source type, filename, expected source count, expected feature count
-        ['Geojson', 'geojson', "world.geojson", 1, 175],
-        ['Memory', 'mem', undefined, 2, 175],
-        ['Shapefile', 'shp', "world.shp", 1, 177],
-        ['Gml', 'gml', "world.gml", 1, 175],
-        ['GeoPackage', 'gpkg', "world.gpkg", 1, 175],
-        ['PostGIS', 'postgis', undefined, 1, 177],
-        ['Oracle', 'oracle', undefined, 1, 176],
-    ])('load %s source / layer', async (name, type, filename, expectedSources, expected) => {
+        // name, source type, filename, expected source count, expected layer count, expected feature count
+        ['Geojson', 'geojson', "world.geojson", 1, 1, 175],
+        ['Shapefile', 'shp', "world.shp", 1, 1, 177],
+        ['Gml', 'gml', "world.gml", 1, 1, 175],
+        ['GeoPackage', 'gpkg', "world.gpkg", 1, 1, 175],
+        ['PostGIS', 'postgis', undefined, 1, 1, 177],
+        ['Oracle', 'oracle', undefined, 1, 1, 176],
+    ])('load %s source / layer', async (name, type, filename, expectedSources, expectedLayers, expected) => {
         const configPath = resolve(`./test/temp/config_${type}.json`)
         const config = JSON.parse(JSON.stringify(baseconf))
         config.sources.world.type = type
@@ -118,15 +214,6 @@ describe('test sources loading', () => {
             config.sources.world.datasets = datasets_gpkg
         }
 
-        if (type === 'mem') {
-            config.sources.world.source = "world-geojson"
-            config.sources['world-geojson'] = {
-                "type": "geojson",
-                "title": "World GeoJSON",
-                "abstract": "World country boundaries GeoJSON demo source.",
-                "path": "../../data/world.geojson"
-            }
-        }
         if (type === 'postgis') {
             config.sources.world = { ...source_postgis }
         }
@@ -142,11 +229,8 @@ describe('test sources loading', () => {
         expect(Service.registry.all.length).toBe(1)
         expect(Source.registry.has('world')).toBe(true)
         expect(Source.registry.all.length).toBe(expectedSources)
-        if (type === 'mem') {
-            expect(Source.registry.has('world-geojson')).toBe(true)
-        }
         expect(Layer.registry.has('world')).toBe(true)
-        expect(Layer.registry.all.length).toBe(1)
+        expect(Layer.registry.all.length).toBe(expectedLayers)
         expect(Style.registry.has('default')).toBe(true)
         expect(Style.registry.all.length).toBe(1)
         const layer = Layer.registry.get("world")

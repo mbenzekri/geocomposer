@@ -9,6 +9,7 @@ import { Reproject } from '../stream/reproject.js'
 import { Gt } from '../core/geotools.js'
 import { Dict, Registry } from '../core/tools.js'
 import { Crs } from '../core/crs.js'
+import { MemSource } from '../source/mem-source.js'
 
 export type PointProperties = {
     x: string
@@ -17,9 +18,10 @@ export type PointProperties = {
 }
 
 export type LayerJson = DescInfo & {
-    source: string
+    source?: string
+    layer?: string
     dataset?: string
-    crs: string
+    crs?: string
     extent?: BBox
     style?: string
     styles?: string[]
@@ -30,6 +32,7 @@ export type LayerStreamOptions = Omit<StreamOptions, 'layer'>
 export type LayerQueryOptions = Omit<QueryOptions, 'layer'> & {
     crs?: CrsCode
 }
+
 export class Layer {
     static readonly registry = new Registry<Layer>('LAYER')
 
@@ -43,37 +46,109 @@ export class Layer {
     readonly pointProperties: Array<PointProperties & { crs: CrsCode }>
 
     constructor(readonly name: string, entry: LayerJson ) {
-        if (!Source.registry.has(entry.source)) {
-            throw new Error(`Unknown source "${entry.source}" in layer "${name}"`)
-        }
-        const source = Source.registry.get(entry.source)
-        const styles = Layer.resolveStyles(name, entry)
-        const crs = Layer.resolveCrs(entry.crs, `Layer "${name}" crs`)
-        const pointProperties = Layer.resolvePointProperties(name, entry, crs)
+        Layer.validateDataReference(name, entry)
+        const inheritedLayer = entry.layer ? Layer.registry.get(entry.layer) : undefined
+        const styles = Layer.resolveStyles(name, entry, inheritedLayer)
+        const crs = Layer.resolveLayerCrs(name, entry, inheritedLayer)
+        const pointProperties = Layer.resolvePointProperties(name, entry, crs, inheritedLayer)
+        const source = Layer.resolveSource(name, entry, inheritedLayer)
 
         if (styles.length === 0) {
             throw new Error(`Layer "${name}" must define at least one style`)
         }
 
-        this.title = entry.title
-        this.summary = entry.abstract
+        this.title = entry.title ?? inheritedLayer?.title
+        this.summary = entry.abstract ?? inheritedLayer?.summary
         this.source = source
-        this.dataset = entry.dataset
+        this.dataset = entry.source ? entry.dataset : undefined
         this.crs = crs
-        this.extent = Gt.normalize(entry.extent, name)
+        this.extent = entry.extent !== undefined
+            ? Gt.normalize(entry.extent, name)
+            : inheritedLayer?.extent
         this.styles = styles
         this.pointProperties = pointProperties
     }
 
     static build(layerEntries: Dict<LayerJson>): Registry<Layer> {
-        for (const [name, entry] of Object.entries(layerEntries)) {
-            const layer = new Layer(name, entry)
-            Layer.registry.set(layer.name, layer)
+        const pending = new Map(Object.entries(layerEntries).filter(([name]) => !Layer.registry.has(name)))
+
+        while (pending.size > 0) {
+            let progressed = false
+
+            for (const [name, entry] of pending) {
+                if (!Layer.canBuild(entry)) continue
+
+                const layer = new Layer(name, entry)
+                Layer.registry.set(layer.name, layer)
+                pending.delete(name)
+                progressed = true
+            }
+
+            if (!progressed) {
+                const unresolved = pending.entries().next().value
+                if (!unresolved) break
+                const [name, entry] = unresolved
+                Layer.assertBuildable(name, entry)
+            }
         }
+
         return Layer.registry
     }
 
-    private static resolveStyles(name: string, entry: LayerJson): NamedStyle[] {
+    private static canBuild(entry: LayerJson): boolean {
+        if (entry.source && entry.layer) return false
+        if (entry.source) return Source.registry.has(entry.source)
+        if (entry.layer) return Layer.registry.has(entry.layer)
+        return false
+    }
+
+    private static assertBuildable(name: string, entry: LayerJson): never {
+        if (entry.source && entry.layer) {
+            throw new Error(`Layer "${name}" must define either source or layer, not both`)
+        }
+
+        if (entry.source) {
+            throw new Error(`Unknown source "${entry.source}" in layer "${name}"`)
+        }
+
+        if (entry.layer) {
+            throw new Error(`Unknown layer "${entry.layer}" in layer "${name}"`)
+        }
+
+        throw new Error(`Layer "${name}" must define either source or layer`)
+    }
+
+    private static validateDataReference(name: string, entry: LayerJson): void {
+        if (entry.source && entry.layer) {
+            throw new Error(`Layer "${name}" must define either source or layer, not both`)
+        }
+
+        if (entry.layer && entry.dataset !== undefined) {
+            throw new Error(`Layer "${name}" cannot override dataset when it references layer "${entry.layer}"`)
+        }
+    }
+
+    private static resolveSource(name: string, entry: LayerJson, inheritedLayer: Layer | undefined): Source {
+        if (entry.source) return Source.registry.get(entry.source)
+
+        if (!entry.layer || !inheritedLayer) {
+            throw new Error(`Layer "${name}" must define either source or layer`)
+        }
+
+        if (Source.registry.has(name)) {
+            throw new Error(`Cannot create memory source for layer "${name}" because source "${name}" already exists`)
+        }
+
+        const source = new MemSource(name, inheritedLayer)
+        Source.registry.set(name, source)
+        return source
+    }
+
+    private static resolveStyles(name: string, entry: LayerJson, inheritedLayer: Layer | undefined): NamedStyle[] {
+        if (!entry.style && entry.styles === undefined && inheritedLayer) {
+            return [...inheritedLayer.styles]
+        }
+
         const defaultStyleId = entry.style ?? entry.styles?.[0] ?? 'default'
         const styleIds = [...new Set([defaultStyleId, ...(entry.styles ?? [])])]
         return styleIds.map((styleId) => {
@@ -84,7 +159,16 @@ export class Layer {
         })
     }
 
-    private static resolvePointProperties(name: string, entry: LayerJson, crs: CrsCode): Array<PointProperties & { crs: CrsCode }> {
+    private static resolvePointProperties(
+        name: string,
+        entry: LayerJson,
+        crs: CrsCode,
+        inheritedLayer: Layer | undefined
+    ): Array<PointProperties & { crs: CrsCode }> {
+        if (entry.pointProperties === undefined && inheritedLayer) {
+            return inheritedLayer.pointProperties.map((pp) => ({ ...pp }))
+        }
+
         const pointProperties: Array<PointProperties & { crs: CrsCode }> = []
         for (const pp of entry.pointProperties ?? []) {
             if (pp.x === pp.y) {
@@ -160,6 +244,25 @@ export class Layer {
         }
 
         return style.style
+    }
+
+    private static resolveLayerCrs(name: string, entry: LayerJson, inheritedLayer: Layer | undefined): CrsCode {
+        if (inheritedLayer) {
+            if (!entry.crs) return inheritedLayer.crs
+
+            const crs = Layer.resolveCrs(entry.crs, `Layer "${name}" crs`)
+            if (crs !== inheritedLayer.crs) {
+                throw new Error(`Layer "${name}" cannot override crs "${inheritedLayer.crs}" from layer "${inheritedLayer.name}" with "${crs}"`)
+            }
+
+            return inheritedLayer.crs
+        }
+
+        if (!entry.crs) {
+            throw new Error(`Layer "${name}" must define crs`)
+        }
+
+        return Layer.resolveCrs(entry.crs, `Layer "${name}" crs`)
     }
 
     private static resolveCrs(crs: string, label: string): CrsCode {

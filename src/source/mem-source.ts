@@ -1,60 +1,44 @@
 import type { BBox } from '../core/geometry.js'
 import { Gt } from '../core/geotools.js'
-import type { DescInfo, Feature, MemRef, SourceRef } from '../core/feature.js'
+import type { Feature, MemRef, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
-import { Source, hasSourceConfigType, type StreamOptions } from './source.js'
+import { Source, type StreamOptions } from './source.js'
 
 export type MemFeatureProvider = (layer: Layer) => Feature[] | Promise<Feature[]>
-
-export type MemSourceJson = DescInfo & {
-  type: 'mem'
-  source: string
-}
 
 export class MemSource extends Source {
   readonly type = 'mem'
   readonly storage = 'mem' as const
-  private readonly source: Source | null
+  private readonly layer: Layer | null
   private readonly featureProvider: MemFeatureProvider | null
   private readonly initialFeatures: Feature[] | null
-  private readonly featuresByLayer = new Map<Layer, Feature[]>()
-  private readonly openings = new Map<Layer, Promise<void>>()
+  private features: Feature[] | null = null
+  private opening: Promise<void> | null = null
 
-  static acceptsConfig(entry: unknown): entry is MemSourceJson {
-    return hasSourceConfigType(entry, 'mem')
-  }
-
-  static fromConfig(id: string, entry: MemSourceJson): MemSource {
-    return new MemSource(id, Source.registry.get(entry.source))
-  }
-
-  constructor(id: string, source: Source)
+  constructor(id: string, layer: Layer)
   constructor(id: string, features?: Feature[] | MemFeatureProvider)
   constructor(
     readonly id: string,
-    sourceOrFeatures: Source | Feature[] | MemFeatureProvider = []
+    layerOrFeatures: Layer | Feature[] | MemFeatureProvider = []
   ) {
     super()
 
-    if (isSource(sourceOrFeatures)) {
-      this.source = sourceOrFeatures
+    if (isLayer(layerOrFeatures)) {
+      this.layer = layerOrFeatures
       this.featureProvider = null
       this.initialFeatures = null
     } else {
-      this.source = null
-      this.featureProvider = typeof sourceOrFeatures === 'function' ? sourceOrFeatures : null
-      this.initialFeatures = typeof sourceOrFeatures === 'function' ? null : sourceOrFeatures
+      this.layer = null
+      this.featureProvider = typeof layerOrFeatures === 'function' ? layerOrFeatures : null
+      this.initialFeatures = typeof layerOrFeatures === 'function' ? null : layerOrFeatures
     }
   }
 
   async close(): Promise<void> {
-    if (this.openings.size > 0) {
-      await Promise.all(this.openings.values())
-    }
+    if (this.opening) await this.opening
 
-    await this.source?.close()
-    this.featuresByLayer.clear()
-    this.openings.clear()
+    this.features = null
+    this.opening = null
   }
 
   async getExtent(layer: Layer): Promise<BBox | null> {
@@ -108,51 +92,43 @@ export class MemSource extends Source {
   }
 
   private async ensureLoaded(layer: Layer, signal?: AbortSignal): Promise<Feature[]> {
-    const loaded = this.featuresByLayer.get(layer)
-    if (loaded) return loaded
+    if (this.features) return this.features
 
-    let opening = this.openings.get(layer)
-    if (!opening) {
-      opening = this.load(layer, signal)
-      this.openings.set(layer, opening)
+    if (!this.opening) {
+      this.opening = this.load(layer, signal)
     }
 
     try {
-      await opening
+      await this.opening
     } finally {
-      this.openings.delete(layer)
+      this.opening = null
     }
 
-    return this.featuresByLayer.get(layer) ?? []
+    return this.features ?? []
   }
 
   private async load(layer: Layer, signal?: AbortSignal): Promise<void> {
     const features: Feature[] = []
 
-    if (!this.source) {
+    if (!this.layer) {
       const loaded = this.featureProvider
         ? await this.featureProvider(layer)
         : this.initialFeatures ?? []
 
-      this.featuresByLayer.set(layer, loaded.map((feature) => ({
+      this.features = loaded.map((feature) => ({
         ...feature,
         layer
-      })))
+      }))
       return
     }
 
-    await this.source.open()
-
-    await this.source.stream({ layer, signal }).pipeTo(new WritableStream<Feature>({
+    await this.layer.stream({ signal }).pipeTo(new WritableStream<Feature>({
       write(feature) {
         features.push(feature)
       }
     }))
 
-    this.featuresByLayer.set(layer, features.map((feature) => ({
-      ...feature,
-      layer
-    })))
+    this.features = features
   }
 
   private withSourceRef(feature: Feature, index: number, layer: Layer): Feature {
@@ -194,9 +170,11 @@ export class MemSource extends Source {
   }
 }
 
-function isSource(value: Source | Feature[] | MemFeatureProvider): value is Source {
+function isLayer(value: Layer | Feature[] | MemFeatureProvider): value is Layer {
   return typeof value === 'object'
     && value !== null
-    && typeof (value as Source).stream === 'function'
-    && typeof (value as Source).open === 'function'
+    && !Array.isArray(value)
+    && typeof (value as Layer).name === 'string'
+    && typeof (value as Layer).source === 'object'
+    && typeof (value as Layer).stream === 'function'
 }

@@ -302,12 +302,6 @@
             "abstract": "World capitals GeoJSON demo source.",
             "path": "../data/capitals.geojson"
         },
-        "world-mem": {
-            "type": "mem",
-            "title": "World Memory",
-            "abstract": "World country boundaries loaded in memory from the GeoJSON source.",
-            "source": "world"
-        },
         "world-gml": {
             "type": "gml",
             "title": "World GML",
@@ -419,10 +413,9 @@
             "source": "world"
         },
         "world-mem": {
-            "$ref": "#/$defs/defaultLayer",
             "title": "World Memory",
             "abstract": "World country boundaries loaded in memory from the GeoJSON demo dataset.",
-            "source": "world-mem"
+            "layer": "world"
         },
         "world-gml": {
             "$ref": "#/$defs/defaultLayer",
