@@ -23,19 +23,19 @@ const source_postgis = {
     "abstract": "World country boundaries PostGIS demo source.",
     "connection": {
         "connectionString": "postgres://postgres:$s{GEOC_PGPWD|postgres}@localhost:5432/postgres",
-        // "max": 4,
-        // "connectionTimeoutMillis": 5000,
-        // "idleTimeoutMillis": 30000,
-        // "statementTimeoutMillis": 30000,
-        // "applicationName": "geocomposer"
+        "max": 4,
+        "connectionTimeoutMillis": 5000,
+        "idleTimeoutMillis": 30000,
+        "statementTimeoutMillis": 30000,
+        "applicationName": "geocomposer"
     },
-    //"schema": "public",
+    "schema": "public",
     "datasets": {
         "world": {
-            //"tableName": "world",
-            //"geometryColumn": "wkb_geometry",
-            //"primaryKey": "ogc_fid",
-            //"srid": 4326
+            "tableName": "world",
+            "geometryColumn": "wkb_geometry",
+            "primaryKey": "ogc_fid",
+            "srid": 4326
         }
     },
     "batchSize": 500,
@@ -85,15 +85,15 @@ describe('test sources loading', () => {
     })
 
     test.each([
-        // name, source type, filename, count 
-        ['Geojson', 'geojson', "world.geojson", undefined, 175],
-        //['Memory', 'mem', undefined, undefined, 177],
-        ['Shapefile', 'shp', "world.shp", undefined, 177],
-        ['Gml', 'gml', "world.gml", undefined, 175],
-        ['GeoPackage', 'gpkg', "world.gpkg", undefined, 175],
-        ['PostGIS', 'postgis', undefined, undefined, 177],
-        ['Oracle', 'oracle', undefined, undefined, 176],
-    ])('load %s source / layer', async (name, type, filename, dataset, expected) => {
+        // name, source type, filename, expected source count, expected feature count
+        ['Geojson', 'geojson', "world.geojson", 1, 175],
+        ['Memory', 'mem', undefined, 2, 175],
+        ['Shapefile', 'shp', "world.shp", 1, 177],
+        ['Gml', 'gml', "world.gml", 1, 175],
+        ['GeoPackage', 'gpkg', "world.gpkg", 1, 175],
+        ['PostGIS', 'postgis', undefined, 1, 177],
+        ['Oracle', 'oracle', undefined, 1, 176],
+    ])('load %s source / layer', async (name, type, filename, expectedSources, expected) => {
         const configPath = resolve(`./test/temp/config_${type}.json`)
         const config = JSON.parse(JSON.stringify(baseconf))
         config.sources.world.type = type
@@ -141,7 +141,10 @@ describe('test sources loading', () => {
         expect(Service.registry.has('wms')).toBe(true)
         expect(Service.registry.all.length).toBe(1)
         expect(Source.registry.has('world')).toBe(true)
-        expect(Source.registry.all.length).toBe(1)
+        expect(Source.registry.all.length).toBe(expectedSources)
+        if (type === 'mem') {
+            expect(Source.registry.has('world-geojson')).toBe(true)
+        }
         expect(Layer.registry.has('world')).toBe(true)
         expect(Layer.registry.all.length).toBe(1)
         expect(Style.registry.has('default')).toBe(true)
