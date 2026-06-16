@@ -24,7 +24,7 @@
             "type": "oracle",
             "title": "World Oracle",
             "abstract": "World polygons from an Oracle MDSYS.SDO_GEOMETRY table.",
-            "connection": "GEOCOMPOSER/geocomposer@localhost:1521/XEPDB1",
+            "connection": "oracle://GEOCOMPOSER:geocomposer@localhost:1521/XEPDB1",
             "schema": "GEOCOMPOSER",
             "datasets": {
                 "world": "WORLD"

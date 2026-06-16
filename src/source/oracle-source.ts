@@ -866,8 +866,6 @@ function paginationClause(
   return clauses.join(' ')
 }
 
-const ORACLE_GEOCOMPOSER_CONNECTION_PATTERN = /^([^/]+)\/([^@]+)@(.+)$/
-
 function parseOracleConnectionOptions(options: OracleConnectionOptions): OracleConnectionObjectOptions {
   if (typeof options !== 'string') return options
 
@@ -875,16 +873,43 @@ function parseOracleConnectionOptions(options: OracleConnectionOptions): OracleC
 }
 
 function parseOracleConnectionString(connectionString: string): { user: string, password: string, connectString: string } {
-  const match = ORACLE_GEOCOMPOSER_CONNECTION_PATTERN.exec(connectionString)
-  if (!match) {
-    throw new Error('Invalid Oracle GeoComposer connection string: expected "user/password@host:port/service"')
+  let url: URL
+  try {
+    url = new URL(connectionString)
+  } catch {
+    throw invalidOracleConnectionString()
+  }
+
+  if (
+    url.protocol !== 'oracle:'
+    || url.username === ''
+    || url.password === ''
+    || url.hostname === ''
+    || url.port === ''
+    || url.pathname === ''
+    || url.pathname === '/'
+    || url.hash !== ''
+  ) {
+    throw invalidOracleConnectionString()
   }
 
   return {
-    user: match[1],
-    password: match[2],
-    connectString: match[3]
+    user: decodeOracleUrlPart(url.username),
+    password: decodeOracleUrlPart(url.password),
+    connectString: `${url.host}${url.pathname}${url.search}`
   }
+}
+
+function decodeOracleUrlPart(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    throw invalidOracleConnectionString()
+  }
+}
+
+function invalidOracleConnectionString(): Error {
+  return new Error('Invalid Oracle GeoComposer connection string: expected "oracle://user:password@host:port/service"')
 }
 
 function createPoolAttributes(options: OracleConnectionObjectOptions): oracledb.PoolAttributes {

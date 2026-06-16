@@ -1053,7 +1053,7 @@
             "anyOf": [
                 {
                     "type": "string",
-                    "pattern": "^[^/]+/[^@]+@.+$"
+                    "pattern": "^oracle://[^:@/]+:[^@/]+@[^/]+:[0-9]+/.+$"
                 },
                 {
                     "type": "object",
@@ -1064,7 +1064,7 @@
                     "properties": {
                         "connectionString": {
                             "type": "string",
-                            "pattern": "^[^/]+/[^@]+@.+$"
+                            "pattern": "^oracle://[^:@/]+:[^@/]+@[^/]+:[0-9]+/.+$"
                         },
                         "externalAuth": {
                             "anyOf": [

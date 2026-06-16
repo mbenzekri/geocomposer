@@ -13,31 +13,30 @@ import { Props, Singleton } from '../../src/core/tools.js'
 import baseconf from './config_base.json' with { type: 'json' }
 
 import { Config } from '../../src/config/config.js'
-const datasets_gpkg = {
+const world_datasets = {
     "world": {
         "tableName": "world",
     }
 }
-const source_postgis = {
-    "type": "postgis",
-    "connection": "postgres://postgres:$s{GEOC_PGPWD|postgres}@localhost:5432/postgres",
-    "datasets": {
-        "world": {
-            "tableName": "world",
-        }
-    },
+const oracle_cnx_short = "oracle://GEOCOMPOSER:geocomposer@localhost:1521/XEPDB1"
+const postgis_cnx_short = "postgres://postgres:$s{GEOC_PGPWD|postgres}@localhost:5432/postgres"
+const oracle_cnx_long = {
+    "connectionString": oracle_cnx_short,
+    "poolMin": 0,
+    "poolMax": 4,
+    "queueTimeout": 30000,
+    "callTimeout": 30000
 }
-const source_oracle = {
-    "type": "oracle",
-    "title": "World Oracle",
-    "abstract": "World country boundaries Oracle demo source.",
-    "connection": "GEOCOMPOSER/geocomposer@localhost:1521/XEPDB1",
-    "datasets": {
-        "world": {
-            "tableName": "WORLD",
-        }
-    }
+
+const postgis_cnx_long = {
+    "connectionString": postgis_cnx_short,
+    "max": 4,
+    "connectionTimeoutMillis": 5000,
+    "idleTimeoutMillis": 30000,
+    "statementTimeoutMillis": 30000,
+    "applicationName": "geocomposer"
 }
+
 function writeConf(path: string, conf: Props) {
     fs.mkdirSync(dirname(path), { recursive: true })
     fs.writeFileSync(path, JSON.stringify(conf, undefined, 4))
@@ -153,14 +152,15 @@ describe('test sources loading', () => {
     })
 
     test.each([
-        ['object', source_postgis.connection],
-        ['string', 'postgres://postgres:$s{GEOC_PGPWD|postgres}@localhost:5432/postgres']
+        ['object', postgis_cnx_long],
+        ['string', postgis_cnx_short]
     ])('postgis source accepts %s connection during configuration load', async (name, connection) => {
         const configPath = resolve(`./test/temp/config_postgis_connection_${name}.json`)
         const config = JSON.parse(JSON.stringify(baseconf))
         config.sources.world = {
-            ...source_postgis,
-            connection
+            type: "postgis",
+            connection: connection,
+            datasets: world_datasets
         }
         writeConf(configPath, config)
 
@@ -170,14 +170,15 @@ describe('test sources loading', () => {
     })
 
     test.each([
-        ['object', source_oracle.connection],
-        ['string', 'GEOCOMPOSER/geocomposer@localhost:1521/XEPDB1']
-    ])('oracle source accepts %s connection during configuration load', async (name, connection) => {
+        ['object', oracle_cnx_long, world_datasets],
+        ['string', oracle_cnx_short, world_datasets]
+    ])('oracle source accepts %s connection during configuration load', async (name, connection,datasets) => {
         const configPath = resolve(`./test/temp/config_oracle_connection_${name}.json`)
         const config = JSON.parse(JSON.stringify(baseconf))
         config.sources.world = {
-            ...source_oracle,
-            connection
+            type: "oracle",
+            connection: connection,
+            datasets: datasets
         }
         writeConf(configPath, config)
 
@@ -216,14 +217,14 @@ describe('test sources loading', () => {
             config.sources.world.path = `../../data/${filename}`
         }
         if (['gpkg'].includes(type)) {
-            config.sources.world.datasets = datasets_gpkg
+            config.sources.world.datasets = world_datasets
         }
 
         if (type === 'postgis') {
-            config.sources.world = { ...source_postgis }
+            config.sources.world = { type , connection: postgis_cnx_short,datasets: world_datasets }
         }
         if (type === 'oracle') {
-            config.sources.world = { ...source_oracle }
+            config.sources.world = { type , connection: oracle_cnx_short,datasets: world_datasets }
         }
         writeConf(configPath, config)
         let app: GeoComposer

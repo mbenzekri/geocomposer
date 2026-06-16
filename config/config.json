@@ -350,7 +350,7 @@
             "title": "World Oracle",
             "abstract": "World country boundaries Oracle demo source.",
             "connection": {
-                "connectionString": "$s{GEOC_ORACLE_USER|GEOCOMPOSER}/$s{GEOC_ORACLE_PASSWORD|geocomposer}@$s{GEOC_ORACLE_HOST|localhost}:$i{GEOC_ORACLE_PORT|1521}/$s{GEOC_ORACLE_SERVICE|XEPDB1}",
+                "connectionString": "oracle://$s{GEOC_ORACLE_USER|GEOCOMPOSER}:$s{GEOC_ORACLE_PASSWORD|geocomposer}@$s{GEOC_ORACLE_HOST|localhost}:$i{GEOC_ORACLE_PORT|1521}/$s{GEOC_ORACLE_SERVICE|XEPDB1}",
                 "poolMin": 0,
                 "poolMax": 4,
                 "queueTimeout": 30000,
