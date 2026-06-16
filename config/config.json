@@ -332,14 +332,7 @@
             "type": "postgis",
             "title": "World PostGIS",
             "abstract": "World country boundaries PostGIS demo source.",
-            "connection": {
-                "connectionString": "#/$defs/connection",
-                "max": 4,
-                "connectionTimeoutMillis": 5000,
-                "idleTimeoutMillis": 30000,
-                "statementTimeoutMillis": 30000,
-                "applicationName": "geocomposer"
-            },
+            "connection": "#/$defs/connection",
             "schema": "public",
             "datasets": {
                 "world": {

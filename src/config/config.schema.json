@@ -887,105 +887,112 @@
             ]
         },
         "postgisConnection": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "connectionString": {
+            "anyOf": [
+                {
                     "type": "string"
                 },
-                "host": {
-                    "type": "string"
-                },
-                "port": {
-                    "anyOf": [
-                        {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 65535
+                {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "connectionString": {
+                            "type": "string"
                         },
-                        {
-                            "$ref": "#/$defs/envInteger"
-                        }
-                    ]
-                },
-                "database": {
-                    "type": "string"
-                },
-                "user": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "ssl": {
-                    "anyOf": [
-                        {
-                            "type": "boolean"
+                        "host": {
+                            "type": "string"
                         },
-                        {
-                            "$ref": "#/$defs/envBoolean"
-                        }
-                    ]
-                },
-                "max": {
-                    "anyOf": [
-                        {
-                            "type": "integer",
-                            "minimum": 1
+                        "port": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 65535
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
                         },
-                        {
-                            "$ref": "#/$defs/envInteger"
-                        }
-                    ]
-                },
-                "connectionTimeoutMillis": {
-                    "anyOf": [
-                        {
-                            "type": "integer",
-                            "minimum": 0
+                        "database": {
+                            "type": "string"
                         },
-                        {
-                            "$ref": "#/$defs/envInteger"
-                        }
-                    ]
-                },
-                "idleTimeoutMillis": {
-                    "anyOf": [
-                        {
-                            "type": "integer",
-                            "minimum": 0
+                        "user": {
+                            "type": "string"
                         },
-                        {
-                            "$ref": "#/$defs/envInteger"
-                        }
-                    ]
-                },
-                "statementTimeoutMillis": {
-                    "anyOf": [
-                        {
-                            "type": "integer",
-                            "minimum": 0
+                        "password": {
+                            "type": "string"
                         },
-                        {
-                            "$ref": "#/$defs/envInteger"
-                        }
-                    ]
-                },
-                "queryTimeoutMillis": {
-                    "anyOf": [
-                        {
-                            "type": "integer",
-                            "minimum": 0
+                        "ssl": {
+                            "anyOf": [
+                                {
+                                    "type": "boolean"
+                                },
+                                {
+                                    "$ref": "#/$defs/envBoolean"
+                                }
+                            ]
                         },
-                        {
-                            "$ref": "#/$defs/envInteger"
+                        "max": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
+                        },
+                        "connectionTimeoutMillis": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 0
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
+                        },
+                        "idleTimeoutMillis": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 0
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
+                        },
+                        "statementTimeoutMillis": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 0
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
+                        },
+                        "queryTimeoutMillis": {
+                            "anyOf": [
+                                {
+                                    "type": "integer",
+                                    "minimum": 0
+                                },
+                                {
+                                    "$ref": "#/$defs/envInteger"
+                                }
+                            ]
+                        },
+                        "applicationName": {
+                            "type": "string"
                         }
-                    ]
-                },
-                "applicationName": {
-                    "type": "string"
+                    }
                 }
-            }
+            ]
         },
         "oracleSource": {
             "type": "object",

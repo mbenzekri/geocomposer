@@ -12,7 +12,7 @@ import { WkbReader } from './wkb-reader.js'
 
 export type PostgisExtentStrategy = 'estimated' | 'exact' | 'none'
 
-export type PostgisConnectionOptions = {
+export type PostgisConnectionObjectOptions = {
   connectionString?: string
   host?: string
   port?: number
@@ -27,6 +27,8 @@ export type PostgisConnectionOptions = {
   queryTimeoutMillis?: number
   applicationName?: string
 }
+
+export type PostgisConnectionOptions = string | PostgisConnectionObjectOptions
 
 export type PostgisSourceOptions = {
   connection: PostgisConnectionOptions
@@ -192,7 +194,7 @@ class PostgisReader {
   ) {}
 
   async open(): Promise<void> {
-    this.pool = new PgPoolConstructor(createPoolConfig(this.options.connection))
+    this.pool = new PgPoolConstructor(PostgisConnectionConfig.toPoolConfig(this.options.connection))
 
     try {
       const client = await this.pool.connect()
@@ -714,21 +716,27 @@ async function readSrid(
   return srid && srid > 0 ? srid : null
 }
 
-function createPoolConfig(options: PostgisConnectionOptions): PoolConfig {
-  return {
-    connectionString: options.connectionString,
-    host: options.host,
-    port: options.port,
-    database: options.database,
-    user: options.user,
-    password: options.password,
-    ssl: options.ssl,
-    max: options.max,
-    connectionTimeoutMillis: options.connectionTimeoutMillis,
-    idleTimeoutMillis: options.idleTimeoutMillis,
-    statement_timeout: options.statementTimeoutMillis,
-    query_timeout: options.queryTimeoutMillis,
-    application_name: options.applicationName
+class PostgisConnectionConfig {
+  static toPoolConfig(options: PostgisConnectionOptions): PoolConfig {
+    if (typeof options === 'string') {
+      return { connectionString: options }
+    }
+
+    return {
+      connectionString: options.connectionString,
+      host: options.host,
+      port: options.port,
+      database: options.database,
+      user: options.user,
+      password: options.password,
+      ssl: options.ssl,
+      max: options.max,
+      connectionTimeoutMillis: options.connectionTimeoutMillis,
+      idleTimeoutMillis: options.idleTimeoutMillis,
+      statement_timeout: options.statementTimeoutMillis,
+      query_timeout: options.queryTimeoutMillis,
+      application_name: options.applicationName
+    }
   }
 }
 

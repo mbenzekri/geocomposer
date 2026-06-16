@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { GeoComposer } from '../../src/geo-composer.js'
 import { Service } from '../../src/service/service.js'
 import { Source } from '../../src/source/source.js'
+import { PostgisSource } from '../../src/source/postgis-source.js'
 import { Layer } from '../../src/layer/layer.js'
 import { Style } from '../../src/style/style.js'
 import { Feature } from '../../src/core/feature.js'
@@ -14,32 +15,19 @@ import { Config } from '../../src/config/config.js'
 const datasets_gpkg = {
     "world": {
         "tableName": "world",
-        "geometryColumn": "geom"
+        // "geometryColumn": "geom"
     }
 }
 const source_postgis = {
     "type": "postgis",
     "title": "World PostGIS",
     "abstract": "World country boundaries PostGIS demo source.",
-    "connection": {
-        "connectionString": "postgres://postgres:$s{GEOC_PGPWD|postgres}@localhost:5432/postgres",
-        "max": 4,
-        "connectionTimeoutMillis": 5000,
-        "idleTimeoutMillis": 30000,
-        "statementTimeoutMillis": 30000,
-        "applicationName": "geocomposer"
-    },
-    "schema": "public",
+    "connection": "postgres://postgres:$s{GEOC_PGPWD|postgres}@localhost:5432/postgres",
     "datasets": {
         "world": {
             "tableName": "world",
-            "geometryColumn": "wkb_geometry",
-            "primaryKey": "ogc_fid",
-            "srid": 4326
         }
     },
-    "batchSize": 500,
-    "extentStrategy": "estimated"
 }
 const source_oracle = {
     "type": "oracle",
@@ -179,6 +167,23 @@ describe('test sources loading', () => {
         writeConf(configPath, config)
 
         await expect(GeoComposer.from({ configPath })).rejects.toThrow()
+    })
+
+    test.each([
+        ['object', source_postgis.connection],
+        ['string', 'postgres://postgres:$s{GEOC_PGPWD|postgres}@localhost:5432/postgres']
+    ])('postgis source accepts %s connection during configuration load', async (name, connection) => {
+        const configPath = resolve(`./test/temp/config_postgis_connection_${name}.json`)
+        const config = JSON.parse(JSON.stringify(baseconf))
+        config.sources.world = {
+            ...source_postgis,
+            connection
+        }
+        writeConf(configPath, config)
+
+        await GeoComposer.from({ configPath })
+
+        expect(Source.registry.get('world')).toBeInstanceOf(PostgisSource)
     })
 
     test.each([

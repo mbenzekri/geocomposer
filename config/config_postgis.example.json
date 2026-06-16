@@ -24,14 +24,7 @@
             "type": "postgis",
             "title": "Roads PostGIS",
             "abstract": "Road network from a PostGIS table.",
-            "connection": {
-                "connectionString": "$s{GEOCOMPOSER_POSTGIS_URL}",
-                "max": 4,
-                "connectionTimeoutMillis": 5000,
-                "idleTimeoutMillis": 30000,
-                "statementTimeoutMillis": 30000,
-                "applicationName": "geocomposer"
-            },
+            "connection": "$s{GEOCOMPOSER_POSTGIS_URL}",
             "schema": "public",
             "datasets": {
                 "roads": "roads"
