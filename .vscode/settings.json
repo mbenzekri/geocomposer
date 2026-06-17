@@ -1,7 +1,11 @@
 {
-  "liveServer.settings.ignoreFiles": [
-    "**/cache/**",
-    "**/dist/**",
-    "**/node_modules/**"
-  ]
+    "liveServer.settings.ignoreFiles": [
+        "**/cache/**",
+        "**/dist/**",
+        "**/node_modules/**"
+    ],
+    "github.copilot.enable": {
+        "*": false
+    },
+    "github.copilot.editor.enableCodeActions": false
 }

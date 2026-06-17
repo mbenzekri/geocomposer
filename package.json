@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "test": "npm run build && npm run test:typecheck && npm run test:unit",
-    "test:typecheck": "tsc -p tsconfig.test.json",
+    "test:typecheck": "tsc --noEmit --rootDir . --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --esModuleInterop --resolveJsonModule --skipLibCheck --types node src/index.ts src/geo-composer.ts test/**/*.test.ts vitest.config.ts",
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:file": "npm run test:typecheck && vitest run",

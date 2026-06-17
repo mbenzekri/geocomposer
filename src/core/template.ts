@@ -19,19 +19,17 @@ export class MarkupTemplate {
       output += template.slice(index, start)
 
       if (template.startsWith('{{{', start)) {
-        const end = template.indexOf('}}}', start + 3)
-        if (end === -1) throw new Error('Unclosed template tag')
+        const end = this.findTagEnd(template, start, true)
         output += stringify(this.resolve(template.slice(start + 3, end).trim(), stack))
         index = end + 3
         continue
       }
 
-      const end = template.indexOf('}}', start + 2)
-      if (end === -1) throw new Error('Unclosed template tag')
+      const end = this.findTagEnd(template, start, false)
 
       const tag = template.slice(start + 2, end).trim()
       const marker = tag[0]
-      const name = marker === '#' || marker === '^' || marker === '&'
+      const name = marker === '#' || marker === '^' || marker === '&' || marker === '/'
         ? tag.slice(1).trim()
         : tag
 
@@ -91,11 +89,9 @@ export class MarkupTemplate {
       const start = template.indexOf('{{', position)
       if (start === -1) break
 
-      const tagStart = template.startsWith('{{{', start) ? start + 3 : start + 2
-      const tagEnd = template.startsWith('{{{', start)
-        ? template.indexOf('}}}', tagStart)
-        : template.indexOf('}}', tagStart)
-      if (tagEnd === -1) throw new Error('Unclosed template tag')
+      const triple = template.startsWith('{{{', start)
+      const tagStart = triple ? start + 3 : start + 2
+      const tagEnd = this.findTagEnd(template, start, triple)
 
       const tag = template.slice(tagStart, tagEnd).trim()
       const marker = tag[0]
@@ -118,6 +114,18 @@ export class MarkupTemplate {
     }
 
     throw new Error(`Unclosed template section: ${name}`)
+  }
+
+  private static findTagEnd(template: string, start: number, triple: boolean): number {
+    const tagStart = start + (triple ? 3 : 2)
+    const close = triple ? '}}}' : '}}'
+    const end = template.indexOf(close, tagStart)
+    const nestedStart = template.indexOf('{{', tagStart)
+    if (end === -1 || (nestedStart !== -1 && nestedStart < end)) {
+      throw new Error('Unclosed template tag')
+    }
+
+    return end
   }
 
   private static resolve(path: string, stack: unknown[]): unknown {

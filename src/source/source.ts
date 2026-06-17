@@ -1,7 +1,7 @@
 import type { PathLike } from 'node:fs'
 import type { BBox } from '../core/geometry.js'
 import type { Feature, SourceRef } from '../core/feature.js'
-import { FeatureIdentity } from '../core/feature-id.js'
+import { IdFromFeature } from '../core/feature.js'
 import { Gt } from '../core/geotools.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
 import { PageFilter } from '../stream/page-filter.js'
@@ -68,7 +68,7 @@ export abstract class Source {
         const result = await reader.read()
         if (result.done) return null
 
-        if (FeatureIdentity.fromFeature(result.value) === featureId) {
+        if (IdFromFeature(result.value) === featureId) {
           return result.value
         }
       }

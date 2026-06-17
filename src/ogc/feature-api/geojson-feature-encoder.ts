@@ -1,6 +1,6 @@
 import type { BBox } from '../../core/geometry.js'
 import type { Feature } from '../../core/feature.js'
-import { FeatureIdentity } from '../../core/feature-id.js'
+import { IdFromFeature } from '../../core/feature.js'
 import { Gt } from '../../core/geotools.js'
 import type { Props } from '../../core/tools.js'
 
@@ -32,7 +32,7 @@ export class GeoJsonFeatureEncoder {
       properties: this.propertiesFor(source),
       geometry: source.geometry
     }
-    const id = FeatureIdentity.fromFeature(source)
+    const id = IdFromFeature(source)
 
     if (id !== undefined) feature.id = id
     if (source.bbox) feature.bbox = source.bbox
