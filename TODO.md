@@ -19,7 +19,7 @@ avec PostgreSQL/PostGIS comme backend principal.
 
 Le minimum pour être crédible aujourd'hui :
 
-### 1. Publication de couches
+### 1. Publication de couches (DONE)
 
 Publier une table PostGIS :
 
@@ -38,7 +38,7 @@ GET /layers/routes
 
 ---
 
-### 2. API GeoJSON
+### 2. API GeoJSON (DONE)
 
 Lecture des objets :
 
@@ -76,7 +76,7 @@ GET /layers/routes/items?filter=vitesse>90
 
 ---
 
-### 4. Filtre spatial
+### 4. Filtre spatial (DONE)
 
 ```http
 GET /layers/routes/items?bbox=...
@@ -86,7 +86,7 @@ C'est probablement la fonctionnalité la plus utilisée.
 
 ---
 
-### 5. Projection EPSG:4326 et 3857
+### 5. Projection EPSG:4326 et 3857 (DONE)
 
 Minimum absolu.
 
@@ -111,7 +111,7 @@ avec :
 
 Ce qui manque souvent dans les projets amateurs.
 
-### 1. Vector Tiles (MVT)
+### 1. Vector Tiles (MVT) (DONE)
 
 Support :
 
@@ -131,7 +131,7 @@ ne seront pas performants.
 
 ---
 
-### 2. Support XYZ
+### 2. Support XYZ (DONE)
 
 ```http
 /{layer}/{z}/{x}/{y}.mvt
@@ -205,7 +205,7 @@ cadastre : interdit
 
 ---
 
-### 8. OGC API Features
+### 8. OGC API Features (DONE)
 
 Aujourd'hui c'est plus pertinent que WFS.
 

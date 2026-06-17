@@ -2,6 +2,8 @@ import type { BBox, CrsCode } from '../../core/geometry.js'
 import type { Feature } from '../../core/feature.js'
 import { Gt } from '../../core/geotools.js'
 import type { Layer } from '../../layer/layer.js'
+import { GeometryBboxFilter } from '../../stream/geometry-bbox-filter.js'
+import { PageFilter } from '../../stream/page-filter.js'
 import { Reproject } from '../../stream/reproject.js'
 
 export type FeaturePage = {
@@ -34,10 +36,19 @@ export class LayerFeatureRepository {
       bbox: query.bbox,
       crs: queryCrs,
       properties: query.properties,
-      limit: pageSize,
-      offset: query.offset,
+      limit: query.bbox ? undefined : pageSize,
+      offset: query.bbox ? undefined : query.offset,
       signal: query.signal
     })
+
+    if (query.bbox) {
+      stream = stream
+        .pipeThrough(new GeometryBboxFilter(query.bbox))
+        .pipeThrough(new PageFilter({
+          offset: query.offset,
+          limit: pageSize
+        }))
+    }
 
     if (queryCrs !== query.crs) {
       stream = stream.pipeThrough(new Reproject(queryCrs, query.crs))

@@ -65,6 +65,12 @@ describe('configuration and startup', () => {
         type: 'Feature',
         id: featureId
       }))
+
+      const franceBbox = await requestJson('/api/collections/world/items?limit=300&bbox=-5.2,41.0,9.8,51.5')
+      const names = (franceBbox.features as Array<{ properties?: Record<string, unknown> }>)
+        .map((entry) => entry.properties?.name)
+      expect(names).toContain('France')
+      expect(names).not.toContain('Russia')
     } finally {
       await app.close()
     }

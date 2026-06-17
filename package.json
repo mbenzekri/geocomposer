@@ -18,6 +18,8 @@
     "demo:all": "npm run build && npm run demo:styles && npm run demo:dynstyle"
   },
   "dependencies": {
+    "@turf/bbox-polygon": "^7.3.5",
+    "@turf/boolean-intersects": "^7.3.5",
     "ajv": "^8.20.0",
     "canvas": "^3.2.0",
     "ol": "^10.6.1",
