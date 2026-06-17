@@ -232,8 +232,4 @@ export class DefsSolver {
             : `/${path.map((part) => part.replace(/~/g, '~0').replace(/\//g, '~1')).join('/')}`
         return `${pointer} in ${label}`
     }
-
-    private isPlainObject(value: unknown): value is JsonObject {
-        return typeof value === 'object' && value !== null && !Array.isArray(value)
-    }
 }

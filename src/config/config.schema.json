@@ -68,10 +68,11 @@
             "additionalProperties": false,
             "properties": {
                 "port": {
+                    "description" : "port number to use for http server 0-65535",
                     "anyOf": [
                         {
                             "type": "integer",
-                            "minimum": 1,
+                            "minimum": 0,
                             "maximum": 65535
                         },
                         {
@@ -80,6 +81,7 @@
                     ]
                 },
                 "logLevel": {
+                    "description" : "set Log output level one of : 'DEBUG' | 'LOG' | 'WARN' | 'ERROR' | 'NONE'",
                     "anyOf": [
                         {
                             "type": "string",

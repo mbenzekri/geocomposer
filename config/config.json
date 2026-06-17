@@ -71,7 +71,7 @@
             "maxHeight": 4096
         },
         "api": {
-            "path": "/api",
+            "path": "/ogc",
             "title": "GeoComposer OGC API Features",
             "abstract": "Feature API backed by GeoComposer layers.",
             "onlineResource": "http://localhost:3000/api",
