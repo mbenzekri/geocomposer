@@ -38,16 +38,11 @@ export abstract class Source {
   abstract readonly type: string
   abstract readonly storage: SourceStorage
 
-  static build(
-    _sourceEntries: Record<string, unknown>,
-  ): Registry<Source>{
+  static build(_sourceEntries: Record<string, unknown>): Registry<Source>{
     throw new Error('Source.build is not initialized')
   }
 
-  static create(
-    _name: string,
-    _entry: unknown,
-  ): Source {
+  static create(_name: string,_entry: unknown): Source {
     throw new Error('Source.create is not initialized')
   }
 
