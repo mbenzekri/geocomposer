@@ -8,6 +8,7 @@ import { escape, paramsFromUrl, parseNonNegativeInt, parsePixelIndex, parsePosit
 import { Layer } from '../layer/layer.js'
 import { Service } from './service.js'
 import type { StyleFn } from '../style/style-fn.js'
+import { Style } from '../style/style.js'
 import { Gt } from '../core/geotools.js'
 import { DescInfo, ServiceInfo } from '../core/feature.js'
 import { Crs } from '../core/crs.js'
@@ -385,7 +386,7 @@ class WmsCapabilitiesBuilder {
             title: layer.title ?? layer.name,
             summary: layer.summary,
             crs: supportedCrs,
-            styles: layer.styles.map((style) => ({
+            styles: Style.registry.all.map((style) => ({
                 name: style.name,
                 title: style.title ?? style.name,
                 summary: style.abstract
@@ -481,7 +482,12 @@ function parseStyles(value: string | undefined, layerCount: number): Array<strin
 }
 
 function resolveNamedStyle(layer: Layer, styleName: string | undefined): StyleFn {
-    return layer.resolveStyle(styleName)
+    try {
+        return layer.resolveStyle(styleName)
+    } catch (error) {
+        if (!styleName) throw error
+        throw new Error(`Unknown style "${styleName}"`)
+    }
 }
 
 function validateCrs(supportedCrs: CrsCode[], crs: CrsCode): void {

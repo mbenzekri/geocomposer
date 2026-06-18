@@ -36,7 +36,12 @@ export class PathsSolver {
 
     private resolveProp(doc: any, props: string[]) {
         if (props.length < 2) throw `[CONFIG]: solving path not enough properties ${JSON.stringify(props)}`
-        for (let i = 0; i < (props.length - 1); i++) doc = doc[props[i]]
+        for (let i = 0; i < (props.length - 1); i++) {
+            if (props[i] in doc) {
+                doc = doc[props[i]]
+            }
+            else return
+        }
         if (doc == null) return
         const lastprop = props[props.length - 1]
         const value = doc[lastprop]

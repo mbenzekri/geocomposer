@@ -82,8 +82,8 @@ export class Tileset {
     readonly cacheControl?: string
     readonly vector: RequiredVectorTileOptions
     readonly layers: Layer[]
-    readonly styles: StyleFn[]
     private readonly hasExplicitVectorOptions: boolean
+    private readonly styleNames: ReadonlyArray<string | undefined>
 
     constructor(name: string, entry: TilesetJson) {
         const layerRefs = normalizeTilesetLayers(name, entry)
@@ -100,7 +100,8 @@ export class Tileset {
         this.hasExplicitVectorOptions = entry.vector !== undefined
         this.vector = normalizeVectorOptions(entry.vector)
         this.layers = layerRefs.map((ref) => resolveTilesetLayer(ref, name))
-        this.styles = layerRefs.map((ref, index) => resolveTilesetStyle(this.layers[index], ref.style, name))
+        this.styleNames = layerRefs.map((ref) => ref.style)
+        this.resolveStyles()
         this.validate()
     }
 
@@ -183,6 +184,10 @@ export class Tileset {
 
     supportsFormat(value: string): boolean {
         return this.formats.includes(normalizeTileFormat(value))
+    }
+
+    resolveStyles(): StyleFn[] {
+        return this.layers.map((layer, index) => resolveTilesetStyle(layer, this.styleNames[index], this.name))
     }
 
     private validate(): void {

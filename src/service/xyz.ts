@@ -243,7 +243,7 @@ async function renderTile(request: TileRequest): Promise<Buffer> {
     if (!request.output.vector) {
         return getMap({
             layers: request.tileset.layers,
-            styles: request.tileset.styles,
+            styles: request.tileset.resolveStyles(),
             bbox: request.bbox,
             width: request.width,
             height: request.height,

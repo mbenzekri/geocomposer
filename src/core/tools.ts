@@ -13,7 +13,7 @@ export function isMain(metaurl: string): boolean {
 
 export type Args = {
     configPath: string
-    clearTileCache: boolean
+    clearTileCache?: boolean
     port?: number
 }
 

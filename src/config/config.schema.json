@@ -102,10 +102,8 @@
         },
         "services": {
             "type": "object",
+            "minProperties": 1,
             "additionalProperties": false,
-            "required": [
-                "wms"
-            ],
             "properties": {
                 "wms": {
                     "$ref": "#/$defs/wms"
@@ -1339,13 +1337,6 @@
                 },
                 "style": {
                     "type": "string"
-                },
-                "styles": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "uniqueItems": true
                 },
                 "pointProperties": {
                     "description": "Array for attributes to be considered as coordinates to be projected in target map projection if necessary",

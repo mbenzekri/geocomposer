@@ -8,16 +8,17 @@ import { Xyz, type XyzJson } from './xyz.js'
 export { Service } from './service.js'
 
 export type ServicesJson = {
-    wms: WmsJson
+    wms?: WmsJson
     api?: OgcFeaturesJson
     xyz?: XyzJson
     wmts?: WmtsJson
 }
 
 Service.build = function build(services: ServicesJson): Registry<Service> {
-
-    const wms = Wms.fromConfig(services.wms)
-    Service.registry.set('wms', wms)
+    if (services.wms) {
+        const wms = Wms.fromConfig(services.wms)
+        Service.registry.set('wms', wms)
+    }
 
     if (services.api) {
         const api = OgcFeatures.fromConfig(services.api)

@@ -1,7 +1,7 @@
 import type { BBox, CrsCode } from '../core/geometry.js'
 import type { DescInfo, Feature } from '../core/feature.js'
 import { Source, type QueryOptions, type StreamOptions } from '../source/source-build.js'
-import { Style, type NamedStyle } from '../style/style.js'
+import { Style } from '../style/style.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
 import { PageFilter } from '../stream/page-filter.js'
@@ -24,7 +24,6 @@ export type LayerJson = DescInfo & {
     crs?: string
     extent?: BBox
     style?: string
-    styles?: string[]
     pointProperties?: PointProperties[]
 }
 
@@ -42,20 +41,16 @@ export class Layer {
     readonly dataset?: string
     readonly crs: CrsCode
     readonly extent?: BBox
-    readonly styles: readonly NamedStyle[]
     readonly pointProperties: Array<PointProperties & { crs: CrsCode }>
+    private readonly styleName: string
 
     constructor(readonly name: string, entry: LayerJson ) {
         Layer.validateDataReference(name, entry)
         const inheritedLayer = entry.layer ? Layer.registry.get(entry.layer) : undefined
-        const styles = Layer.resolveStyles(name, entry, inheritedLayer)
+        const styleName = Layer.resolveDefaultStyleName(name, entry, inheritedLayer)
         const crs = Layer.resolveLayerCrs(name, entry, inheritedLayer)
         const pointProperties = Layer.resolvePointProperties(name, entry, crs, inheritedLayer)
         const source = Layer.resolveSource(name, entry, inheritedLayer)
-
-        if (styles.length === 0) {
-            throw new Error(`Layer "${name}" must define at least one style`)
-        }
 
         this.title = entry.title ?? inheritedLayer?.title
         this.summary = entry.abstract ?? inheritedLayer?.summary
@@ -65,8 +60,8 @@ export class Layer {
         this.extent = entry.extent !== undefined
             ? Gt.normalize(entry.extent, name)
             : inheritedLayer?.extent
-        this.styles = styles
         this.pointProperties = pointProperties
+        this.styleName = styleName
     }
 
     static build(layerEntries: Dict<LayerJson>): Registry<Layer> {
@@ -144,21 +139,6 @@ export class Layer {
         return source
     }
 
-    private static resolveStyles(name: string, entry: LayerJson, inheritedLayer: Layer | undefined): NamedStyle[] {
-        if (!entry.style && entry.styles === undefined && inheritedLayer) {
-            return [...inheritedLayer.styles]
-        }
-
-        const defaultStyleId = entry.style ?? entry.styles?.[0] ?? 'default'
-        const styleIds = [...new Set([defaultStyleId, ...(entry.styles ?? [])])]
-        return styleIds.map((styleId) => {
-            if (!Style.registry.has(styleId)) {
-                throw new Error(`Unknown style "${styleId}" in layer "${name}"`)
-            }
-            return Style.registry.get(styleId)
-        })
-    }
-
     private static resolvePointProperties(
         name: string,
         entry: LayerJson,
@@ -185,7 +165,7 @@ export class Layer {
     }
 
     get style(): StyleFn {
-        return this.styles[0].style
+        return this.resolveStyle(this.styleName)
     }
 
     async getExtent(): Promise<BBox | null> {
@@ -236,14 +216,23 @@ export class Layer {
     }
 
     resolveStyle(name: string | undefined): StyleFn {
-        if (!name) return this.style
+        const styleName = name ?? this.styleName
 
-        const style = this.styles.find((entry) => entry.name === name)
-        if (!style) {
-            throw new Error(`Unknown style "${name}" for layer "${this.name}"`)
+        if (!Style.registry.has(styleName)) {
+            throw new Error(`Unknown style "${styleName}"`)
         }
 
-        return style.style
+        return Style.registry.get(styleName).style
+    }
+
+    private static resolveDefaultStyleName(name: string, entry: LayerJson, inheritedLayer: Layer | undefined): string {
+        const styleName = entry.style ?? inheritedLayer?.styleName ?? 'default'
+
+        if (!Style.registry.has(styleName)) {
+            throw new Error(`Unknown style "${styleName}" in layer "${name}"`)
+        }
+
+        return styleName
     }
 
     private static resolveLayerCrs(name: string, entry: LayerJson, inheritedLayer: Layer | undefined): CrsCode {

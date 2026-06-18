@@ -584,14 +584,14 @@ export class CatalogPage {
       id: layer.name,
       title: layer.title ?? layer.name,
       summary: layer.summary,
-      badges: [layer.crs, `${layer.styles.length} style${layer.styles.length > 1 ? 's' : ''}`],
+      badges: [layer.crs],
       highlights: [
         { label: 'ID', value: this.code(layer.name) },
         { label: 'CRS', value: this.code(layer.crs) },
         { label: 'Emprise', value: layer.extent ? this.code(this.formatBbox(layer.extent)) : '<span class="small">Non declaree</span>' }
       ],
       details: [
-        { label: 'Styles', value: this.renderStyleChips(layer.styles) },
+        { label: 'Styles utilisables', value: this.renderStyleChips(Style.registry.all) },
         { label: 'Coordonnees ponctuelles', value: this.renderPointProperties(layer) },
         { label: 'API', value: this.layerApiLink(req, layer) }
       ],
@@ -788,14 +788,14 @@ export class CatalogPage {
     const layer = this.firstLayer(service)
 
     if (layer) {
-      const style = layer.styles[0]?.name ?? 'default'
+      const style = Style.registry.has('default') ? 'default' : Style.registry.all[0]?.name
       const crs = this.serviceCrs(service, layer)
       const bbox = this.sampleBbox(layer, crs, true)
       const common = {
         SERVICE: 'WMS',
         VERSION: '1.3.0',
         LAYERS: layer.name,
-        STYLES: style,
+        STYLES: style ?? '',
         CRS: crs,
         BBOX: bbox.join(','),
         WIDTH: '800',
@@ -942,7 +942,7 @@ export class CatalogPage {
     }
 
     if (wms && this.serviceLayers(wms).some((entry) => entry.name === layer.name)) {
-      const style = layer.styles[0]?.name ?? 'default'
+      const style = Style.registry.has('default') ? 'default' : Style.registry.all[0]?.name
       const crs = this.serviceCrs(wms, layer)
       links.push({
         label: 'GetMap WMS',
@@ -951,7 +951,7 @@ export class CatalogPage {
           VERSION: '1.3.0',
           REQUEST: 'GetMap',
           LAYERS: layer.name,
-          STYLES: style,
+          STYLES: style ?? '',
           CRS: crs,
           BBOX: this.sampleBbox(layer, crs, true).join(','),
           WIDTH: '800',
@@ -968,7 +968,7 @@ export class CatalogPage {
     const wms = Service.registry.all.find((service) => service.name === 'WMS')
     if (!wms) return null
 
-    const layer = this.serviceLayers(wms).find((entry) => entry.styles.some((candidate) => candidate.name === style.name))
+    const layer = this.serviceLayers(wms)[0]
     if (!layer) return null
     const crs = this.serviceCrs(wms, layer)
 

@@ -268,7 +268,7 @@ async function renderTile(request: WmtsTileRequest): Promise<Buffer> {
     if (!request.output.vector) {
         return getMap({
             layers: request.tileset.layers,
-            styles: request.tileset.styles,
+            styles: request.tileset.resolveStyles(),
             bbox,
             width: request.tileset.tileSize,
             height: request.tileset.tileSize,
