@@ -334,13 +334,13 @@ const WMS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
       <Layer queryable="1">
         <Name>{{name}}</Name>
         <Title>{{title}}</Title>
-        {{#summary}}<Abstract>{{summary}}</Abstract>{{/summary}}
+        {{#abstract}}<Abstract>{{abstract}}</Abstract>{{/abstract}}
         {{#crs}}<CRS>{{.}}</CRS>{{/crs}}
         {{#styles}}
         <Style>
           <Name>{{name}}</Name>
           <Title>{{title}}</Title>
-          {{#summary}}<Abstract>{{summary}}</Abstract>{{/summary}}
+          {{#abstract}}<Abstract>{{abstract}}</Abstract>{{/abstract}}
         </Style>
         {{/styles}}
         {{#extent}}
@@ -384,12 +384,12 @@ class WmsCapabilitiesBuilder {
         return {
             name: layer.id,
             title: layer.title ?? layer.id,
-            summary: layer.summary,
+            abstract: layer.abstract,
             crs: supportedCrs,
             styles: Style.registry.all.map((style) => ({
                 name: style.id,
                 title: style.title ?? style.id,
-                summary: style.abstract
+                abstract: style.abstract
             })),
             extent: extent ? this.extentView(extent, layer.crs, supportedCrs) : undefined
         }

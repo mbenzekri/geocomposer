@@ -37,7 +37,7 @@ export class Layer {
 
     readonly id: string
     readonly title?: string
-    readonly summary?: string
+    readonly abstract?: string
     readonly source: Source
     readonly dataset?: string
     readonly crs: CrsCode
@@ -56,7 +56,7 @@ export class Layer {
         const source = Layer.resolveSource(id, entry, inheritedLayer)
 
         this.title = entry.title ?? inheritedLayer?.title
-        this.summary = entry.abstract ?? inheritedLayer?.summary
+        this.abstract = entry.abstract ?? inheritedLayer?.abstract
         this.source = source
         this.dataset = entry.source ? entry.dataset : undefined
         this.crs = crs

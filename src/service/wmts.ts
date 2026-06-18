@@ -58,7 +58,7 @@ const WMTS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
     {{#layers}}
     <Layer>
       <ows:Title>{{title}}</ows:Title>
-      {{#summary}}<ows:Abstract>{{summary}}</ows:Abstract>{{/summary}}
+      {{#abstract}}<ows:Abstract>{{abstract}}</ows:Abstract>{{/abstract}}
       <ows:Identifier>{{name}}</ows:Identifier>
       <Style isDefault="true">
         <ows:Identifier>default</ows:Identifier>
@@ -306,7 +306,7 @@ class WmtsCapabilitiesBuilder {
     private static layerView(tileset: Tileset, serviceUrl: string): Props {
         return {
             title: tileset.title ?? tileset.id,
-            summary: tileset.summary,
+            abstract: tileset.abstract,
             name: tileset.id,
             formats: tileset.formats,
             tileMatrixSet: tileset.tileMatrixSet.id,

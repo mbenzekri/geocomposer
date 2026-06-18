@@ -277,7 +277,7 @@ export class OgcFeatures extends Service {
     const view: Props = {
       id: layer.id,
       title: layer.title ?? layer.id,
-      description: layer.summary,
+      description: layer.abstract,
       itemType: 'feature',
       crs: this.supportedCrs.map(crsUri),
       storageCrs: crsUri(layer.crs),

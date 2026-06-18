@@ -75,7 +75,7 @@ export class Tileset {
 
     readonly id: string
     readonly title?: string
-    readonly summary?: string
+    readonly abstract?: string
     readonly tileMatrixSet: TileMatrixSet
     readonly formats: string[]
     readonly tileSize: number
@@ -92,7 +92,7 @@ export class Tileset {
 
         this.id = id
         this.title = entry.title
-        this.summary = entry.abstract
+        this.abstract = entry.abstract
         this.tileMatrixSet = getTileMatrixSet(entry.tileMatrixSet)
         this.formats = normalizeTileFormats(entry.formats)
         this.tileSize = entry.tileSize ?? DEFAULT_TILE_SIZE

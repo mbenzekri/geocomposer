@@ -93,7 +93,7 @@ describe('test sources loading', () => {
 
         const layer = Layer.registry.get('world-mem')
         expect(layer.title).toBe('World Memory')
-        expect(layer.summary).toBe('Custom memory layer abstract')
+        expect(layer.abstract).toBe('Custom memory layer abstract')
         expect(layer.crs).toBe('EPSG:4326')
         expect(layer.extent).toEqual([-10, -10, 10, 10])
         expect(layer.pointProperties).toEqual([])

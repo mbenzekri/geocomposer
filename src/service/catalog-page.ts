@@ -29,7 +29,7 @@ type CatalogType = {
 type CatalogObject = {
   id: string
   title: string
-  summary?: string
+  abstract?: string
   badges: string[]
   highlights: CatalogFact[]
   details: CatalogFact[]
@@ -567,7 +567,7 @@ export class CatalogPage {
       return {
         id,
         title: service.title || serviceType,
-        summary: service.abstract,
+        abstract: service.abstract,
         badges: [serviceType],
         highlights: [
           { label: 'Type', value: serviceType },
@@ -584,7 +584,7 @@ export class CatalogPage {
     return Layer.registry.all.map((layer) => ({
       id: layer.id,
       title: layer.title ?? layer.id,
-      summary: layer.summary,
+      abstract: layer.abstract,
       badges: [layer.crs],
       highlights: [
         { label: 'ID', value: this.code(layer.id) },
@@ -606,7 +606,7 @@ export class CatalogPage {
       return {
         id: style.id,
         title: style.title ?? style.id,
-        summary: style.abstract,
+        abstract: style.abstract,
         badges: ['STYLE'],
         highlights: [
           { label: 'ID', value: this.code(style.id) },
@@ -643,7 +643,7 @@ export class CatalogPage {
     return Tileset.registry.all.map((tileset) => ({
       id: tileset.id,
       title: tileset.title ?? tileset.id,
-      summary: tileset.summary,
+      abstract: tileset.abstract,
       badges: [tileset.crs, tileset.tileMatrixSet.id],
       highlights: [
         { label: 'ID', value: this.code(tileset.id) },
@@ -702,7 +702,7 @@ export class CatalogPage {
   }
 
   private renderObjectCard(object: CatalogObject): string {
-    const summary = object.summary ? `<p class="small">${escape(object.summary)}</p>` : ''
+    const abstract = object.abstract ? `<p class="small">${escape(object.abstract)}</p>` : ''
     const badges = object.badges.length
       ? `<div class="badges">${object.badges.map((badge) => `<span class="badge">${escape(badge)}</span>`).join('')}</div>`
       : ''
@@ -712,7 +712,7 @@ export class CatalogPage {
         <div>
           <h3>${escape(object.title)}</h3>
           <code>${escape(object.id)}</code>
-          ${summary}
+          ${abstract}
         </div>
         ${badges}
       </div>
