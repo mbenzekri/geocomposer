@@ -35,6 +35,7 @@ export type LayerQueryOptions = Omit<QueryOptions, 'layer'> & {
 export class Layer {
     static readonly registry = new Registry<Layer>('LAYER')
 
+    readonly id: string
     readonly title?: string
     readonly summary?: string
     readonly source: Source
@@ -44,13 +45,15 @@ export class Layer {
     readonly pointProperties: Array<PointProperties & { crs: CrsCode }>
     private readonly styleName: string
 
-    constructor(readonly name: string, entry: LayerJson ) {
-        Layer.validateDataReference(name, entry)
+    constructor(id: string, entry: LayerJson ) {
+        this.id = id
+
+        Layer.validateDataReference(id, entry)
         const inheritedLayer = entry.layer ? Layer.registry.get(entry.layer) : undefined
-        const styleName = Layer.resolveDefaultStyleName(name, entry, inheritedLayer)
-        const crs = Layer.resolveLayerCrs(name, entry, inheritedLayer)
-        const pointProperties = Layer.resolvePointProperties(name, entry, crs, inheritedLayer)
-        const source = Layer.resolveSource(name, entry, inheritedLayer)
+        const styleName = Layer.resolveDefaultStyleName(id, entry, inheritedLayer)
+        const crs = Layer.resolveLayerCrs(id, entry, inheritedLayer)
+        const pointProperties = Layer.resolvePointProperties(id, entry, crs, inheritedLayer)
+        const source = Layer.resolveSource(id, entry, inheritedLayer)
 
         this.title = entry.title ?? inheritedLayer?.title
         this.summary = entry.abstract ?? inheritedLayer?.summary
@@ -58,7 +61,7 @@ export class Layer {
         this.dataset = entry.source ? entry.dataset : undefined
         this.crs = crs
         this.extent = entry.extent !== undefined
-            ? Gt.normalize(entry.extent, name)
+            ? Gt.normalize(entry.extent, id)
             : inheritedLayer?.extent
         this.pointProperties = pointProperties
         this.styleName = styleName
@@ -74,7 +77,7 @@ export class Layer {
                 if (!Layer.canBuild(entry)) continue
 
                 const layer = new Layer(name, entry)
-                Layer.registry.set(layer.name, layer)
+                Layer.registry.set(layer.id, layer)
                 pending.delete(name)
                 progressed = true
             }
@@ -241,7 +244,7 @@ export class Layer {
 
             const crs = Layer.resolveCrs(entry.crs, `Layer "${name}" crs`)
             if (crs !== inheritedLayer.crs) {
-                throw new Error(`Layer "${name}" cannot override crs "${inheritedLayer.crs}" from layer "${inheritedLayer.name}" with "${crs}"`)
+                throw new Error(`Layer "${name}" cannot override crs "${inheritedLayer.crs}" from layer "${inheritedLayer.id}" with "${crs}"`)
             }
 
             return inheritedLayer.crs

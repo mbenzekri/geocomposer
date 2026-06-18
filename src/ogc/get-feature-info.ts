@@ -216,7 +216,7 @@ class GeoJsonFormatter extends InfoFormatter {
     private toGeoJsonFeature(source: Feature): Props {
         const feature: Props = {
             type: 'Feature',
-            layer: source.layer.name,
+            layer: source.layer.id,
             properties: this.normalizeJsonValue(source.properties ?? {}),
             geometry: source.geometry
         }
@@ -258,7 +258,7 @@ class XmlFormatter extends InfoFormatter {
         let currentLayerName: string | null = null
 
         for (const feature of features) {
-            const layerName = feature.layer.name
+            const layerName = feature.layer.id
             if (layerName !== currentLayerName) {
                 if (currentLayerName !== null) {
                     xml.push('</Layer>')

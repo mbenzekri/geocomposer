@@ -83,7 +83,7 @@ function registerLayerDependencies(
   }
 
   if (!Style.registry.has(styleName)) {
-    Style.registry.set(styleName, { name: styleName, style })
+    Style.registry.set(styleName, { id: styleName, style })
   }
 }
 

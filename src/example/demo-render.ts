@@ -116,5 +116,5 @@ function registerLayerDependencies(
   }
 
   Source.registry.set(sourceName, source)
-  Style.registry.set(styleName, { name: styleName, style })
+  Style.registry.set(styleName, { id: styleName, style })
 }

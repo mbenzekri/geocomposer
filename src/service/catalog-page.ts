@@ -553,7 +553,8 @@ export class CatalogPage {
 
   private serviceObjects(req: IncomingMessage): CatalogObject[] {
     return Service.registry.all.map((service) => {
-      const id = service.name.toLowerCase()
+      const id = service.id
+      const serviceType = service.id.toUpperCase()
       const currentUrl = Service.serviceUrl(req, service.path)
       const details: CatalogFact[] = [
         { label: 'URL actuelle', value: this.code(currentUrl) }
@@ -565,11 +566,11 @@ export class CatalogPage {
 
       return {
         id,
-        title: service.title || service.name,
+        title: service.title || serviceType,
         summary: service.abstract,
-        badges: [service.name],
+        badges: [serviceType],
         highlights: [
-          { label: 'Type', value: service.name },
+          { label: 'Type', value: serviceType },
           { label: 'Chemin', value: this.code(service.path) },
           { label: 'URL', value: this.code(currentUrl) }
         ],
@@ -581,12 +582,12 @@ export class CatalogPage {
 
   private layerObjects(req: IncomingMessage): CatalogObject[] {
     return Layer.registry.all.map((layer) => ({
-      id: layer.name,
-      title: layer.title ?? layer.name,
+      id: layer.id,
+      title: layer.title ?? layer.id,
       summary: layer.summary,
       badges: [layer.crs],
       highlights: [
-        { label: 'ID', value: this.code(layer.name) },
+        { label: 'ID', value: this.code(layer.id) },
         { label: 'CRS', value: this.code(layer.crs) },
         { label: 'Emprise', value: layer.extent ? this.code(this.formatBbox(layer.extent)) : '<span class="small">Non declaree</span>' }
       ],
@@ -603,13 +604,13 @@ export class CatalogPage {
     return Style.registry.all.map((style) => {
       const example = this.styleExample(req, style)
       return {
-        id: style.name,
-        title: style.title ?? style.name,
+        id: style.id,
+        title: style.title ?? style.id,
         summary: style.abstract,
         badges: ['STYLE'],
         highlights: [
-          { label: 'ID', value: this.code(style.name) },
-          { label: 'Parametre WMS', value: this.code(`STYLES=${style.name}`) }
+          { label: 'ID', value: this.code(style.id) },
+          { label: 'Parametre WMS', value: this.code(`STYLES=${style.id}`) }
         ],
         details: [
           {
@@ -640,12 +641,12 @@ export class CatalogPage {
 
   private tilesetObjects(req: IncomingMessage): CatalogObject[] {
     return Tileset.registry.all.map((tileset) => ({
-      id: tileset.name,
-      title: tileset.title ?? tileset.name,
+      id: tileset.id,
+      title: tileset.title ?? tileset.id,
       summary: tileset.summary,
       badges: [tileset.crs, tileset.tileMatrixSet.id],
       highlights: [
-        { label: 'ID', value: this.code(tileset.name) },
+        { label: 'ID', value: this.code(tileset.id) },
         { label: 'CRS', value: this.code(tileset.crs) },
         { label: 'Zooms', value: this.code(`${tileset.minZoom}-${tileset.maxZoom}`) },
         { label: 'Taille', value: this.code(`${tileset.tileSize}px`) }
@@ -653,7 +654,7 @@ export class CatalogPage {
       details: [
         { label: 'TileMatrixSet', value: this.code(tileset.tileMatrixSet.id) },
         { label: 'Formats', value: this.renderChips(tileset.formats) },
-        { label: 'Layers', value: this.renderChips(tileset.layers.map((layer) => layer.name)) }
+        { label: 'Layers', value: this.renderChips(tileset.layers.map((layer) => layer.id)) }
       ],
       links: this.tilesetLinks(req, tileset)
     }))
@@ -764,14 +765,14 @@ export class CatalogPage {
   }
 
   private serviceLinks(req: IncomingMessage, service: Service): CatalogLink[] {
-    switch (service.name) {
-      case 'WMS':
+    switch (service.id) {
+      case 'wms':
         return this.wmsLinks(req, service)
-      case 'API':
+      case 'api':
         return this.apiLinks(req, service)
-      case 'XYZ':
+      case 'xyz':
         return this.xyzLinks(req, service)
-      case 'WMTS':
+      case 'wmts':
         return this.wmtsLinks(req, service)
       default:
         return [{ label: 'URL du service', href: Service.serviceUrl(req, service.path) }]
@@ -788,13 +789,13 @@ export class CatalogPage {
     const layer = this.firstLayer(service)
 
     if (layer) {
-      const style = Style.registry.has('default') ? 'default' : Style.registry.all[0]?.name
+      const style = Style.registry.has('default') ? 'default' : Style.registry.all[0]?.id
       const crs = this.serviceCrs(service, layer)
       const bbox = this.sampleBbox(layer, crs, true)
       const common = {
         SERVICE: 'WMS',
         VERSION: '1.3.0',
-        LAYERS: layer.name,
+        LAYERS: layer.id,
         STYLES: style ?? '',
         CRS: crs,
         BBOX: bbox.join(','),
@@ -809,21 +810,21 @@ export class CatalogPage {
           REQUEST: 'GetMap',
           FORMAT: 'image/png'
         }),
-        note: `layer=${layer.name}, style=${style}`
+        note: `layer=${layer.id}, style=${style}`
       })
       links.push({
         label: 'GetFeatureInfo exemple',
         href: this.url(req, service.path, {
           ...common,
           REQUEST: 'GetFeatureInfo',
-          QUERY_LAYERS: layer.name,
+          QUERY_LAYERS: layer.id,
           FORMAT: 'image/png',
           INFO_FORMAT: 'application/geo+json',
           I: '400',
           J: '200',
           FEATURE_COUNT: '5'
         }),
-        note: `query layer=${layer.name}`
+        note: `query layer=${layer.id}`
       })
     }
 
@@ -842,11 +843,11 @@ export class CatalogPage {
     if (layer) {
       links.push({
         label: 'Items GeoJSON exemple',
-        href: this.url(req, `${service.path}/collections/${encodeURIComponent(layer.name)}/items`, {
+        href: this.url(req, `${service.path}/collections/${encodeURIComponent(layer.id)}/items`, {
           limit: '10',
           crs: this.serviceCrs(service, layer)
         }),
-        note: `collection=${layer.name}`
+        note: `collection=${layer.id}`
       })
     }
 
@@ -871,9 +872,9 @@ export class CatalogPage {
         label: 'Tile exemple',
         href: Service.serviceUrl(
           req,
-          `${service.path}/${encodeURIComponent(tileset.name)}/${coord.z}/${coord.x}/${coord.y}.${output.extension}`
+          `${service.path}/${encodeURIComponent(tileset.id)}/${coord.z}/${coord.x}/${coord.y}.${output.extension}`
         ),
-        note: `tileset=${tileset.name}, format=${output.format}`
+        note: `tileset=${tileset.id}, format=${output.format}`
       }
     ]
 
@@ -882,7 +883,7 @@ export class CatalogPage {
         label: 'Tile retina exemple',
         href: Service.serviceUrl(
           req,
-          `${service.path}/${encodeURIComponent(tileset.name)}/${coord.z}/${coord.x}/${coord.y}@2x.${output.extension}`
+          `${service.path}/${encodeURIComponent(tileset.id)}/${coord.z}/${coord.x}/${coord.y}@2x.${output.extension}`
         )
       })
     }
@@ -907,7 +908,7 @@ export class CatalogPage {
           SERVICE: 'WMTS',
           REQUEST: 'GetTile',
           VERSION: '1.0.0',
-          LAYER: tileset.name,
+          LAYER: tileset.id,
           STYLE: 'default',
           TILEMATRIXSET: tileset.tileMatrixSet.id,
           TILEMATRIX: tileset.tileMatrixSet.matrixId(coord.z),
@@ -915,7 +916,7 @@ export class CatalogPage {
           TILECOL: String(coord.x),
           FORMAT: tileset.defaultFormat
         }),
-        note: `tileset=${tileset.name}`
+        note: `tileset=${tileset.id}`
       })
     }
 
@@ -924,25 +925,25 @@ export class CatalogPage {
 
   private layerLinks(req: IncomingMessage, layer: Layer): CatalogLink[] {
     const links: CatalogLink[] = []
-    const api = Service.registry.all.find((service) => service.name === 'API')
-    const wms = Service.registry.all.find((service) => service.name === 'WMS')
+    const api = Service.registry.all.find((service) => service.id === 'api')
+    const wms = Service.registry.all.find((service) => service.id === 'wms')
 
-    if (api && this.serviceLayers(api).some((entry) => entry.name === layer.name)) {
+    if (api && this.serviceLayers(api).some((entry) => entry.id === layer.id)) {
       links.push({
         label: 'Collection API',
-        href: Service.serviceUrl(req, `${api.path}/collections/${encodeURIComponent(layer.name)}`)
+        href: Service.serviceUrl(req, `${api.path}/collections/${encodeURIComponent(layer.id)}`)
       })
       links.push({
         label: 'Items API',
-        href: this.url(req, `${api.path}/collections/${encodeURIComponent(layer.name)}/items`, {
+        href: this.url(req, `${api.path}/collections/${encodeURIComponent(layer.id)}/items`, {
           limit: '10',
           crs: this.serviceCrs(api, layer)
         })
       })
     }
 
-    if (wms && this.serviceLayers(wms).some((entry) => entry.name === layer.name)) {
-      const style = Style.registry.has('default') ? 'default' : Style.registry.all[0]?.name
+    if (wms && this.serviceLayers(wms).some((entry) => entry.id === layer.id)) {
+      const style = Style.registry.has('default') ? 'default' : Style.registry.all[0]?.id
       const crs = this.serviceCrs(wms, layer)
       links.push({
         label: 'GetMap WMS',
@@ -950,7 +951,7 @@ export class CatalogPage {
           SERVICE: 'WMS',
           VERSION: '1.3.0',
           REQUEST: 'GetMap',
-          LAYERS: layer.name,
+          LAYERS: layer.id,
           STYLES: style ?? '',
           CRS: crs,
           BBOX: this.sampleBbox(layer, crs, true).join(','),
@@ -965,7 +966,7 @@ export class CatalogPage {
   }
 
   private styleExample(req: IncomingMessage, style: NamedStyle): CatalogLink | null {
-    const wms = Service.registry.all.find((service) => service.name === 'WMS')
+    const wms = Service.registry.all.find((service) => service.id === 'wms')
     if (!wms) return null
 
     const layer = this.serviceLayers(wms)[0]
@@ -978,22 +979,22 @@ export class CatalogPage {
         SERVICE: 'WMS',
         VERSION: '1.3.0',
         REQUEST: 'GetMap',
-        LAYERS: layer.name,
-        STYLES: style.name,
+        LAYERS: layer.id,
+        STYLES: style.id,
         CRS: crs,
         BBOX: this.sampleBbox(layer, crs, true).join(','),
         WIDTH: '800',
         HEIGHT: '400',
         FORMAT: 'image/png'
       }),
-      note: `layer=${layer.name}`
+      note: `layer=${layer.id}`
     }
   }
 
   private tilesetLinks(req: IncomingMessage, tileset: Tileset): CatalogLink[] {
     const links: CatalogLink[] = []
-    const xyz = Service.registry.all.find((service) => service.name === 'XYZ')
-    const wmts = Service.registry.all.find((service) => service.name === 'WMTS')
+    const xyz = Service.registry.all.find((service) => service.id === 'xyz')
+    const wmts = Service.registry.all.find((service) => service.id === 'wmts')
     const coord = this.sampleTileCoord(tileset)
 
     if (xyz) {
@@ -1002,7 +1003,7 @@ export class CatalogPage {
         label: 'XYZ exemple',
         href: Service.serviceUrl(
           req,
-          `${xyz.path}/${encodeURIComponent(tileset.name)}/${coord.z}/${coord.x}/${coord.y}.${output.extension}`
+          `${xyz.path}/${encodeURIComponent(tileset.id)}/${coord.z}/${coord.x}/${coord.y}.${output.extension}`
         ),
         note: output.format
       })
@@ -1015,7 +1016,7 @@ export class CatalogPage {
           SERVICE: 'WMTS',
           REQUEST: 'GetTile',
           VERSION: '1.0.0',
-          LAYER: tileset.name,
+          LAYER: tileset.id,
           STYLE: 'default',
           TILEMATRIXSET: tileset.tileMatrixSet.id,
           TILEMATRIX: tileset.tileMatrixSet.matrixId(coord.z),
@@ -1030,20 +1031,20 @@ export class CatalogPage {
   }
 
   private layerApiLink(req: IncomingMessage, layer: Layer): string {
-    const api = Service.registry.all.find((service) => service.name === 'API')
+    const api = Service.registry.all.find((service) => service.id === 'api')
     if (!api) return '<span class="small">API non configuree</span>'
-    if (!this.serviceLayers(api).some((entry) => entry.name === layer.name)) {
+    if (!this.serviceLayers(api).some((entry) => entry.id === layer.id)) {
       return '<span class="small">Non publie par API</span>'
     }
 
-    const href = Service.serviceUrl(req, `${api.path}/collections/${encodeURIComponent(layer.name)}`)
+    const href = Service.serviceUrl(req, `${api.path}/collections/${encodeURIComponent(layer.id)}`)
     return `<a href="${escape(href)}">collection</a>`
   }
 
   private renderStyleChips(styles: readonly NamedStyle[]): string {
     if (styles.length === 0) return '<span class="small">Aucun</span>'
 
-    const chips = styles.map((style) => `<span class="chip">${escape(style.name)}</span>`)
+    const chips = styles.map((style) => `<span class="chip">${escape(style.id)}</span>`)
     return `<div>${chips.join(' ')}</div>`
   }
 

@@ -11,7 +11,7 @@
     "test:watch": "vitest",
     "test:file": "npm run test:typecheck && vitest run",
     "test:file:watch": "npm run test:typecheck && vitest",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage --maxWorkers=8 ",
     "serve": "tsx src/geo-composer.ts -cc",
     "demo:styles": "tsx src/example/demo-styles.ts",
     "demo:dynstyle": "tsx src/example/demo-dynstyle.ts",

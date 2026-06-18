@@ -4,7 +4,7 @@ import type { Layer } from '../../src/layer/layer.js'
 import { MemSource } from '../../src/source/mem-source.js'
 
 const layer = {
-    name: 'target-layer',
+    id: 'target-layer',
     crs: 'EPSG:4326'
 } as Layer
 
@@ -247,7 +247,7 @@ describe('MemSource', () => {
         const wrappedFeature = feature('wrapped', [7, 8])
 
         const wrappedLayer = {
-            name: 'wrapped-layer',
+            id: 'wrapped-layer',
             crs: 'EPSG:3857',
             source: {},
             stream: vi.fn(() =>
@@ -319,7 +319,7 @@ describe('MemSource', () => {
 
     it('propagates layer stream errors', async () => {
         const wrappedLayer = {
-            name: 'wrapped-layer',
+            id: 'wrapped-layer',
             crs: 'EPSG:3857',
             source: {},
             stream: vi.fn(() =>

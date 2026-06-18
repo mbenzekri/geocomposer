@@ -6,7 +6,7 @@ import type { Layer } from '../../src/layer/layer.js'
 import { GeoJsonSource } from '../../src/source/geojson-source.js'
 
 const layer = {
-    name: 'geojson-layer',
+    id: 'geojson-layer',
     crs: 'EPSG:4326'
 } as Layer
 

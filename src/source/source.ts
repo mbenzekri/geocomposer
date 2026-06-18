@@ -173,7 +173,7 @@ export abstract class DbSource extends FeatureSource {
   }
 
   protected resolveDatasetId(layer: Layer): string {
-    return layer.dataset ?? layer.name
+    return layer.dataset ?? layer.id
   }
 }
 

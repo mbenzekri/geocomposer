@@ -15,7 +15,7 @@ type FileSourceRef = SourceRef & {
 
 const rootDir = process.cwd()
 const layer = {
-  name: 'world',
+  id: 'world',
   crs: 'EPSG:4326'
 } as Layer
 

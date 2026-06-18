@@ -51,7 +51,7 @@ describe('GeoComposer', () => {
         const result = await GeoComposer.from({ configPath })
 
         expect(result).toBeInstanceOf(GeoComposer)
-        expect(Service.registry.all.map((service) => service.name)).toEqual(['API'])
+        expect(Service.registry.all.map((service) => service.id)).toEqual(['api'])
     })
 
 })

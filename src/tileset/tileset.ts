@@ -73,7 +73,7 @@ export type RequiredVectorTileOptions = {
 export class Tileset {
     static readonly registry = new Registry<Tileset>('TILESET')
 
-    readonly name: string
+    readonly id: string
     readonly title?: string
     readonly summary?: string
     readonly tileMatrixSet: TileMatrixSet
@@ -87,10 +87,10 @@ export class Tileset {
     private readonly hasExplicitVectorOptions: boolean
     private readonly styleNames: ReadonlyArray<string | undefined>
 
-    constructor(name: string, entry: TilesetJson) {
-        const layerRefs = normalizeTilesetLayers(name, entry)
+    constructor(id: string, entry: TilesetJson) {
+        const layerRefs = normalizeTilesetLayers(id, entry)
 
-        this.name = name
+        this.id = id
         this.title = entry.title
         this.summary = entry.abstract
         this.tileMatrixSet = getTileMatrixSet(entry.tileMatrixSet)
@@ -101,7 +101,7 @@ export class Tileset {
         this.cacheControl = entry.cacheControl
         this.hasExplicitVectorOptions = entry.vector !== undefined
         this.vector = normalizeVectorOptions(entry.vector)
-        this.layers = layerRefs.map((ref) => resolveTilesetLayer(ref, name))
+        this.layers = layerRefs.map((ref) => resolveTilesetLayer(ref, id))
         this.styleNames = layerRefs.map((ref) => ref.style)
         this.resolveStyles()
         this.validate()
@@ -178,7 +178,7 @@ export class Tileset {
     resolveOutput(format?: string): TileOutput {
         const normalized = normalizeTileFormat(format ?? this.defaultFormat)
         if (!this.formats.includes(normalized)) {
-            throw new Error(`Tileset "${this.name}" does not support format "${normalized}"`)
+            throw new Error(`Tileset "${this.id}" does not support format "${normalized}"`)
         }
 
         return tileFormatInfo(normalized)
@@ -189,56 +189,56 @@ export class Tileset {
     }
 
     resolveStyles(): StyleFn[] {
-        return this.layers.map((layer, index) => resolveTilesetStyle(layer, this.styleNames[index], this.name))
+        return this.layers.map((layer, index) => resolveTilesetStyle(layer, this.styleNames[index], this.id))
     }
 
     private validate(): void {
-        if (!this.name) {
-            throw new Error('Tileset name must not be empty')
+        if (!this.id) {
+            throw new Error('Tileset id must not be empty')
         }
 
         if (!Number.isInteger(this.tileSize) || this.tileSize <= 0) {
-            throw new Error(`Tileset "${this.name}" tileSize must be a positive integer`)
+            throw new Error(`Tileset "${this.id}" tileSize must be a positive integer`)
         }
 
         if (!Number.isInteger(this.minZoom) || this.minZoom < 0) {
-            throw new Error(`Tileset "${this.name}" minZoom must be a non-negative integer`)
+            throw new Error(`Tileset "${this.id}" minZoom must be a non-negative integer`)
         }
 
         if (!Number.isInteger(this.maxZoom) || this.maxZoom < this.minZoom) {
-            throw new Error(`Tileset "${this.name}" maxZoom must be an integer greater than or equal to minZoom`)
+            throw new Error(`Tileset "${this.id}" maxZoom must be an integer greater than or equal to minZoom`)
         }
 
         if (this.layers.length === 0) {
-            throw new Error(`Tileset "${this.name}" must reference at least one configured layer`)
+            throw new Error(`Tileset "${this.id}" must reference at least one configured layer`)
         }
 
         if (!this.hasVectorFormats) {
             if (this.hasExplicitVectorOptions) {
-                throw new Error(`Tileset "${this.name}" vector options require at least one vector output format`)
+                throw new Error(`Tileset "${this.id}" vector options require at least one vector output format`)
             }
 
             return
         }
 
         if (!Number.isInteger(this.vector.extent) || this.vector.extent <= 0) {
-            throw new Error(`Tileset "${this.name}" vector.extent must be a positive integer`)
+            throw new Error(`Tileset "${this.id}" vector.extent must be a positive integer`)
         }
 
         if (!Number.isFinite(this.vector.buffer) || this.vector.buffer < 0) {
-            throw new Error(`Tileset "${this.name}" vector.buffer must be a non-negative number`)
+            throw new Error(`Tileset "${this.id}" vector.buffer must be a non-negative number`)
         }
 
         if (!Number.isFinite(this.vector.generalization.tolerance) || this.vector.generalization.tolerance < 0) {
-            throw new Error(`Tileset "${this.name}" vector.generalization.tolerance must be a non-negative number`)
+            throw new Error(`Tileset "${this.id}" vector.generalization.tolerance must be a non-negative number`)
         }
 
         if (!Number.isInteger(this.vector.geojsonPrecision) || this.vector.geojsonPrecision < 0) {
-            throw new Error(`Tileset "${this.name}" vector.geojsonPrecision must be a non-negative integer`)
+            throw new Error(`Tileset "${this.id}" vector.geojsonPrecision must be a non-negative integer`)
         }
 
         if (this.vector.maxFeatures !== undefined && (!Number.isInteger(this.vector.maxFeatures) || this.vector.maxFeatures <= 0)) {
-            throw new Error(`Tileset "${this.name}" vector.maxFeatures must be a positive integer`)
+            throw new Error(`Tileset "${this.id}" vector.maxFeatures must be a positive integer`)
         }
     }
 }
@@ -334,6 +334,6 @@ function resolveTilesetStyle(layer: Layer, styleName: string | undefined, tilese
         return layer.resolveStyle(styleName)
     } catch (error) {
         if (!styleName) throw error
-        throw new Error(`Unknown style "${styleName}" for layer "${layer.name}" in tileset "${tilesetName}"`)
+        throw new Error(`Unknown style "${styleName}" for layer "${layer.id}" in tileset "${tilesetName}"`)
     }
 }

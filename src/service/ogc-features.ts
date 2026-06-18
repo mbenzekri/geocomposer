@@ -59,7 +59,7 @@ export class OgcFeatures extends Service {
       ? options.supportedCrs.map((crs) => resolveCrs(crs, 'API supportedCrs'))
       : Crs.registry.all.map((entry) => entry.code)
 
-    this.layerByName = new Map(layers.map((layer) => [layer.name, layer]))
+    this.layerByName = new Map(layers.map((layer) => [layer.id, layer]))
     this.defaultLimit = options.defaultLimit ?? DEFAULT_LIMIT
     this.maxLimit = options.maxLimit ?? DEFAULT_MAX_LIMIT
     this.supportedCrs = supportedCrs.length
@@ -136,11 +136,11 @@ export class OgcFeatures extends Service {
 
   protected logHandleParams(traceId: number, request: ItemsRequest | ItemRequest): void {
     if ('featureId' in request) {
-      console.debug(`[API ${traceId}] COLLECTION=${request.layer.name} FEATURE_ID=${request.featureId} CRS=${request.crs}`)
+      console.debug(`[API ${traceId}] COLLECTION=${request.layer.id} FEATURE_ID=${request.featureId} CRS=${request.crs}`)
       return
     }
 
-    console.debug(`[API ${traceId}] COLLECTION=${request.layer.name} LIMIT=${request.limit} OFFSET=${request.offset} CRS=${request.crs}`)
+    console.debug(`[API ${traceId}] COLLECTION=${request.layer.id} LIMIT=${request.limit} OFFSET=${request.offset} CRS=${request.crs}`)
   }
 
   private async route(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
@@ -204,7 +204,7 @@ export class OgcFeatures extends Service {
         crs: request.crs
       })
 
-      if (!feature) throw new NotFoundError(`Feature "${request.featureId}" was not found in collection "${request.layer.name}"`)
+      if (!feature) throw new NotFoundError(`Feature "${request.featureId}" was not found in collection "${request.layer.id}"`)
 
       this.sendGeoJson(res, 200, new GeoJsonFeatureEncoder(request.properties).feature(feature), request.crs, headOnly)
       return
@@ -275,15 +275,15 @@ export class OgcFeatures extends Service {
   private async collectionView(req: IncomingMessage, layer: Layer): Promise<Props> {
     const extent = await layer.getExtent()
     const view: Props = {
-      id: layer.name,
-      title: layer.title ?? layer.name,
+      id: layer.id,
+      title: layer.title ?? layer.id,
       description: layer.summary,
       itemType: 'feature',
       crs: this.supportedCrs.map(crsUri),
       storageCrs: crsUri(layer.crs),
       links: [
-        this.link(req, `${this.path}/collections/${encodeURIComponent(layer.name)}`, 'self', 'application/json', 'Collection metadata'),
-        this.link(req, `${this.path}/collections/${encodeURIComponent(layer.name)}/items`, 'items', 'application/geo+json', 'Collection items')
+        this.link(req, `${this.path}/collections/${encodeURIComponent(layer.id)}`, 'self', 'application/json', 'Collection metadata'),
+        this.link(req, `${this.path}/collections/${encodeURIComponent(layer.id)}/items`, 'items', 'application/geo+json', 'Collection items')
       ]
     }
 
@@ -395,7 +395,7 @@ export class OgcFeatures extends Service {
   }
 
   private collectionPath(layer: Layer): string {
-    return `${this.path}/collections/${encodeURIComponent(layer.name)}`
+    return `${this.path}/collections/${encodeURIComponent(layer.id)}`
   }
 
   private itemsPath(layer: Layer): string {

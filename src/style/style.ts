@@ -12,7 +12,7 @@ const BUILTIN_STYLES: Dict<StyleFn> = {
 }
 
 export type NamedStyle = {
-  readonly name: string
+  readonly id: string
   readonly title?: string
   readonly abstract?: string
   readonly style: StyleFn
@@ -40,7 +40,7 @@ export class Style {
 
   static async build(styleEntries: Dict<StyleJson>): Promise<Registry<NamedStyle>> {
 
-    Style.registry.set('default',{ name: 'default',title: 'Default',style: defaultStyleFn })
+    Style.registry.set('default',{ id: 'default',title: 'Default',style: defaultStyleFn })
     const styleValidator = new StyleValidator(dynamicStyleSchema, 'Dynamic Style Schema')
 
     for (const [name, entry] of Object.entries(styleEntries)) {
@@ -51,21 +51,21 @@ export class Style {
   }
 
   static async create(
-    name: string,
+    id: string,
     entry: StyleJson,
     dynamicStyleValidator: JsonValidator<DynamicStyleJson>
   ): Promise<NamedStyle> {
     switch (entry.type) {
       case 'builtin':
-        if (!BUILTIN_STYLES[name]) {
-          throw new Error(`Unknown builtin style "${name}"`)
+        if (!BUILTIN_STYLES[id]) {
+          throw new Error(`Unknown builtin style "${id}"`)
         }
 
         return {
-          name,
-          title: entry.title ?? titleFromId(name),
+          id,
+          title: entry.title ?? titleFromId(id),
           abstract: entry.abstract,
-          style: BUILTIN_STYLES[name]
+          style: BUILTIN_STYLES[id]
         }
 
       case 'dynamic': {
@@ -73,19 +73,19 @@ export class Style {
 
         try {
           const json = dynamicStyleValidator.validate(stylePath)
-          const style = await createDynamicStyleFn(name, json, {
+          const style = await createDynamicStyleFn(id, json, {
             units: entry.options?.units,
             dotsPerInch: entry.options?.dotsPerInch
           })
           return {
-            name,
-            title: entry.title ?? json.title ?? titleFromId(name),
+            id,
+            title: entry.title ?? json.title ?? titleFromId(id),
             abstract: entry.abstract,
             style
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
-          throw new Error(`Invalid dynamic style "${name}" at ${stylePath}: ${message}`)
+          throw new Error(`Invalid dynamic style "${id}" at ${stylePath}: ${message}`)
         }
       }
     }

@@ -11,7 +11,7 @@ describe('MemSource', () => {
     let layerStreamCalls = 0
 
     const providerLayer = {
-      name: 'provider',
+      id: 'provider',
       crs: 'EPSG:4326',
       source,
       stream: () => {
@@ -22,7 +22,7 @@ describe('MemSource', () => {
 
     const mem = new MemSource('mem', providerLayer)
     const consumerLayer = {
-      name: 'consumer',
+      id: 'consumer',
       crs: 'EPSG:4326',
       source: mem
     } as unknown as Layer

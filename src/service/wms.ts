@@ -40,7 +40,7 @@ export class Wms extends Service {
 
         this.maxWidth = options.maxWidth ?? 4096
         this.maxHeight = options.maxHeight ?? 4096
-        this.layerByName = new Map(layers.map((layer) => [layer.name, layer]))
+        this.layerByName = new Map(layers.map((layer) => [layer.id, layer]))
         const crslist = supportedCrs.length > 0 ? supportedCrs : layers.map((layer) => layer.crs)
         this.supportedCrs = [...new Set(crslist)]
     }
@@ -382,13 +382,13 @@ class WmsCapabilitiesBuilder {
         const extent = await layer.getExtent()
 
         return {
-            name: layer.name,
-            title: layer.title ?? layer.name,
+            name: layer.id,
+            title: layer.title ?? layer.id,
             summary: layer.summary,
             crs: supportedCrs,
             styles: Style.registry.all.map((style) => ({
-                name: style.name,
-                title: style.title ?? style.name,
+                name: style.id,
+                title: style.title ?? style.id,
                 summary: style.abstract
             })),
             extent: extent ? this.extentView(extent, layer.crs, supportedCrs) : undefined

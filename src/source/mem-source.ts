@@ -174,7 +174,7 @@ function isLayer(value: Layer | Feature[] | MemFeatureProvider): value is Layer 
   return typeof value === 'object'
     && value !== null
     && !Array.isArray(value)
-    && typeof (value as Layer).name === 'string'
+    && typeof (value as Layer).id === 'string'
     && typeof (value as Layer).source === 'object'
     && typeof (value as Layer).stream === 'function'
 }

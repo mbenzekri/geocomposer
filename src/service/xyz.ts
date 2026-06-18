@@ -40,7 +40,7 @@ export class Xyz extends Service {
         validateXyzOptions(this.maxScaleFactor)
 
         this.tilesets = Tileset.select(options.tilesets, 'XYZ')
-        this.tilesetByName = new Map(this.tilesets.map((tileset) => [tileset.name, tileset]))
+        this.tilesetByName = new Map(this.tilesets.map((tileset) => [tileset.id, tileset]))
     }
 
     static fromConfig(entry: XyzJson): Xyz {
@@ -171,7 +171,7 @@ export class Xyz extends Service {
 
     logListening(baseUrl: string): void {
         console.log(`[XYZ] listening on: ${baseUrl}${this.path}`)
-        const sampleTileset = this.tilesets[0]?.name
+        const sampleTileset = this.tilesets[0]?.id
         if (sampleTileset) {
             console.log(`[XYZ] Get Tile: ${baseUrl}${this.path}/${encodeURIComponent(sampleTileset)}/1/1/1.png`)
             console.log(`[XYZ] Get Tile (Retina): ${baseUrl}${this.path}/${encodeURIComponent(sampleTileset)}/1/1/1@2x.png`)
@@ -179,7 +179,7 @@ export class Xyz extends Service {
     }
 
     protected logHandleParams(traceId: number, request: TileRequest): void {
-        console.debug(`[XYZ ${traceId}] TILESET=${request.tileset.name} FORMAT=${request.output.format} ZXY=${request.z}/${request.x}/${request.y} SIZE=${request.width}x${request.height} SCALE=${request.scale} BBOX=${request.bbox.join(',')}`)
+        console.debug(`[XYZ ${traceId}] TILESET=${request.tileset.id} FORMAT=${request.output.format} ZXY=${request.z}/${request.x}/${request.y} SIZE=${request.width}x${request.height} SCALE=${request.scale} BBOX=${request.bbox.join(',')}`)
     }
 
 }
@@ -230,7 +230,7 @@ function pathSegmentsAfter(pathname: string, basePath: string): string[] {
 
 function tileCacheKey(request: TileRequest) {
     return {
-        tileset: request.tileset.name,
+        tileset: request.tileset.id,
         z: request.z,
         x: request.x,
         y: request.y,

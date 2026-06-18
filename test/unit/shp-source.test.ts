@@ -7,7 +7,7 @@ import type { Layer } from '../../src/layer/layer.js'
 import { ShpSource } from '../../src/source/shp-source.js'
 
 const layer = {
-    name: 'test-layer',
+    id: 'test-layer',
     crs: 'EPSG:4326'
 } as Layer
 

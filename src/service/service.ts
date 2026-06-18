@@ -6,7 +6,7 @@ import { Registry } from '../core/tools.js'
 export abstract class Service {
     static readonly registry = new Registry<Service>('SERVICES')
 
-    readonly name: string
+    readonly id: string
     readonly path: string
     readonly title: string
     readonly abstract: string
@@ -14,14 +14,14 @@ export abstract class Service {
     protected readonly  cache?: TileCache
 
     protected constructor(
-        name: string,
-        title = `${name.toUpperCase()} service`,
-        abstract = `${name.toUpperCase()} map service`,
+        id: string,
+        title = `${id.toUpperCase()} service`,
+        abstract = `${id.toUpperCase()} map service`,
         path: string,
         onlineResource?: string,
         cache?: string
     ) {
-        this.name = name.toUpperCase()
+        this.id = id
         this.path = this.normalize(path)
         this.title = title
         this.abstract = abstract
@@ -37,7 +37,7 @@ export abstract class Service {
     }
 
     async clearCache() {
-        return this.cache?.clear().finally(() => console.log(`[${this.name.toUpperCase()}]: Cache cleared`))
+        return this.cache?.clear().finally(() => console.log(`[${this.logId}]: Cache cleared`))
     }
     matches(pathname: string): boolean {
         return pathname === this.path
@@ -47,17 +47,21 @@ export abstract class Service {
     protected abstract logHandleParams(traceId: number, request: any ): void 
 
     protected logHandleStart(traceId: number, method: string, url: string): void {
-        console.log(`[${this.name} ${traceId}] IN  ${method} ${url}`)
+        console.log(`[${this.logId} ${traceId}] IN  ${method} ${url}`)
     }
     protected logHandleError(traceId: number, url: string, startedAt: number | undefined, error: unknown): void {
         const message = error instanceof Error ? error.message : String(error)
         const duration = startedAt == null ? '' : ` ${Date.now() - startedAt}ms`
-        const prefix = traceId == null ? `[${this.name}]` : `[${this.name} ${traceId}]`
+        const prefix = traceId == null ? `[${this.logId}]` : `[${this.logId} ${traceId}]`
         console.error(`${prefix} ERROR ${duration} ${url} ${message}`)
     }
     protected logHandleDone(traceId: number, statusCode: number, startedAt: number, size: number): void {
         const durationMs = Date.now() - startedAt
-        console.log(`[${this.name}  ${traceId}] OUT ${statusCode} ${durationMs}ms ${size}B`)
+        console.log(`[${this.logId}  ${traceId}] OUT ${statusCode} ${durationMs}ms ${size}B`)
+    }
+
+    protected get logId(): string {
+        return this.id.toUpperCase()
     }
 
     static setCorsHeaders(res: ServerResponse): void {

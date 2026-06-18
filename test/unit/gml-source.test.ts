@@ -6,7 +6,7 @@ import type { Layer } from '../../src/layer/layer.js'
 import { GmlSource } from '../../src/source/gml-source.js'
 
 const layer = {
-    name: 'gml-layer',
+    id: 'gml-layer',
     crs: 'EPSG:4326'
 } as Layer
 

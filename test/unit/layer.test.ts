@@ -67,7 +67,7 @@ describe('Layer', () => {
                 { x: 'label_x', y: 'label_y' }
             ]
         })
-        Layer.registry.set(base.name, base)
+        Layer.registry.set(base.id, base)
 
         const child = new Layer('child', { layer: 'base', crs: 'EPSG:4326' })
 
@@ -155,7 +155,7 @@ describe('Layer', () => {
     test('reports invalid layer data references and unresolved build inputs', () => {
         setupSource('source-a')
         const base = new Layer('base', { source: 'source-a', crs: 'EPSG:4326' })
-        Layer.registry.set(base.name, base)
+        Layer.registry.set(base.id, base)
 
         expect(() => new Layer('bad', { source: 'source-a', layer: 'base', crs: 'EPSG:4326' }))
             .toThrow('Layer "bad" must define either source or layer, not both')
@@ -176,7 +176,7 @@ describe('Layer', () => {
     test('rejects invalid crs and point property declarations', () => {
         setupSource('source-a')
         const base = new Layer('base', { source: 'source-a', crs: 'EPSG:4326' })
-        Layer.registry.set(base.name, base)
+        Layer.registry.set(base.id, base)
 
         expect(() => new Layer('bad', { source: 'source-a' }))
             .toThrow('Layer "bad" must define crs')
@@ -199,7 +199,7 @@ describe('Layer', () => {
     test('rejects memory layer creation when a source already uses the layer name', () => {
         setupSource('source-a')
         const base = new Layer('base', { source: 'source-a', crs: 'EPSG:4326' })
-        Layer.registry.set(base.name, base)
+        Layer.registry.set(base.id, base)
         setupSource('child')
 
         expect(() => new Layer('child', { layer: 'base' }))
@@ -291,8 +291,8 @@ class TestSource extends Source {
 function setupRegistries(): void {
     Crs.registry.set('EPSG:4326', new Crs('EPSG:4326', 'WGS 84', 'WGS 84'))
     Crs.registry.set('EPSG:3857', new Crs('EPSG:3857', 'Web Mercator', 'Web Mercator'))
-    Style.registry.set('default', { name: 'default', style: defaultStyle })
-    Style.registry.set('alternate', { name: 'alternate', style: alternateStyle })
+    Style.registry.set('default', { id: 'default', style: defaultStyle })
+    Style.registry.set('alternate', { id: 'alternate', style: alternateStyle })
 }
 
 function setupSource(id: string, features: Feature[] = [], extent: BBox | null = null): TestSource {

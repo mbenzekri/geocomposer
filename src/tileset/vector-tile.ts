@@ -112,12 +112,12 @@ class VectorTileRenderer {
     this.geoJsonFeatures.push({
       type: 'Feature',
       id: feature.id,
-      layer: layer.name,
+      layer: layer.id,
       properties: cloneProperties(feature.properties),
       geometry: processed.worldGeometry
     })
 
-    const mvtLayer = this.mvtLayer(layer.name)
+    const mvtLayer = this.mvtLayer(layer.id)
     mvtLayer.features.push({
       id: feature.id,
       properties: cloneProperties(feature.properties),

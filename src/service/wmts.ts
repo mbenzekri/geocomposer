@@ -115,7 +115,7 @@ export class Wmts extends Service {
         super('wmts', opts.title, opts.abstract, opts.path ?? '/wmts', opts.onlineResource, opts.cache)
 
         const tilesets = Tileset.select(opts.tilesets, 'WMTS')
-        this.tilesetByName = new Map(tilesets.map((tileset) => [tileset.name, tileset]))
+        this.tilesetByName = new Map(tilesets.map((tileset) => [tileset.id, tileset]))
         validateWmtsTilesets(tilesets)
     }
 
@@ -174,7 +174,7 @@ export class Wmts extends Service {
                 this.logHandleParams(traceId, tileRequest)
 
                 const cacheKey = {
-                    tileset: tileRequest.tileset.name,
+                    tileset: tileRequest.tileset.id,
                     z: tileRequest.z,
                     x: tileRequest.x,
                     y: tileRequest.y,
@@ -251,14 +251,14 @@ export class Wmts extends Service {
     logListening(baseUrl: string): void {
         console.log(`[WMTS] listening on: ${baseUrl}${this.path}`)
         console.log(`[WMTS] GetCapabilities: ${baseUrl}${this.path}?SERVICE=WMTS&REQUEST=GetCapabilities`)
-        const sampleTileset = this.tilesets[0]?.name
+        const sampleTileset = this.tilesets[0]?.id
         if (sampleTileset) {
             console.log(`[WMTS] Get Tile: ${baseUrl}${this.path}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(sampleTileset)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=1&TILEROW=1&TILECOL=1&FORMAT=image%2Fpng`)
         }
     }
 
     protected logHandleParams(traceId: number, request: WmtsTileRequest): void {
-        console.log(`[WMTS ${traceId}] LAYER=${request.tileset.name} FORMAT=${request.output.format} TILEMATRIX=${request.z} ROWCOL=${request.y}/${request.x}`)
+        console.log(`[WMTS ${traceId}] LAYER=${request.tileset.id} FORMAT=${request.output.format} TILEMATRIX=${request.z} ROWCOL=${request.y}/${request.x}`)
     }
 }
 
@@ -305,9 +305,9 @@ class WmtsCapabilitiesBuilder {
 
     private static layerView(tileset: Tileset, serviceUrl: string): Props {
         return {
-            title: tileset.title ?? tileset.name,
+            title: tileset.title ?? tileset.id,
             summary: tileset.summary,
-            name: tileset.name,
+            name: tileset.id,
             formats: tileset.formats,
             tileMatrixSet: tileset.tileMatrixSet.id,
             limits: this.tileMatrixSetLimits(tileset),
@@ -365,7 +365,7 @@ function tileTemplate(serviceUrl: string, tileset: Tileset, output: TileOutput):
         `${serviceUrl}?SERVICE=WMTS`,
         'REQUEST=GetTile',
         `VERSION=${WMTS_VERSION}`,
-        `LAYER=${encodeURIComponent(tileset.name)}`,
+        `LAYER=${encodeURIComponent(tileset.id)}`,
         'STYLE=default',
         `TILEMATRIXSET=${encodeURIComponent(tileset.tileMatrixSet.id)}`,
         'TILEMATRIX={TileMatrix}',

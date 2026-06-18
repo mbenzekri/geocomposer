@@ -8,7 +8,7 @@ import { GpkgSource } from '../../src/source/gpkg-source.js'
 const { DatabaseSync } = await import('node:sqlite')
 
 const layer = {
-    name: 'cities',
+    id: 'cities',
     dataset: 'cities',
     crs: 'EPSG:4326'
 } as Layer
@@ -451,7 +451,7 @@ describe('GpkgSource', () => {
         await source.close()
     })
 
-    it('supports dataset fallback to layer name', async () => {
+    it('supports dataset fallback to layer id', async () => {
         const file = createValidGeoPackage()
         const source = new GpkgSource('src', file, {
             cities: {
@@ -461,7 +461,7 @@ describe('GpkgSource', () => {
 
         const result = await readAll(source.stream({
             layer: {
-                name: 'cities',
+                id: 'cities',
                 crs: 'EPSG:4326'
             } as Layer
         }))
@@ -519,7 +519,7 @@ describe('GpkgSource', () => {
 
         const result = await readAll(source.stream({
             layer: {
-                name: 'places',
+                id: 'places',
                 dataset: 'places',
                 crs: 'EPSG:4326'
             } as Layer
@@ -759,7 +759,7 @@ describe('GpkgSource', () => {
         await source.open()
 
         await expect(source.getExtent({
-            name: 'roads',
+            id: 'roads',
             dataset: 'roads',
             crs: 'EPSG:4326'
         } as Layer)).rejects.toThrow(
