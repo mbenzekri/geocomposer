@@ -1,20 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GeoComposer } from '../../src/geo-composer.js';
-import { dirname, resolve } from 'node:path';
-import fs from 'node:fs';
 import { Service } from '../../src/service/service.js';
 import { Singleton } from '../../src/core/tools.js';
 import { Config } from '../../src/config/config.js';
+import { writeTestConfig } from '../test-temp.js';
 
 function copyAny(val: any): any {
     return JSON.parse(JSON.stringify(val))
 }
 
 function writeConf(filename: string, conf: Record<string, unknown>) {
-    const fullpath = resolve('./test/temp', filename)
-    fs.mkdirSync(dirname(fullpath), { recursive: true })
-    fs.writeFileSync(fullpath, JSON.stringify(conf, undefined, 4))
-    return fullpath
+    return writeTestConfig(filename, conf)
 }
 const baseConf = {
     server: {

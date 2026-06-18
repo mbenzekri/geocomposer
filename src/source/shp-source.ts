@@ -113,7 +113,7 @@ class ShpReader {
   async open(): Promise<void> {
     await access(this.shpPath, constants.R_OK)
     await access(this.dbfPath, constants.R_OK)
-    await this.getDbfReader()
+    this.dbfReader ??= await this.openDbfReader()
   }
 
   async close(): Promise<void> {
@@ -123,7 +123,8 @@ class ShpReader {
 
   async *stream(options: StreamOptions): AsyncGenerator<Feature> {
     const { layer, signal } = options
-    const dbf = await this.getDbfReader()
+    const dbf = this.dbfReader ?? await this.openDbfReader()
+    const closeDbf = dbf !== this.dbfReader
     const parser = new ShpRecordParser()
     const file = createReadStream(this.shpPath, {
       start: 100,
@@ -150,13 +151,17 @@ class ShpReader {
       }
     } finally {
       file.destroy()
+      if (closeDbf) {
+        await dbf.close()
+      }
     }
   }
 
   async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     const ref = this.toShpRef(sourceRef)
     const handle = await open(this.shpPath, 'r')
-    const dbf = await this.getDbfReader()
+    const dbf = this.dbfReader ?? await this.openDbfReader()
+    const closeDbf = dbf !== this.dbfReader
 
     try {
       const buffer = Buffer.alloc(ref.byteLength)
@@ -179,16 +184,19 @@ class ShpReader {
 
       return this.toFeature(record, await dbf.readRecord(recordIndex), options.layer, recordIndex)
     } finally {
-      await handle.close()
+      try {
+        await handle.close()
+      } finally {
+        if (closeDbf) {
+          await dbf.close()
+        }
+      }
     }
   }
 
-  private async getDbfReader(): Promise<DbfReader> {
-    if (this.dbfReader) return this.dbfReader
-
+  private async openDbfReader(): Promise<DbfReader> {
     const encoding = this.options.dbfEncoding ?? await DbfEncodingResolver.read(this.dbfPath)
-    this.dbfReader = await DbfReader.open(`${this.sourceId}:dbf`, this.dbfPath, encoding)
-    return this.dbfReader
+    return DbfReader.open(`${this.sourceId}:dbf`, this.dbfPath, encoding)
   }
 
   private toFeature(

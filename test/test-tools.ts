@@ -1,17 +1,14 @@
-import fs from "node:fs"
-import { dirname, resolve } from "node:path"
+import { resolve } from "node:path"
 import { Singleton } from "../src/core/tools.js"
 import { GeoComposer } from "../src/geo-composer.js"
 import { Config } from "../src/config/config.js"
+import { writeTestConfig } from "./test-temp.js"
 
 export function copyAny(val: any): any {
     return JSON.parse(JSON.stringify(val))
 }
 export function writeConf(filename: string, conf: Record<string, unknown>) {
-    const fullpath = resolve('./test/temp', filename)
-    fs.mkdirSync(dirname(fullpath), { recursive: true })
-    fs.writeFileSync(fullpath, JSON.stringify(conf, undefined, 4))
-    return fullpath
+    return writeTestConfig(filename, conf)
 }
 
 export let config_base: Record<string, any> = {}

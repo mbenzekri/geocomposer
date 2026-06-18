@@ -228,7 +228,7 @@ describe('test sources loading', () => {
         config_min.services = {}
         const configPath = writeConf('test-conf.json', config_min)
 
-        expect(async () => await GeoComposer.from({ configPath }))
+        await expect(async () => await GeoComposer.from({ configPath }))
             .rejects.toThrow('/services must NOT have fewer than 1 properties')
     })
 
@@ -237,7 +237,7 @@ describe('test sources loading', () => {
         config_min.projections = {}
         const configPath = writeConf('test-conf.json', config_min)
 
-        expect(async () => await GeoComposer.from({ configPath }))
+        await expect(async () => await GeoComposer.from({ configPath }))
             .rejects.toThrow('Layer "world" crs "EPSG:4326" is not declared in projections')
     })
 
@@ -246,7 +246,7 @@ describe('test sources loading', () => {
         config_min.sources = {}
         const configPath = writeConf('test-conf.json', config_min)
 
-        expect(async () => await GeoComposer.from({ configPath }))
+        await expect(async () => await GeoComposer.from({ configPath }))
             .rejects.toThrow('/sources must NOT have fewer than 1 properties')
     })
 
@@ -255,7 +255,7 @@ describe('test sources loading', () => {
         config_min.layers = {}
         const configPath = writeConf('test-conf.json', config_min)
 
-        expect(async () => await GeoComposer.from({ configPath }))
+        await expect(async () => await GeoComposer.from({ configPath }))
             .rejects.toThrow('/layers must NOT have fewer than 1 properties')
     })
 

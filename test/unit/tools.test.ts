@@ -2,7 +2,7 @@
 
 import fs from 'node:fs'
 import os from 'node:os'
-import path, { resolve } from 'node:path'
+import path from 'node:path'
 import process from 'node:process'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -23,8 +23,9 @@ import {
     parsePositiveInt,
     stringify
 } from '../../src/core/tools.js'
+import { testTempPath } from '../test-temp.js'
 
-const tempPath = resolve('./test/temp')
+const tempPath = testTempPath()
 
 describe('tools', () => {
     afterEach(() => {
