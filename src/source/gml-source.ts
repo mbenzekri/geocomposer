@@ -253,7 +253,7 @@ class GmlFeatureStreamParser {
     for (;;) {
       const start = findNextElementStart(this.buffer, this.position)
       if (start === null) {
-        this.position = Math.max(0, this.buffer.length - 256)
+        this.position = Math.max(this.position, this.buffer.length - 256)
         this.trimBuffer()
         return null
       }
@@ -858,7 +858,11 @@ function getAttribute(openTag: string, attributeName: string): string | null {
 }
 
 function stripTags(xml: string): string {
-  return xml.replace(/<[^>]*>/g, '')
+  return xml
+    .replace(/<!\[CDATA\[([\s\S]*?)]]>/g, '$1')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<\?[\s\S]*?\?>/g, '')
+    .replace(/<[^>]*>/g, '')
 }
 
 function decodeXmlEntities(value: string): string {
