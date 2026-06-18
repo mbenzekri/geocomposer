@@ -24,11 +24,14 @@ type GpkgTableOptions = {
 }
 
 type SqliteDatabase = {
-  prepare: (sql: string) => {
-    get: (...params: unknown[]) => Props | undefined
-    all: (...params: unknown[]) => Props[]
-  }
+  prepare: (sql: string) => SqliteStatement
   close: () => void
+}
+
+type SqliteStatement = {
+  get: (...params: unknown[]) => Props | undefined
+  all: (...params: unknown[]) => Props[]
+  setReadBigInts?: (enabled: boolean) => void
 }
 
 type GeoPackageTableMeta = {
@@ -162,7 +165,7 @@ class GpkgReader {
   async *stream(datasetId: string, options: StreamOptions): AsyncGenerator<Feature> {
     const state = this.requireOpen()
     const meta = this.metaForDataset(datasetId)
-    const rows = state.db.prepare(this.selectAllSql(meta)).all()
+    const rows = prepareStatement(state.db, this.selectAllSql(meta)).all()
     const signal = options.signal
 
     for (let index = 0; index < rows.length; index += 1) {
@@ -175,7 +178,7 @@ class GpkgReader {
     const state = this.requireOpen()
     const meta = this.metaForDataset(datasetId)
     const ref = this.toDbRef(sourceRef, meta)
-    const row = state.db.prepare(this.selectOneSql(meta)).get(ref.rowId)
+    const row = prepareStatement(state.db, this.selectOneSql(meta)).get(ref.rowId)
     if (!row) return null
     return this.toFeature(meta, row, ref.recordIndex ?? 0, options.layer)
   }
@@ -183,7 +186,7 @@ class GpkgReader {
   async readById(featureId: string, datasetId: string, options: StreamOptions): Promise<Feature | null> {
     const state = this.requireOpen()
     const meta = this.metaForDataset(datasetId)
-    const row = state.db.prepare(this.selectOneSql(meta)).get(featureId)
+    const row = prepareStatement(state.db, this.selectOneSql(meta)).get(featureId)
     if (!row) return null
     return this.toFeature(meta, row, 0, options.layer)
   }
@@ -326,6 +329,12 @@ async function openGeoPackageDatabase(path: PathLike): Promise<SqliteDatabase> {
   return new module.DatabaseSync(path, { readOnly: true })
 }
 
+function prepareStatement(db: SqliteDatabase, sql: string): SqliteStatement {
+  const statement = db.prepare(sql)
+  statement.setReadBigInts?.(true)
+  return statement
+}
+
 function resolveTableMeta(
   db: SqliteDatabase,
   options: GpkgTableOptions
@@ -354,7 +363,7 @@ function resolveTableMeta(
 
   sql += ' ORDER BY gc.table_name, gc.column_name'
 
-  const rows = db.prepare(sql).all()
+  const rows = prepareStatement(db, sql).all()
 
   if (rows.length === 0) {
     throw new Error('Invalid GeoPackage: no feature geometry table found for the requested options')
@@ -368,7 +377,7 @@ function resolveTableMeta(
   const tableName = String(selected.table_name)
   const geometryColumn = String(selected.geometry_column)
   const srsId = toOptionalNumber(selected.srs_id)
-  const tableInfo = db.prepare(`PRAGMA table_info(${quoteSqlIdentifier(tableName)})`).all()
+  const tableInfo = prepareStatement(db, `PRAGMA table_info(${quoteSqlIdentifier(tableName)})`).all()
   const tableColumns = tableInfo
     .map((column) => String(column.name))
     .filter(Boolean)
