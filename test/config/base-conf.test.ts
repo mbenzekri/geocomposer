@@ -9,6 +9,7 @@ import { OracleSource } from '../../src/source/oracle-source.js'
 import { Layer } from '../../src/layer/layer.js'
 import { Style } from '../../src/style/style.js'
 import { Feature } from '../../src/core/feature.js'
+import { Tileset } from '../../src/tileset/tileset.js'
 
 
 describe('test sources loading', () => {
@@ -26,6 +27,23 @@ describe('test sources loading', () => {
         const configPath = writeConf('config_mem_missing_layer.json', config_base)
 
         await expect(GeoComposer.from({ configPath })).rejects.toThrow('missing-layer')
+    })
+
+    test('tileset layer can be declared by layer name and uses the layer default style', async () => {
+        config_min.tilesets = {
+            "world": {
+                "formats": ["image/png"],
+                "layers": ["world"]
+            }
+        }
+        const configPath = writeConf('config_tileset_layer_name.json', config_min)
+
+        await GeoComposer.from({ configPath })
+
+        const layer = Layer.registry.get('world')
+        const tileset = Tileset.registry.get('world')
+        expect(tileset.layers).toEqual([layer])
+        expect(tileset.resolveStyles()).toEqual([layer.style])
     })
 
     test('memory layer is configured without a declared memory source', async () => {

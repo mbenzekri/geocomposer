@@ -18,14 +18,13 @@ import { PathsSolver } from './path-solver.js'
 
 
 class ConfigValidator extends JsonValidator<GeoComposerJson> {
-    constructor(schema: unknown, name: string, private readonly baseDir: string) {
+    constructor(schema: unknown, name: string) {
         super(schema, name)
     }
 
     protected transform(document: unknown): unknown {
         let solved = new EnvSolver().solve(document)
         solved = new DefsSolver().solve(solved)
-        solved = new PathsSolver(this.baseDir).solve(solved)
         return solved
     }
 }
@@ -84,8 +83,8 @@ export class Config extends Singleton {
         console.log(`[CONFIG]: loading ${this.path}`)
 
         // loading json and validating syntax of the config file
-        const configValidator = new ConfigValidator(configSchema, "Configuration Schema", this.dir)
-        const json = configValidator.validate(this.path)
+        const configValidator = new ConfigValidator(configSchema, "Configuration Schema")
+        const json = new PathsSolver(this.dir).solve(configValidator.validate(this.path))
 
         // set LogLevel and PORT from Args/Config
         const logLevelName = json.server?.logLevel ?? "LOG"

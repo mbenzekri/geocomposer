@@ -47,6 +47,8 @@ export type TilesetLayerJson = {
     style?: string
 }
 
+export type TilesetLayerRefJson = string | TilesetLayerJson
+
 export type TilesetJson = DescInfo & {
     tileMatrixSet?: string
     formats: string[]
@@ -55,7 +57,7 @@ export type TilesetJson = DescInfo & {
     maxZoom?: number
     cacheControl?: string
     vector?: VectorTileOptions
-    layers: TilesetLayerJson[]
+    layers: TilesetLayerRefJson[]
 }
 
 export type RequiredVectorTileOptions = {
@@ -305,10 +307,18 @@ function normalizeTilesetLayers(name: string, entry: TilesetJson): TilesetLayerJ
         throw new Error(`Tileset "${name}" must define at least one entry in "layers"`)
     }
 
-    return entry.layers.map((ref) => ({
-        layer: ref.layer,
-        style: ref.style
-    }))
+    return entry.layers.map((ref) => {
+        if (typeof ref === 'string') {
+            return {
+                layer: ref
+            }
+        }
+
+        return {
+            layer: ref.layer,
+            style: ref.style
+        }
+    })
 }
 
 function resolveTilesetLayer(ref: TilesetLayerJson, tilesetName: string): Layer {
