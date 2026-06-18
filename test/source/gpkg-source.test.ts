@@ -31,7 +31,12 @@ function gpkgPath(name = 'data.gpkg'): string {
 }
 
 function createDatabase(file = gpkgPath()): InstanceType<typeof DatabaseSync> {
-    return new DatabaseSync(file)
+    const db = new DatabaseSync(file)
+    db.exec(`
+        PRAGMA journal_mode = MEMORY;
+        PRAGMA synchronous = OFF;
+    `)
+    return db
 }
 
 function createBaseGeoPackage(db: InstanceType<typeof DatabaseSync>): void {
