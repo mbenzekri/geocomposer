@@ -11,7 +11,13 @@ export function testTempDir(): string {
 
     const realTempDir = fs.realpathSync(tempDir)
     assertTmpPath(realTempDir)
-    return realTempDir
+
+    const workerTempDir = path.join(realTempDir, workerTempName())
+    fs.mkdirSync(workerTempDir, { recursive: true })
+
+    const realWorkerTempDir = fs.realpathSync(workerTempDir)
+    assertTmpPath(realWorkerTempDir)
+    return realWorkerTempDir
 }
 
 export function testTempPath(...parts: string[]): string {
@@ -79,4 +85,8 @@ function repoRelativePath(value: string): string {
     return value.startsWith('../../')
         ? value.slice('../../'.length)
         : value
+}
+
+function workerTempName(): string {
+    return `worker-${process.env.VITEST_WORKER_ID ?? process.env.VITEST_POOL_ID ?? process.pid}`
 }
