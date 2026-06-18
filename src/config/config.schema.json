@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://geocomposer.local/config.schema.json",
   "title": "GeoComposer config",
-  "description": "Schema for the resolved GeoComposer configuration validated after EnvSolver and DefsSolver.",
+  "description": "GeoComposer configuration file. The configuration is validated after environment placeholders and `$defs` references have been resolved. Required top-level sections: `services`, `sources`, and `layers`.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,86 +12,108 @@
   ],
   "properties": {
     "$schema": {
-      "type": "string"
+      "type": "string",
+      "description": "JSON Schema URI used by editors for validation and autocompletion. Usually keep this value unchanged."
     },
     "server": {
-      "$ref": "#/$defs/server"
+      "$ref": "#/$defs/server",
+      "description": "Optional HTTP server and logging configuration."
     },
     "services": {
-      "$ref": "#/$defs/services"
+      "$ref": "#/$defs/services",
+      "description": "Enabled service endpoints. Required."
     },
     "tilesets": {
-      "$ref": "#/$defs/tilesets"
+      "$ref": "#/$defs/tilesets",
+      "description": "Unique list of tileset names. Values must reference keys from the top-level `tilesets` registry."
     },
     "projections": {
-      "$ref": "#/$defs/projections"
+      "$ref": "#/$defs/projections",
+      "description": "Optional registry of custom or named projections."
     },
     "sources": {
-      "$ref": "#/$defs/sources"
+      "$ref": "#/$defs/sources",
+      "description": "Data source registry. Required."
     },
     "styles": {
-      "$ref": "#/$defs/styles"
+      "$ref": "#/$defs/styles",
+      "description": "Optional style registry referenced by layers and tilesets."
     },
     "layers": {
-      "$ref": "#/$defs/layers"
+      "$ref": "#/$defs/layers",
+      "description": "Unique list of layer names to expose or include. Values must reference keys from the top-level `layers` registry, unless an object form is allowed here."
     }
   },
   "$defs": {
     "httpPath": {
       "title": "HTTP path",
       "type": "string",
-      "pattern": "^/"
+      "pattern": "^/",
+      "description": "HTTP route path used by a service endpoint. Pattern `^/`: the path must start with `/`, for example `/wms`, `/api`, `/tiles`. Pattern `^/`: the value must start with `/`."
     },
     "describedEntry": {
       "title": "Common descriptive fields",
       "type": "object",
       "properties": {
         "title": {
-          "type": "string"
+          "type": "string",
+          "description": "Human-readable title shown in service metadata and clients."
         },
         "abstract": {
-          "type": "string"
+          "type": "string",
+          "description": "Human-readable description shown in service metadata and clients."
         }
-      }
+      },
+      "description": "Reusable descriptive metadata shared by sources, layers, styles and tilesets."
     },
     "serviceInfo": {
       "title": "Common service fields",
       "type": "object",
       "properties": {
         "path": {
-          "$ref": "#/$defs/httpPath"
+          "$ref": "#/$defs/httpPath",
+          "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`."
         },
         "title": {
-          "type": "string"
+          "type": "string",
+          "description": "Human-readable title shown in service metadata and clients."
         },
         "abstract": {
-          "type": "string"
+          "type": "string",
+          "description": "Human-readable description shown in service metadata and clients."
         },
         "onlineResource": {
-          "type": "string"
+          "type": "string",
+          "description": "Public service URL advertised in service capabilities metadata."
         }
-      }
+      },
+      "description": "Reusable service metadata for OGC-like services."
     },
     "bbox": {
       "title": "Bounding box",
       "type": "array",
       "prefixItems": [
         {
-          "type": "number"
+          "type": "number",
+          "description": "Minimum X coordinate of the bounding box."
         },
         {
-          "type": "number"
+          "type": "number",
+          "description": "Minimum Y coordinate of the bounding box."
         },
         {
-          "type": "number"
+          "type": "number",
+          "description": "Maximum X coordinate of the bounding box. Must be greater than minimum X at runtime."
         },
         {
-          "type": "number"
+          "type": "number",
+          "description": "Maximum Y coordinate of the bounding box. Must be greater than minimum Y at runtime."
         }
       ],
       "items": false,
       "minItems": 4,
-      "maxItems": 4
+      "maxItems": 4,
+      "description": "Bounding box as `[minX, minY, maxX, maxY]` in the CRS of the related layer or request. Exactly 4 numbers are required. Array length: minimum 4, maximum 4."
     },
     "server": {
       "type": "object",
@@ -100,7 +122,8 @@
         "port": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 65535
+          "maximum": 65535,
+          "description": "HTTP server port. Minimum: 0. Maximum: 65535."
         },
         "logLevel": {
           "type": "string",
@@ -110,9 +133,11 @@
             "WARN",
             "ERROR",
             "NONE"
-          ]
+          ],
+          "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`."
         }
-      }
+      },
+      "description": "Server runtime configuration."
     },
     "services": {
       "title": "Enabled services",
@@ -121,25 +146,31 @@
       "additionalProperties": false,
       "properties": {
         "wms": {
-          "$ref": "#/$defs/wmsService"
+          "$ref": "#/$defs/wmsService",
+          "description": "WMS service configuration."
         },
         "api": {
-          "$ref": "#/$defs/ogcFeaturesService"
+          "$ref": "#/$defs/ogcFeaturesService",
+          "description": "OGC API Features service configuration."
         },
         "xyz": {
-          "$ref": "#/$defs/xyzService"
+          "$ref": "#/$defs/xyzService",
+          "description": "XYZ tile service configuration."
         },
         "wmts": {
-          "$ref": "#/$defs/wmtsService"
+          "$ref": "#/$defs/wmtsService",
+          "description": "WMTS service configuration."
         }
-      }
+      },
+      "description": "Enabled GeoComposer services. At least one of `wms`, `api`, `xyz`, or `wmts` must be present. Must contain at least 1 property/properties."
     },
     "wmsService": {
       "title": "WMS service",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/serviceInfo"
+          "$ref": "#/$defs/serviceInfo",
+          "description": "Includes common service fields: `path`, `title`, `abstract`, and `onlineResource`."
         }
       ],
       "required": [
@@ -148,35 +179,43 @@
       "properties": {
         "maxWidth": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Maximum WMS map image width in pixels. Minimum: 1."
         },
         "maxHeight": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Maximum WMS map image height in pixels. Minimum: 1."
         },
         "supportedCrs": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique list of CRS codes supported or advertised by the service, for example `EPSG:4326`, `CRS:84`, `EPSG:3857`, `EPSG:2154`."
           },
-          "uniqueItems": true
+          "uniqueItems": true,
+          "description": "Unique list of CRS codes supported or advertised by the service, for example `EPSG:4326`, `CRS:84`, `EPSG:3857`, `EPSG:2154`. Values must be unique."
         },
         "layers": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique list of layer names to expose or include. Values must reference keys from the top-level `layers` registry, unless an object form is allowed here."
           },
-          "uniqueItems": true
+          "uniqueItems": true,
+          "description": "Unique list of layer names to expose or include. Values must reference keys from the top-level `layers` registry, unless an object form is allowed here. Values must be unique."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "WMS service configuration. Requires `title`. Use `supportedCrs` to restrict advertised CRS values and `layers` to expose only selected layers."
     },
     "ogcFeaturesService": {
       "title": "OGC API Features service",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/serviceInfo"
+          "$ref": "#/$defs/serviceInfo",
+          "description": "Includes common service fields: `path`, `title`, `abstract`, and `onlineResource`."
         }
       ],
       "required": [
@@ -185,54 +224,67 @@
       "properties": {
         "defaultLimit": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Default number of features returned by OGC API Features when the client does not provide a limit. Minimum: 1."
         },
         "maxLimit": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Maximum number of features allowed per OGC API Features response. Minimum: 1."
         },
         "supportedCrs": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique list of CRS codes supported or advertised by the service, for example `EPSG:4326`, `CRS:84`, `EPSG:3857`, `EPSG:2154`."
           },
-          "uniqueItems": true
+          "uniqueItems": true,
+          "description": "Unique list of CRS codes supported or advertised by the service, for example `EPSG:4326`, `CRS:84`, `EPSG:3857`, `EPSG:2154`. Values must be unique."
         },
         "layers": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique list of layer names to expose or include. Values must reference keys from the top-level `layers` registry, unless an object form is allowed here."
           },
-          "uniqueItems": true
+          "uniqueItems": true,
+          "description": "Unique list of layer names to expose or include. Values must reference keys from the top-level `layers` registry, unless an object form is allowed here. Values must be unique."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "OGC API Features service configuration. Requires `title`. Use `defaultLimit` and `maxLimit` to control pagination."
     },
     "xyzService": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "path": {
-          "$ref": "#/$defs/httpPath"
+          "$ref": "#/$defs/httpPath",
+          "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`."
         },
         "maxScaleFactor": {
           "type": "number",
-          "exclusiveMinimum": 0
+          "exclusiveMinimum": 0,
+          "description": "Maximum tile oversampling or scale factor accepted by the XYZ service. Must be greater than 0."
         },
         "cache": {
-          "type": "string"
+          "type": "string",
+          "description": "Filesystem directory or cache identifier used to store generated tiles/responses."
         },
         "tilesets": {
-          "$ref": "#/$defs/tilesetRefs"
+          "$ref": "#/$defs/tilesetRefs",
+          "description": "Unique list of tileset names. Values must reference keys from the top-level `tilesets` registry."
         }
-      }
+      },
+      "description": "XYZ tile service configuration."
     },
     "wmtsService": {
       "title": "WMTS service",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/serviceInfo"
+          "$ref": "#/$defs/serviceInfo",
+          "description": "Includes common service fields: `path`, `title`, `abstract`, and `onlineResource`."
         }
       ],
       "required": [
@@ -240,36 +292,44 @@
       ],
       "properties": {
         "cache": {
-          "type": "string"
+          "type": "string",
+          "description": "Filesystem directory or cache identifier used to store generated tiles/responses."
         },
         "tilesets": {
-          "$ref": "#/$defs/tilesetRefs"
+          "$ref": "#/$defs/tilesetRefs",
+          "description": "Unique list of tileset names. Values must reference keys from the top-level `tilesets` registry."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "WMTS service configuration. Requires `title`."
     },
     "tilesetRefs": {
       "title": "Tileset name list",
       "type": "array",
       "minItems": 1,
       "items": {
-        "type": "string"
+        "type": "string",
+        "description": "Tileset name. Must match a key from the top-level `tilesets` registry."
       },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "List of tileset names. Each value must match a key from the top-level `tilesets` registry. At least one unique value is required. Array length: minimum 1. Values must be unique."
     },
     "tilesets": {
       "title": "Tileset registry",
       "type": "object",
       "additionalProperties": {
-        "$ref": "#/$defs/tileset"
-      }
+        "$ref": "#/$defs/tileset",
+        "description": "Value for each named entry in this registry."
+      },
+      "description": "Named tileset registry."
     },
     "tileset": {
       "title": "Tileset",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/describedEntry"
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
         }
       ],
       "required": [
@@ -280,7 +340,8 @@
         "tileMatrixSet": {
           "enum": [
             "WebMercatorQuad"
-          ]
+          ],
+          "description": "Tile matrix set identifier. Allowed values: `WebMercatorQuad`."
         },
         "formats": {
           "type": "array",
@@ -291,26 +352,33 @@
               "image/png",
               "application/geo+json",
               "application/vnd.mapbox-vector-tile"
-            ]
-          }
+            ],
+            "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`."
+          },
+          "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique."
         },
         "tileSize": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Tile width and height in pixels. Minimum: 1. Common value: 256."
         },
         "minZoom": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Minimum zoom level available for the tileset. Minimum: 0."
         },
         "maxZoom": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Maximum zoom level available for the tileset. Minimum: 0. Should be greater than or equal to `minZoom`."
         },
         "cacheControl": {
-          "type": "string"
+          "type": "string",
+          "description": "HTTP `Cache-Control` header value for tile responses, for example `public, max-age=86400`."
         },
         "vector": {
-          "$ref": "#/$defs/vectorTileOptions"
+          "$ref": "#/$defs/vectorTileOptions",
+          "description": "Vector tile generation options."
         },
         "layers": {
           "type": "array",
@@ -318,16 +386,21 @@
           "items": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "description": "Unique list of layer names to expose or include. Values must reference keys from the top-level `layers` registry, unless an object form is allowed here."
               },
               {
-                "$ref": "#/$defs/tilesetLayer"
+                "$ref": "#/$defs/tilesetLayer",
+                "description": "Unique list of layer names to expose or include. Values must reference keys from the top-level `layers` registry, unless an object form is allowed here."
               }
-            ]
-          }
+            ],
+            "description": "Unique list of layer names to expose or include. Values must reference keys from the top-level `layers` registry, unless an object form is allowed here."
+          },
+          "description": "Unique list of layer names to expose or include. Values must reference keys from the top-level `layers` registry, unless an object form is allowed here. Array length: minimum 1."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "Tileset definition. Requires `formats` and `layers`."
     },
     "vectorTileOptions": {
       "type": "object",
@@ -335,11 +408,13 @@
       "properties": {
         "extent": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Vector tile coordinate extent. Minimum: 1. Common value: 4096."
         },
         "buffer": {
           "type": "number",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Tile buffer size. Minimum: 0. Used to include nearby features outside the tile boundary."
         },
         "generalization": {
           "type": "object",
@@ -347,19 +422,24 @@
           "properties": {
             "tolerance": {
               "type": "number",
-              "minimum": 0
+              "minimum": 0,
+              "description": "Simplification tolerance. Minimum: 0. Higher values simplify geometries more aggressively."
             }
-          }
+          },
+          "description": "Geometry simplification options applied during vector tile generation."
         },
         "geojsonPrecision": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Number of decimal digits kept in GeoJSON coordinate output. Minimum: 0."
         },
         "maxFeatures": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Maximum number of features emitted per tile. Minimum: 1."
         }
-      }
+      },
+      "description": "Options used when generating vector tiles or GeoJSON-like tile output."
     },
     "tilesetLayer": {
       "type": "object",
@@ -369,18 +449,23 @@
       ],
       "properties": {
         "layer": {
-          "type": "string"
+          "type": "string",
+          "description": "Referenced layer name. In layer aliases, this must reference another top-level layer. In tilesets, this selects the included layer."
         },
         "style": {
-          "type": "string"
+          "type": "string",
+          "description": "Style name. Must reference a key from the top-level `styles` registry."
         }
-      }
+      },
+      "description": "Layer entry inside a tileset. Allows selecting a layer and optionally overriding its style."
     },
     "projections": {
       "type": "object",
       "additionalProperties": {
-        "$ref": "#/$defs/projection"
-      }
+        "$ref": "#/$defs/projection",
+        "description": "Value for each named entry in this registry."
+      },
+      "description": "Projection registry. Each property name is a CRS code/projection identifier."
     },
     "projection": {
       "type": "object",
@@ -390,48 +475,61 @@
       ],
       "properties": {
         "name": {
-          "type": "string"
+          "type": "string",
+          "description": "Machine or external name. For projections, this may be the projection name known by the projection library."
         },
         "title": {
-          "type": "string"
+          "type": "string",
+          "description": "Human-readable title shown in service metadata and clients."
         }
-      }
+      },
+      "description": "Projection metadata. Requires a human-readable `title`."
     },
     "sources": {
       "type": "object",
       "minProperties": 1,
       "additionalProperties": {
-        "$ref": "#/$defs/source"
-      }
+        "$ref": "#/$defs/source",
+        "description": "Value for each named entry in this registry."
+      },
+      "description": "Source registry. At least one source is required. Must contain at least 1 property/properties."
     },
     "source": {
       "oneOf": [
         {
-          "$ref": "#/$defs/geojsonSource"
+          "$ref": "#/$defs/geojsonSource",
+          "description": "First allowed object shape for this union."
         },
         {
-          "$ref": "#/$defs/gmlSource"
+          "$ref": "#/$defs/gmlSource",
+          "description": "Second allowed object shape for this union."
         },
         {
-          "$ref": "#/$defs/shpSource"
+          "$ref": "#/$defs/shpSource",
+          "description": "Shapefile source variant."
         },
         {
-          "$ref": "#/$defs/gpkgSource"
+          "$ref": "#/$defs/gpkgSource",
+          "description": "GeoPackage source variant."
         },
         {
-          "$ref": "#/$defs/postgisSource"
+          "$ref": "#/$defs/postgisSource",
+          "description": "PostGIS source variant."
         },
         {
-          "$ref": "#/$defs/oracleSource"
+          "$ref": "#/$defs/oracleSource",
+          "description": "Oracle source variant."
         }
-      ]
+      ],
+      "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS or Oracle."
     },
     "geojsonSource": {
       "title": "GeoJSON source",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/describedEntry"
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
         }
       ],
       "required": [
@@ -440,27 +538,33 @@
       ],
       "properties": {
         "type": {
-          "const": "geojson"
+          "const": "geojson",
+          "description": "Source discriminator. Must be `geojson`."
         },
         "path": {
-          "type": "string"
+          "type": "string",
+          "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`."
         },
         "encoding": {
-          "type": "string"
+          "type": "string",
+          "description": "Text encoding used to read the file, for example `utf8`, `latin1` or `windows-1252`."
         },
         "highWaterMark": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Stream buffer size. Minimum: 1."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "GeoJSON file source. Requires `type: \"geojson\"` and `path`."
     },
     "gmlSource": {
       "title": "GML source",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/describedEntry"
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
         }
       ],
       "required": [
@@ -469,46 +573,57 @@
       ],
       "properties": {
         "type": {
-          "const": "gml"
+          "const": "gml",
+          "description": "Source discriminator. Must be `gml`."
         },
         "path": {
-          "type": "string"
+          "type": "string",
+          "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`."
         },
         "encoding": {
-          "type": "string"
+          "type": "string",
+          "description": "Text encoding used to read the file, for example `utf8`, `latin1` or `windows-1252`."
         },
         "highWaterMark": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Stream buffer size. Minimum: 1."
         },
         "featureElementNames": {
           "type": "array",
           "items": {
-            "type": "string"
-          }
+            "type": "string",
+            "description": "GML feature element names to read. Useful when auto-detection is ambiguous."
+          },
+          "description": "GML feature element names to read. Useful when auto-detection is ambiguous."
         },
         "geometryPropertyNames": {
           "type": "array",
           "items": {
-            "type": "string"
-          }
+            "type": "string",
+            "description": "GML geometry property names to read. Useful when auto-detection is ambiguous."
+          },
+          "description": "GML geometry property names to read. Useful when auto-detection is ambiguous."
         },
         "axisOrder": {
           "enum": [
             "auto",
             "xy",
             "yx"
-          ]
+          ],
+          "description": "Coordinate axis order for GML coordinates. Allowed values: `auto`, `xy`, `yx`."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "GML file source. Requires `type: \"gml\"` and `path`."
     },
     "shpSource": {
       "title": "Shapefile source",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/describedEntry"
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
         }
       ],
       "required": [
@@ -518,30 +633,37 @@
       ],
       "properties": {
         "type": {
-          "const": "shp"
+          "const": "shp",
+          "description": "Source discriminator. Must be `shp`."
         },
         "shpPath": {
-          "type": "string"
+          "type": "string",
+          "description": "Path to the `.shp` file of the Shapefile source."
         },
         "dbfPath": {
-          "type": "string"
+          "type": "string",
+          "description": "Path to the `.dbf` file of the Shapefile source."
         },
         "dbfEncoding": {
-          "type": "string"
+          "type": "string",
+          "description": "Character encoding used to read the DBF file, for example `utf8`, `latin1` or `windows-1252`."
         },
         "highWaterMark": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Stream buffer size. Minimum: 1."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "Shapefile source. Requires `type: \"shp\"`, `shpPath` and `dbfPath`."
     },
     "gpkgSource": {
       "title": "GeoPackage source",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/describedEntry"
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
         }
       ],
       "required": [
@@ -551,29 +673,36 @@
       ],
       "properties": {
         "type": {
-          "const": "gpkg"
+          "const": "gpkg",
+          "description": "Source discriminator. Must be `gpkg`."
         },
         "path": {
-          "type": "string"
+          "type": "string",
+          "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`."
         },
         "datasets": {
-          "$ref": "#/$defs/gpkgDatasets"
+          "$ref": "#/$defs/gpkgDatasets",
+          "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "GeoPackage source. Requires `type: \"gpkg\"`, `path` and `datasets`."
     },
     "gpkgDatasets": {
       "type": "object",
       "minProperties": 1,
       "additionalProperties": {
-        "$ref": "#/$defs/gpkgDataset"
-      }
+        "$ref": "#/$defs/gpkgDataset",
+        "description": "Value for each named entry in this registry."
+      },
+      "description": "GeoPackage dataset registry. Each property name is the dataset identifier exposed to layers. At least one dataset is required. Must contain at least 1 property/properties."
     },
     "gpkgDataset": {
       "anyOf": [
         {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Short form using a non-empty name/string value. Minimum length: 1 character(s)."
         },
         {
           "type": "object",
@@ -581,40 +710,50 @@
           "properties": {
             "tableName": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "description": "Database or GeoPackage table name. Minimum length: 1 where constrained. Minimum length: 1 character(s)."
             },
             "geometryColumn": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "description": "Name of the geometry column. Minimum length: 1 where constrained. Minimum length: 1 character(s)."
             },
             "primaryKey": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "description": "Name of the primary key column. Minimum length: 1 where constrained. Minimum length: 1 character(s)."
             },
             "properties": {
               "type": "array",
               "items": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "List of attribute/property names to expose. Values must be unique when constrained. Minimum length: 1 character(s)."
               },
-              "uniqueItems": true
+              "uniqueItems": true,
+              "description": "List of attribute/property names to expose. Values must be unique when constrained. Values must be unique."
             }
-          }
+          },
+          "description": "Object form for explicit configuration."
         }
-      ]
+      ],
+      "description": "GeoPackage dataset mapping. Use a string for a simple table name, or an object for explicit table, geometry, primary key and property selection."
     },
     "sqlDatasets": {
       "type": "object",
       "minProperties": 1,
       "additionalProperties": {
-        "$ref": "#/$defs/sqlDataset"
-      }
+        "$ref": "#/$defs/sqlDataset",
+        "description": "Value for each named entry in this registry."
+      },
+      "description": "SQL dataset registry. Each property name is the dataset identifier exposed to layers. At least one dataset is required. Must contain at least 1 property/properties."
     },
     "sqlDataset": {
       "anyOf": [
         {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Short form using a non-empty name/string value. Minimum length: 1 character(s)."
         },
         {
           "type": "object",
@@ -622,42 +761,52 @@
           "properties": {
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "description": "Database schema name. Minimum length: 1 where constrained. Minimum length: 1 character(s)."
             },
             "tableName": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "description": "Database or GeoPackage table name. Minimum length: 1 where constrained. Minimum length: 1 character(s)."
             },
             "geometryColumn": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "description": "Name of the geometry column. Minimum length: 1 where constrained. Minimum length: 1 character(s)."
             },
             "primaryKey": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "description": "Name of the primary key column. Minimum length: 1 where constrained. Minimum length: 1 character(s)."
             },
             "srid": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "description": "Spatial reference identifier of the dataset geometry. Minimum: 1."
             },
             "properties": {
               "type": "array",
               "items": {
                 "type": "string",
-                "minLength": 1
+                "minLength": 1,
+                "description": "List of attribute/property names to expose. Values must be unique when constrained. Minimum length: 1 character(s)."
               },
-              "uniqueItems": true
+              "uniqueItems": true,
+              "description": "List of attribute/property names to expose. Values must be unique when constrained. Values must be unique."
             }
-          }
+          },
+          "description": "Object form for explicit configuration."
         }
-      ]
+      ],
+      "description": "SQL dataset mapping. Use a string for a simple table name, or an object for explicit schema, table, geometry, primary key, SRID and property selection."
     },
     "postgisSource": {
       "title": "PostGIS source",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/describedEntry"
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
         }
       ],
       "required": [
@@ -667,97 +816,121 @@
       ],
       "properties": {
         "type": {
-          "const": "postgis"
+          "const": "postgis",
+          "description": "Source discriminator. Must be `postgis`."
         },
         "connection": {
-          "$ref": "#/$defs/postgisConnection"
+          "$ref": "#/$defs/postgisConnection",
+          "description": "Database connection configuration. Can be a connection string or an object, depending on the source type."
         },
         "schema": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Database schema name. Minimum length: 1 where constrained. Minimum length: 1 character(s)."
         },
         "datasets": {
-          "$ref": "#/$defs/sqlDatasets"
+          "$ref": "#/$defs/sqlDatasets",
+          "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers."
         },
         "batchSize": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Number of features/rows fetched per batch. Minimum: 1."
         },
         "extentStrategy": {
           "enum": [
             "estimated",
             "exact",
             "none"
-          ]
+          ],
+          "description": "Strategy used to compute source extents. PostGIS allowed values: `estimated`, `exact`, `none`. Oracle allowed values: `metadata`, `exact`, `none`. Allowed values: `estimated`, `exact`, `none`."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "PostGIS source. Requires `type: \"postgis\"`, `connection` and `datasets`."
     },
     "postgisConnection": {
       "anyOf": [
         {
-          "type": "string"
+          "type": "string",
+          "description": "Short form using a string value."
         },
         {
           "type": "object",
           "additionalProperties": false,
           "properties": {
             "connectionString": {
-              "type": "string"
+              "type": "string",
+              "description": "Database connection string. For Oracle, must match `oracle://user:password@host:port/service`."
             },
             "host": {
-              "type": "string"
+              "type": "string",
+              "description": "Database server host name or IP address."
             },
             "port": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 65535
+              "maximum": 65535,
+              "description": "PostgreSQL server port. Minimum: 1. Maximum: 65535."
             },
             "database": {
-              "type": "string"
+              "type": "string",
+              "description": "Database name."
             },
             "user": {
-              "type": "string"
+              "type": "string",
+              "description": "Database user name."
             },
             "password": {
-              "type": "string"
+              "type": "string",
+              "description": "Database password. Prefer environment placeholders instead of committing secrets."
             },
             "ssl": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Whether SSL/TLS is enabled for the database connection."
             },
             "max": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "description": "Maximum PostgreSQL pool size. Minimum: 1."
             },
             "connectionTimeoutMillis": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "Connection timeout in milliseconds. Minimum: 0."
             },
             "idleTimeoutMillis": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "Idle connection timeout in milliseconds. Minimum: 0."
             },
             "statementTimeoutMillis": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "PostgreSQL statement timeout in milliseconds. Minimum: 0."
             },
             "queryTimeoutMillis": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "PostgreSQL query timeout in milliseconds. Minimum: 0."
             },
             "applicationName": {
-              "type": "string"
+              "type": "string",
+              "description": "Application name sent to PostgreSQL for connection identification."
             }
-          }
+          },
+          "description": "Object form for explicit configuration."
         }
-      ]
+      ],
+      "description": "PostgreSQL/PostGIS connection configuration. Use either a connection string or an object with individual connection pool options."
     },
     "oracleSource": {
       "title": "Oracle source",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/describedEntry"
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
         }
       ],
       "required": [
@@ -767,41 +940,50 @@
       ],
       "properties": {
         "type": {
-          "const": "oracle"
+          "const": "oracle",
+          "description": "Source discriminator. Must be `oracle`."
         },
         "connection": {
-          "$ref": "#/$defs/oracleConnection"
+          "$ref": "#/$defs/oracleConnection",
+          "description": "Database connection configuration. Can be a connection string or an object, depending on the source type."
         },
         "schema": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Database schema name. Minimum length: 1 where constrained. Minimum length: 1 character(s)."
         },
         "datasets": {
-          "$ref": "#/$defs/sqlDatasets"
+          "$ref": "#/$defs/sqlDatasets",
+          "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers."
         },
         "batchSize": {
           "type": "integer",
-          "minimum": 1
+          "minimum": 1,
+          "description": "Number of features/rows fetched per batch. Minimum: 1."
         },
         "extentStrategy": {
           "enum": [
             "metadata",
             "exact",
             "none"
-          ]
+          ],
+          "description": "Strategy used to compute source extents. PostGIS allowed values: `estimated`, `exact`, `none`. Oracle allowed values: `metadata`, `exact`, `none`. Allowed values: `metadata`, `exact`, `none`."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "Oracle Spatial source. Requires `type: \"oracle\"`, `connection` and `datasets`."
     },
     "oracleConnectionString": {
       "title": "Oracle connection URI",
       "type": "string",
-      "pattern": "^oracle://[^:@/]+:[^@/]+@[^/]+:[0-9]+/.+$"
+      "pattern": "^oracle://[^:@/]+:[^@/]+@[^/]+:[0-9]+/.+$",
+      "description": "Oracle connection URI. Expected format: `oracle://user:password@host:port/service`. Pattern: `oracle://user:password@host:port/service`, with a user, password, host, numeric port and service name."
     },
     "oracleConnection": {
       "anyOf": [
         {
-          "$ref": "#/$defs/oracleConnectionString"
+          "$ref": "#/$defs/oracleConnectionString",
+          "description": "Short form: Oracle connection URI string matching `oracle://user:password@host:port/service`."
         },
         {
           "type": "object",
@@ -811,77 +993,98 @@
           ],
           "properties": {
             "connectionString": {
-              "$ref": "#/$defs/oracleConnectionString"
+              "$ref": "#/$defs/oracleConnectionString",
+              "description": "Database connection string. For Oracle, must match `oracle://user:password@host:port/service`."
             },
             "externalAuth": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Whether Oracle external authentication is enabled."
             },
             "homogeneous": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "Whether the Oracle pool uses homogeneous authentication."
             },
             "poolMin": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "Minimum Oracle pool size. Minimum: 0."
             },
             "poolMax": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "description": "Maximum Oracle pool size. Minimum: 1."
             },
             "poolIncrement": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "description": "Number of Oracle connections added when the pool grows. Minimum: 1."
             },
             "poolTimeout": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "Oracle idle pool timeout in seconds. Minimum: 0."
             },
             "queueTimeout": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "Oracle queue timeout in milliseconds. Minimum: 0."
             },
             "stmtCacheSize": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "Oracle statement cache size. Minimum: 0."
             },
             "callTimeout": {
               "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "description": "Oracle call timeout in milliseconds. Minimum: 0."
             },
             "walletLocation": {
-              "type": "string"
+              "type": "string",
+              "description": "Filesystem path to the Oracle wallet directory."
             },
             "walletPassword": {
-              "type": "string"
+              "type": "string",
+              "description": "Oracle wallet password. Prefer environment placeholders instead of committing secrets."
             },
             "configDir": {
-              "type": "string"
+              "type": "string",
+              "description": "Filesystem path to the Oracle client/network configuration directory."
             }
-          }
+          },
+          "description": "Object form for explicit configuration."
         }
-      ]
+      ],
+      "description": "Oracle connection configuration. Use either an Oracle connection URI string or an object containing `connectionString` and optional pool/wallet settings."
     },
     "styles": {
       "type": "object",
       "additionalProperties": {
-        "$ref": "#/$defs/style"
-      }
+        "$ref": "#/$defs/style",
+        "description": "Value for each named entry in this registry."
+      },
+      "description": "Style registry. Each property name is a style identifier."
     },
     "style": {
       "oneOf": [
         {
-          "$ref": "#/$defs/builtinStyle"
+          "$ref": "#/$defs/builtinStyle",
+          "description": "First allowed object shape for this union."
         },
         {
-          "$ref": "#/$defs/dynamicStyle"
+          "$ref": "#/$defs/dynamicStyle",
+          "description": "Second allowed object shape for this union."
         }
-      ]
+      ],
+      "description": "Style definition. Choose either a built-in style or a dynamic style file."
     },
     "builtinStyle": {
       "title": "Builtin style",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/describedEntry"
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
         }
       ],
       "required": [
@@ -889,17 +1092,20 @@
       ],
       "properties": {
         "type": {
-          "const": "builtin"
+          "const": "builtin",
+          "description": "Style discriminator. Must be `builtin`."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "Built-in renderer style. Requires `type: \"builtin\"`."
     },
     "dynamicStyle": {
       "title": "Dynamic style file",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/describedEntry"
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
         }
       ],
       "required": [
@@ -908,16 +1114,20 @@
       ],
       "properties": {
         "type": {
-          "const": "dynamic"
+          "const": "dynamic",
+          "description": "Style discriminator. Must be `dynamic`."
         },
         "path": {
-          "type": "string"
+          "type": "string",
+          "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`."
         },
         "options": {
-          "$ref": "#/$defs/dynamicStyleOptions"
+          "$ref": "#/$defs/dynamicStyleOptions",
+          "description": "Options passed to this style or renderer."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "Dynamic style loaded from a file. Requires `type: \"dynamic\"` and `path`."
     },
     "dynamicStyleOptions": {
       "type": "object",
@@ -927,27 +1137,33 @@
           "enum": [
             "m",
             "dd"
-          ]
+          ],
+          "description": "Coordinate units used by the dynamic style. Allowed values: `m` for meters, `dd` for decimal degrees. Allowed values: `m`, `dd`."
         },
         "dotsPerInch": {
           "type": "number",
-          "exclusiveMinimum": 0
+          "exclusiveMinimum": 0,
+          "description": "Rendering DPI used by the dynamic style. Must be greater than 0."
         }
-      }
+      },
+      "description": "Rendering options passed to a dynamic style."
     },
     "layers": {
       "type": "object",
       "minProperties": 1,
       "additionalProperties": {
-        "$ref": "#/$defs/layer"
-      }
+        "$ref": "#/$defs/layer",
+        "description": "Value for each named entry in this registry."
+      },
+      "description": "Layer registry. At least one published layer is required. Each property name is the public layer identifier."
     },
     "layer": {
       "title": "Layer",
       "type": "object",
       "allOf": [
         {
-          "$ref": "#/$defs/describedEntry"
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
         }
       ],
       "oneOf": [
@@ -960,7 +1176,8 @@
             "required": [
               "layer"
             ]
-          }
+          },
+          "description": "First allowed object shape for this union."
         },
         {
           "required": [
@@ -978,38 +1195,49 @@
                   "dataset"
                 ]
               }
-            ]
-          }
+            ],
+            "description": "Alias layers must not define `source` or `dataset`; they point to another layer through `layer`."
+          },
+          "description": "Second allowed object shape for this union."
         }
       ],
       "properties": {
         "source": {
-          "type": "string"
+          "type": "string",
+          "description": "Source name. Must reference a key from the top-level `sources` registry."
         },
         "layer": {
-          "type": "string"
+          "type": "string",
+          "description": "Referenced layer name. In layer aliases, this must reference another top-level layer. In tilesets, this selects the included layer."
         },
         "dataset": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Dataset name inside the selected source. Minimum length: 1. Minimum length: 1 character(s)."
         },
         "crs": {
-          "type": "string"
+          "type": "string",
+          "description": "Coordinate reference system code for the layer or coordinate properties, for example `EPSG:4326`, `CRS:84`, `EPSG:3857`, `EPSG:2154`."
         },
         "extent": {
-          "$ref": "#/$defs/bbox"
+          "$ref": "#/$defs/bbox",
+          "description": "Layer bounding box as `[minX, minY, maxX, maxY]` in the layer CRS. Exactly 4 numbers are required."
         },
         "style": {
-          "type": "string"
+          "type": "string",
+          "description": "Style name. Must reference a key from the top-level `styles` registry."
         },
         "pointProperties": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/pointPropertyPair"
-          }
+            "$ref": "#/$defs/pointPropertyPair",
+            "description": "List of X/Y property pairs to reproject as point coordinates."
+          },
+          "description": "List of X/Y property pairs to reproject as point coordinates."
         }
       },
-      "unevaluatedProperties": false
+      "unevaluatedProperties": false,
+      "description": "Published layer definition. Either define a source-backed layer with `source` and `crs`, or alias another layer with `layer`."
     },
     "pointPropertyPair": {
       "type": "object",
@@ -1020,18 +1248,19 @@
       ],
       "properties": {
         "x": {
-          "description": "Property name of the x coordinate to reproject.",
+          "description": "Property name containing the X coordinate to reproject.",
           "type": "string"
         },
         "y": {
-          "description": "Property name of the y coordinate to reproject.",
+          "description": "Property name containing the Y coordinate to reproject.",
           "type": "string"
         },
         "crs": {
-          "description": "CRS of the x/y properties. Defaults to the layer CRS.",
+          "description": "Coordinate reference system code for the layer or coordinate properties, for example `EPSG:4326`, `CRS:84`, `EPSG:3857`, `EPSG:2154`.",
           "type": "string"
         }
-      }
+      },
+      "description": "Pair of feature property names containing X/Y coordinates that should be reprojected along with the layer."
     }
   }
 }

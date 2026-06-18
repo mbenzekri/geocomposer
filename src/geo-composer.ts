@@ -228,8 +228,8 @@ export class GeoComposer {
 
 }
 
+/* v8 ignore next 3 -- CLI entrypoint is exercised by running the built command, not by importing this module in unit tests. */
 if (isMain(import.meta.url)) {
     await GeoComposer.launch()
 }
-
 
