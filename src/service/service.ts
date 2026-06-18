@@ -2,14 +2,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { TLSSocket } from 'node:tls'
 import { TileCache } from '../tileset/tile-cache.js'
 import { Registry } from '../core/tools.js'
+import { RegistryEntry } from '../core/feature.js'
 
-export abstract class Service {
+export abstract class Service extends RegistryEntry {
     static readonly registry = new Registry<Service>('SERVICES')
 
-    readonly id: string
     readonly path: string
-    readonly title: string
-    readonly abstract: string
     readonly onlineResource?: string
     protected readonly  cache?: TileCache
 
@@ -21,10 +19,8 @@ export abstract class Service {
         onlineResource?: string,
         cache?: string
     ) {
-        this.id = id
+        super(id, { title, abstract })
         this.path = this.normalize(path)
-        this.title = title
-        this.abstract = abstract
         this.onlineResource = onlineResource
         this.cache = cache ? new TileCache(cache) : undefined
 

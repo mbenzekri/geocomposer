@@ -10,7 +10,7 @@ import { Props } from '../core/tools.js'
 
 export type GmlAxisOrder = 'xy' | 'yx' | 'auto'
 
-export type GmlSourceOptions = {
+export type GmlSourceOptions = DescInfo & {
   encoding?: BufferEncoding
   highWaterMark?: number
   featureElementNames?: string[]
@@ -86,6 +86,8 @@ export class GmlSource extends FileSource {
     entry: GmlSourceJson
   ): GmlSource {
     return new GmlSource(id, entry.path, {
+      title: entry.title,
+      abstract: entry.abstract,
       encoding: entry.encoding,
       highWaterMark: entry.highWaterMark,
       featureElementNames: entry.featureElementNames,
@@ -95,11 +97,11 @@ export class GmlSource extends FileSource {
   }
 
   constructor(
-    readonly id: string,
+    id: string,
     private readonly filePath: PathLike,
     options: GmlSourceOptions = {}
   ) {
-    super(options.transformFeature)
+    super(id, options, options.transformFeature)
 
     this.reader = new GmlReader(this.id, this.filePath, {
       encoding: options.encoding ?? 'utf8',

@@ -251,11 +251,11 @@ class TestSource extends Source {
     lastQuery: QueryOptions | undefined
 
     constructor(
-        readonly id: string,
+        id: string,
         private readonly features: Feature[] = [],
         private readonly extent: BBox | null = null
     ) {
-        super()
+        super(id)
     }
 
     async getExtent(_layer: Layer): Promise<BBox | null> {

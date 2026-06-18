@@ -58,16 +58,17 @@ export class GpkgSource extends DbSource {
     id: string,
     entry: GpkgSourceJson
   ): GpkgSource {
-    return new GpkgSource(id, entry.path, entry.datasets)
+    return new GpkgSource(id, entry.path, entry.datasets, undefined, entry)
   }
 
   constructor(
-    readonly id: string,
+    id: string,
     private readonly filePath: PathLike,
     datasets: Record<string, DbDatasetJson>,
-    transformFeature?: FeatureTransform
+    transformFeature?: FeatureTransform,
+    info: DescInfo = {}
   ) {
-    super(transformFeature)
+    super(id, info, transformFeature)
 
     this.reader = new GpkgReader(this.id, this.filePath, {
       datasets: DbDataset.build(`GeoPackage source "${this.id}"`, datasets)

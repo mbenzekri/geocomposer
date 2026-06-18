@@ -1,5 +1,5 @@
 import type { BBox, CrsCode } from '../core/geometry.js'
-import type { DescInfo, Feature } from '../core/feature.js'
+import { RegistryEntry, type DescInfo, type Feature } from '../core/feature.js'
 import { Source, type QueryOptions, type StreamOptions } from '../source/source-build.js'
 import { Style } from '../style/style.js'
 import type { StyleFn } from '../style/style-fn.js'
@@ -32,12 +32,9 @@ export type LayerQueryOptions = Omit<QueryOptions, 'layer'> & {
     crs?: CrsCode
 }
 
-export class Layer {
+export class Layer extends RegistryEntry {
     static readonly registry = new Registry<Layer>('LAYER')
 
-    readonly id: string
-    readonly title?: string
-    readonly abstract?: string
     readonly source: Source
     readonly dataset?: string
     readonly crs: CrsCode
@@ -46,8 +43,6 @@ export class Layer {
     private readonly styleName: string
 
     constructor(id: string, entry: LayerJson ) {
-        this.id = id
-
         Layer.validateDataReference(id, entry)
         const inheritedLayer = entry.layer ? Layer.registry.get(entry.layer) : undefined
         const styleName = Layer.resolveDefaultStyleName(id, entry, inheritedLayer)
@@ -55,8 +50,11 @@ export class Layer {
         const pointProperties = Layer.resolvePointProperties(id, entry, crs, inheritedLayer)
         const source = Layer.resolveSource(id, entry, inheritedLayer)
 
-        this.title = entry.title ?? inheritedLayer?.title
-        this.abstract = entry.abstract ?? inheritedLayer?.abstract
+        super(id, {
+            title: entry.title ?? inheritedLayer?.title,
+            abstract: entry.abstract ?? inheritedLayer?.abstract
+        })
+
         this.source = source
         this.dataset = entry.source ? entry.dataset : undefined
         this.crs = crs

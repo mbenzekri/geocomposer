@@ -50,18 +50,19 @@ export class ShpSource extends FileSource {
     id: string,
     entry: ShpSourceJson
   ): ShpSource {
-    return new ShpSource(id, entry.shpPath, entry.dbfPath, entry.dbfEncoding, entry.highWaterMark)
+    return new ShpSource(id, entry.shpPath, entry.dbfPath, entry.dbfEncoding, entry.highWaterMark, undefined, entry)
   }
 
   constructor(
-    readonly id: string,
+    id: string,
     private readonly shpPath: PathLike,
     private readonly dbfPath: PathLike,
     dbfEncoding?: BufferEncoding,
     highWaterMark?: number,
-    transformFeature?: FeatureTransform
+    transformFeature?: FeatureTransform,
+    info: DescInfo = {}
   ) {
-    super(transformFeature)
+    super(id, info, transformFeature)
 
     this.reader = new ShpReader(this.id, this.shpPath, this.dbfPath, {
       dbfEncoding,

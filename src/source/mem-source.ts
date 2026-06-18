@@ -18,10 +18,10 @@ export class MemSource extends Source {
   constructor(id: string, layer: Layer)
   constructor(id: string, features?: Feature[] | MemFeatureProvider)
   constructor(
-    readonly id: string,
+    id: string,
     layerOrFeatures: Layer | Feature[] | MemFeatureProvider = []
   ) {
-    super()
+    super(id)
 
     if (isLayer(layerOrFeatures)) {
       this.layer = layerOrFeatures

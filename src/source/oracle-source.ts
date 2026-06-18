@@ -30,7 +30,7 @@ export type OracleConnectionObjectOptions = {
 
 export type OracleConnectionOptions = string | OracleConnectionObjectOptions
 
-export type OracleSourceOptions = {
+export type OracleSourceOptions = DescInfo & {
   connection: OracleConnectionOptions
   schema?: string
   datasets: Record<string, DbDatasetJson>
@@ -102,6 +102,8 @@ export class OracleSource extends DbSource {
     entry: OracleSourceJson
   ): OracleSource {
     return new OracleSource(id, {
+      title: entry.title,
+      abstract: entry.abstract,
       connection: entry.connection,
       schema: entry.schema,
       datasets: entry.datasets,
@@ -111,10 +113,10 @@ export class OracleSource extends DbSource {
   }
 
   constructor(
-    readonly id: string,
+    id: string,
     options: OracleSourceOptions
   ) {
-    super(options.transformFeature)
+    super(id, options, options.transformFeature)
 
     this.reader = new OracleReader(this.id, {
       connection: parseOracleConnectionOptions(options.connection),

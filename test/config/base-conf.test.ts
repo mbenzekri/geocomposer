@@ -191,6 +191,8 @@ describe('test sources loading', () => {
         if (type === 'oracle') {
             config_base.sources.world = { type , connection: oracle_cnx_short,datasets: world_min_datasets }
         }
+        config_base.sources.world.title = `Source ${name}`
+        config_base.sources.world.abstract = `World country boundaries ${name} demo source`
         writeConf(configPath, config_base)
         let app: GeoComposer
         app = await GeoComposer.from({ configPath })
@@ -199,6 +201,8 @@ describe('test sources loading', () => {
         expect(Service.registry.has('wms')).toBe(true)
         expect(Service.registry.all.length).toBe(1)
         expect(Source.registry.has('world')).toBe(true)
+        expect(Source.registry.get('world').title).toBe(`Source ${name}`)
+        expect(Source.registry.get('world').abstract).toBe(`World country boundaries ${name} demo source`)
         expect(Source.registry.all.length).toBe(expectedSources)
         expect(Layer.registry.has('world')).toBe(true)
         expect(Layer.registry.all.length).toBe(expectedLayers)

@@ -37,10 +37,13 @@ describe('MemSource', () => {
 })
 
 class CountingSource extends Source {
-  readonly id = 'counting'
   readonly type = 'counting'
   readonly storage = 'mem'
   streamCalls = 0
+
+  constructor() {
+    super('counting')
+  }
 
   async getExtent(_layer: Layer): Promise<BBox | null> {
     return null

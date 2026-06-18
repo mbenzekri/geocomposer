@@ -1,7 +1,8 @@
 import type { PathLike } from 'node:fs'
 import type { BBox } from '../core/geometry.js'
-import type { Feature, SourceRef } from '../core/feature.js'
+import type { DescInfo, Feature, SourceRef } from '../core/feature.js'
 import { IdFromFeature } from '../core/feature.js'
+import { RegistryEntry } from '../core/feature.js'
 import { Gt } from '../core/geotools.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
 import { PageFilter } from '../stream/page-filter.js'
@@ -31,12 +32,15 @@ export type QueryOptions = StreamOptions & {
 
 export type FeatureTransform = (feature: Feature, index: number) => Feature | Promise<Feature>
 
-export abstract class Source {
+export abstract class Source extends RegistryEntry {
   static readonly registry = new Registry<Source>('SOURCE')
 
-  abstract readonly id: string
   abstract readonly type: string
   abstract readonly storage: SourceStorage
+
+  protected constructor(id: string, info: DescInfo = {}) {
+    super(id, info)
+  }
 
   static build(_sourceEntries: Record<string, unknown>): Registry<Source>{
     throw new Error('Source.build is not initialized')
@@ -91,8 +95,8 @@ export abstract class Source {
 }
 
 export abstract class FeatureSource extends Source {
-  protected constructor(private readonly transformFeature?: FeatureTransform) {
-    super()
+  protected constructor(id: string, info: DescInfo = {}, private readonly transformFeature?: FeatureTransform) {
+    super(id, info)
   }
 
   async getExtent(layer: Layer): Promise<BBox | null> {
@@ -154,8 +158,8 @@ export abstract class FeatureSource extends Source {
 export abstract class FileSource extends FeatureSource {
   readonly storage = 'file' as const
 
-  protected constructor(transformFeature?: FeatureTransform) {
-    super(transformFeature)
+  protected constructor(id: string, info: DescInfo = {}, transformFeature?: FeatureTransform) {
+    super(id, info, transformFeature)
   }
 
   abstract getFiles(): readonly SourceFile[]
@@ -164,8 +168,8 @@ export abstract class FileSource extends FeatureSource {
 export abstract class DbSource extends FeatureSource {
   readonly storage = 'database' as const
 
-  protected constructor(transformFeature?: FeatureTransform) {
-    super(transformFeature)
+  protected constructor(id: string, info: DescInfo = {}, transformFeature?: FeatureTransform) {
+    super(id, info, transformFeature)
   }
 
   override async readById(_featureId: string, _options: StreamOptions): Promise<Feature | null> {

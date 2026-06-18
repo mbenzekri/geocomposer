@@ -30,7 +30,7 @@ export type PostgisConnectionObjectOptions = {
 
 export type PostgisConnectionOptions = string | PostgisConnectionObjectOptions
 
-export type PostgisSourceOptions = {
+export type PostgisSourceOptions = DescInfo & {
   connection: PostgisConnectionOptions
   schema?: string
   datasets: Record<string, DbDatasetJson>
@@ -94,6 +94,8 @@ export class PostgisSource extends DbSource {
     entry: PostgisSourceJson
   ): PostgisSource {
     return new PostgisSource(id, {
+      title: entry.title,
+      abstract: entry.abstract,
       connection: entry.connection,
       schema: entry.schema,
       datasets: entry.datasets,
@@ -103,10 +105,10 @@ export class PostgisSource extends DbSource {
   }
 
   constructor(
-    readonly id: string,
+    id: string,
     options: PostgisSourceOptions
   ) {
-    super(options.transformFeature)
+    super(id, options, options.transformFeature)
 
     this.reader = new PostgisReader(this.id, {
       connection: options.connection,

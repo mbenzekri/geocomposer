@@ -26,17 +26,18 @@ export class GeoJsonSource extends FileSource {
     id: string,
     entry: GeoJsonSourceJson
   ): GeoJsonSource {
-    return new GeoJsonSource(id, entry.path, entry.encoding, entry.highWaterMark)
+    return new GeoJsonSource(id, entry.path, entry.encoding, entry.highWaterMark, undefined, entry)
   }
 
   constructor(
-    readonly id: string,
+    id: string,
     private readonly filePath: PathLike,
     encoding: BufferEncoding = 'utf8',
     highWaterMark?: number,
-    transformFeature?: FeatureTransform
+    transformFeature?: FeatureTransform,
+    info: DescInfo = {}
   ) {
-    super(transformFeature)
+    super(id, info, transformFeature)
 
     this.reader = new GeoJsonReader(this.id, this.filePath, {
       encoding,

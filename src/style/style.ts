@@ -1,4 +1,4 @@
-import type { DescInfo } from '../core/feature.js'
+import type { DescInfo, RegistryEntry } from '../core/feature.js'
 import { JsonValidator } from '../core/json-validator.js'
 import { Dict, Registry } from '../core/tools.js'
 import { DefsSolver } from '../config/defs-solver.js'
@@ -11,10 +11,7 @@ const BUILTIN_STYLES: Dict<StyleFn> = {
   default: defaultStyleFn
 }
 
-export type NamedStyle = {
-  readonly id: string
-  readonly title?: string
-  readonly abstract?: string
+export type NamedStyle = RegistryEntry & {
   readonly style: StyleFn
 }
 

@@ -7,6 +7,19 @@ export type DescInfo = {
     title?: string
     abstract?: string
 }
+
+export abstract class RegistryEntry {
+    readonly id: string
+    readonly title?: string
+    readonly abstract?: string
+
+    protected constructor(id: string, info: DescInfo = {}) {
+        this.id = id
+        this.title = info.title
+        this.abstract = info.abstract
+    }
+}
+
 export type ServiceInfo = {
     path?: string
     onlineResource?: string

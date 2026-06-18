@@ -2,7 +2,7 @@ import type { CrsCode, BBox } from '../core/geometry.js'
 import { Layer } from '../layer/layer.js'
 import { StyleFn } from '../style/style-fn.js'
 import { Dict, Registry } from '../core/tools.js'
-import { DescInfo } from '../core/feature.js'
+import { RegistryEntry, type DescInfo } from '../core/feature.js'
 import { getTileMatrixSet, type TileMatrixSet } from './tile-matrix-set.js'
 
 export const RASTER_TILE_FORMAT = 'image/png'
@@ -70,12 +70,9 @@ export type RequiredVectorTileOptions = {
     maxFeatures?: number
 }
 
-export class Tileset {
+export class Tileset extends RegistryEntry {
     static readonly registry = new Registry<Tileset>('TILESET')
 
-    readonly id: string
-    readonly title?: string
-    readonly abstract?: string
     readonly tileMatrixSet: TileMatrixSet
     readonly formats: string[]
     readonly tileSize: number
@@ -90,9 +87,8 @@ export class Tileset {
     constructor(id: string, entry: TilesetJson) {
         const layerRefs = normalizeTilesetLayers(id, entry)
 
-        this.id = id
-        this.title = entry.title
-        this.abstract = entry.abstract
+        super(id, entry)
+
         this.tileMatrixSet = getTileMatrixSet(entry.tileMatrixSet)
         this.formats = normalizeTileFormats(entry.formats)
         this.tileSize = entry.tileSize ?? DEFAULT_TILE_SIZE
