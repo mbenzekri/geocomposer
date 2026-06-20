@@ -832,11 +832,11 @@
       ],
       "description": "Unique list of tileset names. Values must reference keys from the top-level `tilesets` registry. (object or \"#/$defs/nom\")"
     },
-    "projections": {
+    "crs": {
       "anyOf": [
         {
-          "$ref": "#/$defs/projections",
-          "description": "Optional registry of custom or named projections. (object or \"#/$defs/nom\")"
+          "$ref": "#/$defs/crsRegistry",
+          "description": "Optional registry of custom or named crs. (object or \"#/$defs/nom\")"
         },
         {
           "type": "string",
@@ -853,10 +853,10 @@
               "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
             }
           },
-          "description": "Optional registry of custom or named projections. (object or \"#/$defs/nom\")"
+          "description": "Optional registry of custom or named crs. (object or \"#/$defs/nom\")"
         }
       ],
-      "description": "Optional registry of custom or named projections. (object or \"#/$defs/nom\")"
+      "description": "Optional registry of custom or named crs. (object or \"#/$defs/nom\")"
     },
     "sources": {
       "anyOf": [
@@ -6707,14 +6707,14 @@
       ],
       "description": "Layer entry inside a tileset. Allows selecting a layer and optionally overriding its style. (object or \"#/$defs/nom\")"
     },
-    "projections": {
+    "crsRegistry": {
       "anyOf": [
         {
           "type": "object",
           "additionalProperties": {
             "anyOf": [
               {
-                "$ref": "#/$defs/projection",
+                "$ref": "#/$defs/crs",
                 "description": "Value for each named entry in this registry. (object or \"#/$defs/nom\")"
               },
               {
@@ -6731,7 +6731,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "description": "Machine or external name. For projections, this may be the projection name known by the projection library. (string or \"$s{ENV_VAR|default}\")"
+                        "description": "Machine or external name. For crs, this may be the crs name known by the crs library. (string or \"$s{ENV_VAR|default}\")"
                       },
                       {
                         "type": "string",
@@ -6746,7 +6746,7 @@
                         "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                       }
                     ],
-                    "description": "Machine or external name. For projections, this may be the projection name known by the projection library. (string or \"$s{ENV_VAR|default}\")"
+                    "description": "Machine or external name. For crs, this may be the crs name known by the crs library. (string or \"$s{ENV_VAR|default}\")"
                   },
                   "title": {
                     "anyOf": [
@@ -6779,7 +6779,7 @@
             ],
             "description": "Value for each named entry in this registry. (object or \"#/$defs/nom\")"
           },
-          "description": "Named collection of Projections. ex: 'EPSG:4326' : { 'title': 'WGS84' }  (object or \"#/$defs/nom\")"
+          "description": "Named collection of crs. ex: 'EPSG:4326' : { 'title': 'WGS84' }  (object or \"#/$defs/nom\")"
         },
         {
           "type": "string",
@@ -6796,11 +6796,11 @@
               "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
             }
           },
-          "description": "Named collection of Projections. ex: 'EPSG:4326' : { 'title': 'WGS84' }  (object or \"#/$defs/nom\")",
+          "description": "Named collection of crs. ex: 'EPSG:4326' : { 'title': 'WGS84' }  (object or \"#/$defs/nom\")",
           "additionalProperties": {
             "anyOf": [
               {
-                "$ref": "#/$defs/projection",
+                "$ref": "#/$defs/crs",
                 "description": "Value for each named entry in this registry. (object or \"#/$defs/nom\")"
               },
               {
@@ -6817,7 +6817,7 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "description": "Machine or external name. For projections, this may be the projection name known by the projection library. (string or \"$s{ENV_VAR|default}\")"
+                        "description": "Machine or external name. For crs, this may be the crs name known by the crs library. (string or \"$s{ENV_VAR|default}\")"
                       },
                       {
                         "type": "string",
@@ -6832,7 +6832,7 @@
                         "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                       }
                     ],
-                    "description": "Machine or external name. For projections, this may be the projection name known by the projection library. (string or \"$s{ENV_VAR|default}\")"
+                    "description": "Machine or external name. For crs, this may be the crs name known by the crs library. (string or \"$s{ENV_VAR|default}\")"
                   },
                   "title": {
                     "anyOf": [
@@ -6867,9 +6867,9 @@
           }
         }
       ],
-      "description": "Named collection of Projections. ex: 'EPSG:4326' : { 'title': 'WGS84' }  (object or \"#/$defs/nom\")"
+      "description": "Named collection of crs. ex: 'EPSG:4326' : { 'title': 'WGS84' }  (object or \"#/$defs/nom\")"
     },
-    "projection": {
+    "crs": {
       "anyOf": [
         {
           "type": "object",
@@ -6882,7 +6882,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "description": "Machine or external name. For projections, this may be the projection name known by the projection library. (string or \"$s{ENV_VAR|default}\")"
+                  "description": "Machine or external name. For crs, this may be the crs name known by the crs library. (string or \"$s{ENV_VAR|default}\")"
                 },
                 {
                   "type": "string",
@@ -6897,7 +6897,7 @@
                   "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                 }
               ],
-              "description": "Machine or external name. For projections, this may be the projection name known by the projection library. (string or \"$s{ENV_VAR|default}\")"
+              "description": "Machine or external name. For crs, this may be the crs name known by the crs library. (string or \"$s{ENV_VAR|default}\")"
             },
             "title": {
               "anyOf": [
@@ -6921,7 +6921,7 @@
               "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
             }
           },
-          "description": "Projection metadata. Requires a human-readable `title`. (object or \"#/$defs/nom\")"
+          "description": "crs metadata. Requires a human-readable `title`. (object or \"#/$defs/nom\")"
         },
         {
           "type": "string",
@@ -6937,7 +6937,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "description": "Machine or external name. For projections, this may be the projection name known by the projection library. (string or \"$s{ENV_VAR|default}\")"
+                  "description": "Machine or external name. For crs, this may be the crs name known by the crs library. (string or \"$s{ENV_VAR|default}\")"
                 },
                 {
                   "type": "string",
@@ -6952,7 +6952,7 @@
                   "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                 }
               ],
-              "description": "Machine or external name. For projections, this may be the projection name known by the projection library. (string or \"$s{ENV_VAR|default}\")"
+              "description": "Machine or external name. For crs, this may be the crs name known by the crs library. (string or \"$s{ENV_VAR|default}\")"
             },
             "title": {
               "anyOf": [
@@ -6980,11 +6980,11 @@
               "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
             }
           },
-          "description": "Projection metadata. Requires a human-readable `title`. (object or \"#/$defs/nom\")",
+          "description": "crs metadata. Requires a human-readable `title`. (object or \"#/$defs/nom\")",
           "additionalProperties": false
         }
       ],
-      "description": "Projection metadata. Requires a human-readable `title`. (object or \"#/$defs/nom\")"
+      "description": "crs metadata. Requires a human-readable `title`. (object or \"#/$defs/nom\")"
     },
     "sources": {
       "anyOf": [

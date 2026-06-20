@@ -272,31 +272,31 @@ describe('Gt', () => {
         expectPositionClose(transformed, [222638.98158654713, 6274861.394006576, 123])
     })
 
-    it('clamps transformed positions to the target projection domain', () => {
+    it('clamps transformed positions to the target crs domain', () => {
         const transformed = Gt.transformPosition([0, 90], 'EPSG:4326', 'EPSG:3857')
 
         expectPositionClose(transformed, [0, 20037508.342789244])
     })
 
-    it('transforms positions without an OpenLayers projection domain', () => {
+    it('transforms positions without an OpenLayers crs domain', () => {
         expect(Gt.transformPosition([2, 49], 'WGS84', 'WGS84')).toEqual([2, 49])
     })
 
-    it('wraps bbox ranges to the projection domain before transforming', () => {
+    it('wraps bbox ranges to the crs domain before transforming', () => {
         expectBBoxClose(
             Gt.transformBBox([190, -10, 200, 10], 'EPSG:4326', 'EPSG:4326'),
             [-170, -10, -160, 10]
         )
     })
 
-    it('uses the full wrapped domain when a bbox range spans the whole projection width', () => {
+    it('uses the full wrapped domain when a bbox range spans the whole crs width', () => {
         expectBBoxClose(
             Gt.transformBBox([-200, -10, 200, 10], 'EPSG:4326', 'EPSG:4326'),
             [-180, -10, 180, 10]
         )
     })
 
-    it('clamps bbox coordinates to non-geographic projection extents', () => {
+    it('clamps bbox coordinates to non-geographic crs extents', () => {
         expectBBoxClose(
             Gt.transformBBox(
                 [-30_000_000, -30_000_000, 30_000_000, 30_000_000],
@@ -312,7 +312,7 @@ describe('Gt', () => {
         )
     })
 
-    it('constrains a bbox to the target projection domain before transforming', () => {
+    it('constrains a bbox to the target crs domain before transforming', () => {
         expectBBoxClose(
             Gt.transformBBox([-180, -90, 180, 90], 'EPSG:4326', 'EPSG:3857'),
             [

@@ -29,7 +29,6 @@ class ConfigValidator extends JsonValidator<GeoComposerJson> {
     }
 }
 
-export type ProjectionJson = CrsJson
 
 export type ServerJson = {
     port?: number
@@ -41,7 +40,7 @@ export type GeoComposerJson = {
     $defs?: Dict<unknown>
     server?: ServerJson
     services: ServicesJson
-    projections?: Dict<ProjectionJson>
+    crs?: Dict<CrsJson>
     sources: Dict<SourceJson>
     styles?: Dict<StyleJson>
     layers: Dict<LayerJson>
@@ -95,7 +94,7 @@ export class Config extends Singleton {
         console.log(`[CONFIG]: Server port set to ${this._port}`)
 
         // creating all app objects in their registries
-        Crs.build(json.projections ?? {})
+        Crs.build(json.crs ?? {})
         Source.build(json.sources)
         await Style.build(json.styles ?? {})
         Layer.build(json.layers)

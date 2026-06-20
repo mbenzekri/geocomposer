@@ -86,7 +86,7 @@ C'est probablement la fonctionnalité la plus utilisée.
 
 ---
 
-### 5. Projection EPSG:4326 et 3857 (DONE)
+### 5. crs EPSG:4326 et 3857 (DONE)
 
 Minimum absolu.
 

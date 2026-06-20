@@ -102,7 +102,7 @@ les layers et styles déjà déclarés dans `config/config.json` avec une propri
 `minZoom`, `maxZoom` et `cacheControl` appartiennent à chaque tileset.
 
 La configuration est décrite par `config/config.schema.json`. Les sections
-`projections`, `sources`, `styles`, `layers` et `tilesets` sont des objets
+`crs`, `sources`, `styles`, `layers` et `tilesets` sont des objets
 nommés : la clé porte l'identifiant, ce qui évite les doublons de nom dans les
 objets eux-mêmes.
 

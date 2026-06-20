@@ -20,7 +20,7 @@ const baseConf = {
     services: { },
     sources: { "world": { type: "geojson", path: "../../data/world.geojson" } },
     layers: { "world": { title: "World layer", source: "world", crs: "EPSG:4326" } },
-    projections: { "EPSG:4326": { name: "WGS84", title: "WGS84 coordinate system" } },
+    crs: { "EPSG:4326": { name: "WGS84", title: "WGS84 coordinate system" } },
 }
 
 

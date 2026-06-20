@@ -27,9 +27,9 @@
       "$ref": "#/$defs/tilesets",
       "description": "Unique list of tileset names. Values must reference keys from the top-level `tilesets` registry."
     },
-    "projections": {
-      "$ref": "#/$defs/projections",
-      "description": "Optional registry of custom or named projections."
+    "crs": {
+      "$ref": "#/$defs/crsRegistry",
+      "description": "Optional registry of custom or named crs."
     },
     "sources": {
       "$ref": "#/$defs/sources",
@@ -459,15 +459,15 @@
       },
       "description": "Layer entry inside a tileset. Allows selecting a layer and optionally overriding its style."
     },
-    "projections": {
+    "crsRegistry": {
       "type": "object",
       "additionalProperties": {
-        "$ref": "#/$defs/projection",
+        "$ref": "#/$defs/crs",
         "description": "Value for each named entry in this registry."
       },
-      "description": "Named collection of Projections. ex: 'EPSG:4326' : { 'title': 'WGS84' } "
+      "description": "Named collection of crs. ex: 'EPSG:4326' : { 'title': 'WGS84' } "
     },
-    "projection": {
+    "crs": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -476,14 +476,14 @@
       "properties": {
         "name": {
           "type": "string",
-          "description": "Machine or external name. For projections, this may be the projection name known by the projection library."
+          "description": "Machine or external name. For crs, this may be the crs name known by the crs library."
         },
         "title": {
           "type": "string",
           "description": "Human-readable title shown in service metadata and clients."
         }
       },
-      "description": "Projection metadata. Requires a human-readable `title`."
+      "description": "crs metadata. Requires a human-readable `title`."
     },
     "sources": {
       "type": "object",

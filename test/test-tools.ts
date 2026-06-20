@@ -38,7 +38,7 @@ export const conf_base_template = {
             "maxHeight": 4096
         }
     },
-    "projections": {
+    "crs": {
         "EPSG:4326": {
             "title": "WGS84"
         },
@@ -78,7 +78,7 @@ export const conf_min_template = {
     services: { wms: { title: "WMS service" } },
     sources: { "world": { type: "geojson", path: "../../data/world.geojson" } },
     layers: { "world": { title: "World layer", source: "world", crs: "EPSG:4326" } },
-    projections: { "EPSG:4326": { name: "WGS84", title: "WGS84 coordinate system" } },
+    crs: { "EPSG:4326": { name: "WGS84", title: "WGS84 coordinate system" } },
     styles: { },
 }
 

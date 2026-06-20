@@ -181,7 +181,7 @@ describe('Layer', () => {
         expect(() => new Layer('bad', { source: 'source-a' }))
             .toThrow('Layer "bad" must define crs')
         expect(() => new Layer('bad', { source: 'source-a', crs: 'EPSG:9999' }))
-            .toThrow('Layer "bad" crs "EPSG:9999" is not declared in projections')
+            .toThrow('Layer "bad" crs "EPSG:9999" is not declared in crs')
         expect(() => new Layer('bad', { layer: 'base', crs: 'EPSG:3857' }))
             .toThrow('Layer "bad" cannot override crs "EPSG:4326" from layer "base" with "EPSG:3857"')
         expect(() => new Layer('bad', {
@@ -193,7 +193,7 @@ describe('Layer', () => {
             source: 'source-a',
             crs: 'EPSG:4326',
             pointProperties: [{ x: 'x', y: 'y', crs: 'EPSG:9999' }]
-        })).toThrow('Layer "bad" pointProperties crs "EPSG:9999" is not declared in projections')
+        })).toThrow('Layer "bad" pointProperties crs "EPSG:9999" is not declared in crs')
     })
 
     test('rejects memory layer creation when a source already uses the layer name', () => {

@@ -455,7 +455,7 @@ function selectLayers(layerNames: string[] | undefined, serviceName: string): La
 function resolveCrs(crs: string, label: string): CrsCode {
   const code = normalizeCrsCode(crs)
   if (!Crs.registry.has(code)) {
-    throw new Error(`${label} "${crs}" is not declared in projections`)
+    throw new Error(`${label} "${crs}" is not declared in crs`)
   }
 
   return Crs.registry.get(code).code

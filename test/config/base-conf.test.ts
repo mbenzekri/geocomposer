@@ -236,13 +236,13 @@ describe('test sources loading', () => {
             .rejects.toThrow('/services must NOT have fewer than 1 properties')
     })
 
-    test('Throws when missing projection', async () => {
+    test('Throws when missing crs', async () => {
 
-        config_min.projections = {}
+        config_min.crs = {}
         const configPath = writeConf('test-conf.json', config_min)
 
         await expect(async () => await GeoComposer.from({ configPath }))
-            .rejects.toThrow('Layer "world" crs "EPSG:4326" is not declared in projections')
+            .rejects.toThrow('Layer "world" crs "EPSG:4326" is not declared in crs')
     })
 
     test('Throws when missing sources', async () => {

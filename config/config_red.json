@@ -38,7 +38,7 @@
         }
     },
     "tilesets": {},
-    "projections": {
+    "crs": {
         "EPSG:4326": {
             "title": "WGS84"
         },

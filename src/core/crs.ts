@@ -5,6 +5,7 @@ import { Dict, Registry } from './tools.js'
 export type CrsJson = {
     name?: string
     title: string
+    proj4?: string
 }
 
 export type Proj4Projection = InstanceType<typeof proj4.Proj>
@@ -43,11 +44,15 @@ export class Crs {
     }
 
     static fromConfig(code: CrsCode, entry: CrsJson): Crs {
-        return new Crs(code, entry.name, entry.title)
+        return new Crs(
+            code,
+            entry.name,
+            entry.title,
+            entry.proj4 ? new proj4.Proj(entry.proj4) : undefined
+        )
     }
 
     toString(): string {
         return this.code
     }
-
 }

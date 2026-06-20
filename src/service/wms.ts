@@ -498,7 +498,7 @@ function validateCrs(supportedCrs: CrsCode[], crs: CrsCode): void {
 
 function resolveCrs(crs: string, label: string): CrsCode {
     if (!Crs.registry.has(crs)) {
-        throw new Error(`${label} "${crs}" is not declared in projections`)
+        throw new Error(`${label} "${crs}" is not declared in crs`)
     }
 
     return Crs.registry.get(crs).code
