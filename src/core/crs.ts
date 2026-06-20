@@ -44,11 +44,15 @@ export class Crs {
     }
 
     static fromConfig(code: CrsCode, entry: CrsJson): Crs {
+        if (entry.proj4) {
+            proj4.defs(code, entry.proj4)
+        }
+
         return new Crs(
             code,
             entry.name,
             entry.title,
-            entry.proj4 ? new proj4.Proj(entry.proj4) : undefined
+            entry.proj4 ? new proj4.Proj(code) : undefined
         )
     }
 

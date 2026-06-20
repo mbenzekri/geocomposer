@@ -6769,6 +6769,27 @@
                     ],
                     "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
                   },
+                  "proj4": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                      }
+                    ],
+                    "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
+                  },
                   "$ref": {
                     "type": "string",
                     "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -6855,6 +6876,27 @@
                     ],
                     "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
                   },
+                  "proj4": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                      }
+                    ],
+                    "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
+                  },
                   "$ref": {
                     "type": "string",
                     "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -6919,6 +6961,27 @@
                 }
               ],
               "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "proj4": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
             }
           },
           "description": "crs metadata. Requires a human-readable `title`. (object or \"#/$defs/nom\")"
@@ -6974,6 +7037,27 @@
                 }
               ],
               "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "proj4": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
             },
             "$ref": {
               "type": "string",

@@ -481,6 +481,10 @@
         "title": {
           "type": "string",
           "description": "Human-readable title shown in service metadata and clients."
+        },
+        "proj4": {
+          "type": "string",
+          "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io."
         }
       },
       "description": "crs metadata. Requires a human-readable `title`."

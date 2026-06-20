@@ -10,6 +10,8 @@ import { Layer } from '../../src/layer/layer.js'
 import { Style } from '../../src/style/style.js'
 import { Feature } from '../../src/core/feature.js'
 import { Tileset } from '../../src/tileset/tileset.js'
+import { Crs } from '../../src/core/crs.js'
+import { Gt } from '../../src/core/geotools.js'
 
 
 describe('test sources loading', () => {
@@ -44,6 +46,24 @@ describe('test sources loading', () => {
         const tileset = Tileset.registry.get('world')
         expect(tileset.layers).toEqual([layer])
         expect(tileset.resolveStyles()).toEqual([layer.style])
+    })
+
+    test('crs registry accepts custom Proj4 definitions', async () => {
+        config_min.crs['EPSG:2154'] = {
+            "title": "RGF93 / Lambert-93",
+            "proj4": "+proj=lcc +lat_0=46.5 +lon_0=3 +lat_1=49 +lat_2=44 +x_0=700000 +y_0=6600000 +ellps=GRS80 +units=m +no_defs +type=crs"
+        }
+        const configPath = writeConf('config_custom_proj4_crs.json', config_min)
+
+        await GeoComposer.from({ configPath })
+
+        const crs = Crs.registry.get('EPSG:2154')
+        expect(crs.title).toBe('RGF93 / Lambert-93')
+        expect((crs.proj as { projName?: string }).projName).toBe('lcc')
+        expect(Gt.transformPosition([700000, 6600000], 'EPSG:2154', 'EPSG:4326')).toEqual([
+            expect.closeTo(3),
+            expect.closeTo(46.5)
+        ])
     })
 
     test('memory layer is configured without a declared memory source', async () => {
