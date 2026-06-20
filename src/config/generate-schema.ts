@@ -19,41 +19,38 @@ const clone = <T extends Json>(value: T): T =>
     JSON.parse(JSON.stringify(value)) as T
 
 const isObject = (value: Json): value is JsonObject =>
-    value !== null && typeof value === 'object' && !Array.isArray(value)
+    value !== undefined &&
+    value !== null &&
+    typeof value === 'object' &&
+    !Array.isArray(value)
 
 const localDefsRefSchema: JsonObject = {
     type: 'string',
-    pattern: '^#/\\$defs(?:/[^\\s]+)+$',
-    description: 'Référence locale vers une définition de configuration, par exemple #/$defs/defaultTileset'
+    pattern: '^#/\\$defs(?:/[^\\s]+)+$'
 }
 
 const envSchemaByKind = {
     string: {
         type: 'string',
-        pattern: '^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$',
-        description: 'Variable d’environnement chaîne : $s{VAR} ou $s{VAR|default}'
+        pattern: '^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$'
     },
     integer: {
         type: 'string',
-        pattern: '^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$',
-        description: 'Variable d’environnement entière : $i{VAR} ou $i{VAR|3000}'
+        pattern: '^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$'
     },
     number: {
         type: 'string',
-        pattern: '^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$',
-        description: 'Variable d’environnement numérique : $f{VAR} ou $f{VAR|1.5}'
+        pattern: '^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$'
     },
     boolean: {
         type: 'string',
-        pattern: '^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$',
-        description: 'Variable d’environnement booléenne : $b{VAR} ou $b{VAR|false}'
+        pattern: '^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$'
     }
 } satisfies Record<string, JsonObject>
 
 const embeddedEnvStringSchema: JsonObject = {
     type: 'string',
-    pattern: '\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}',
-    description: 'Chaîne contenant une ou plusieurs variables d’environnement typées'
+    pattern: '\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}'
 }
 
 const anyConfigValueSchema: JsonObject = {
@@ -91,40 +88,56 @@ const getByPointer = (root: JsonObject, ref: string): Json | undefined => {
     return current
 }
 
-const getSchemaKind = (
-    schema: JsonObject,
-    root: JsonObject,
-    seen = new Set<string>()
-): string | undefined => {
-    if (typeof schema.type === 'string') {
-        return schema.type
+const getEnumKind = (values: Json[]): string | undefined => {
+    if (values.length === 0) {
+        return undefined
     }
 
-    if (typeof schema.const === 'string') {
+    if (values.every(value => typeof value === 'string')) {
         return 'string'
     }
 
-    if (typeof schema.const === 'number') {
-        return Number.isInteger(schema.const) ? 'integer' : 'number'
+    if (values.every(value => typeof value === 'number')) {
+        return values.every(value => Number.isInteger(value))
+            ? 'integer'
+            : 'number'
     }
 
-    if (typeof schema.const === 'boolean') {
+    if (values.every(value => typeof value === 'boolean')) {
         return 'boolean'
     }
 
-    if (Array.isArray(schema.enum) && schema.enum.length > 0) {
-        if (schema.enum.every(value => typeof value === 'string')) {
-            return 'string'
-        }
+    return undefined
+}
 
-        if (schema.enum.every(value => typeof value === 'number')) {
-            return schema.enum.every(value => Number.isInteger(value))
-                ? 'integer'
-                : 'number'
-        }
+const getSchemaKinds = (
+    schema: JsonObject,
+    root: JsonObject,
+    seen = new Set<string>()
+): Set<string> => {
+    const kinds = new Set<string>()
 
-        if (schema.enum.every(value => typeof value === 'boolean')) {
-            return 'boolean'
+    if (typeof schema.type === 'string') {
+        kinds.add(schema.type)
+    }
+
+    if (typeof schema.const === 'string') {
+        kinds.add('string')
+    }
+
+    if (typeof schema.const === 'number') {
+        kinds.add(Number.isInteger(schema.const) ? 'integer' : 'number')
+    }
+
+    if (typeof schema.const === 'boolean') {
+        kinds.add('boolean')
+    }
+
+    if (Array.isArray(schema.enum)) {
+        const enumKind = getEnumKind(schema.enum)
+
+        if (enumKind) {
+            kinds.add(enumKind)
         }
     }
 
@@ -133,12 +146,26 @@ const getSchemaKind = (
 
         const target = getByPointer(root, schema.$ref)
 
-        if (isObject(target ?? null)) {
-            return getSchemaKind(target as JsonObject, root, seen)
+        if (isObject(target)) {
+            for (const kind of getSchemaKinds(target, root, seen)) {
+                kinds.add(kind)
+            }
         }
     }
 
-    return undefined
+    for (const key of ['anyOf', 'oneOf', 'allOf'] as const) {
+        if (Array.isArray(schema[key])) {
+            for (const subSchema of schema[key]) {
+                if (isObject(subSchema)) {
+                    for (const kind of getSchemaKinds(subSchema, root, seen)) {
+                        kinds.add(kind)
+                    }
+                }
+            }
+        }
+    }
+
+    return kinds
 }
 
 const isObjectLikeSchema = (
@@ -165,6 +192,130 @@ const isObjectLikeSchema = (
     }
 
     return false
+}
+
+const isArrayLikeSchema = (
+    schema: JsonObject,
+    root: JsonObject,
+    seen = new Set<string>()
+): boolean => {
+    if (
+        schema.type === 'array' ||
+        'items' in schema ||
+        'prefixItems' in schema ||
+        'contains' in schema
+    ) {
+        return true
+    }
+
+    if (typeof schema.$ref === 'string' && !seen.has(schema.$ref)) {
+        seen.add(schema.$ref)
+
+        const target = getByPointer(root, schema.$ref)
+
+        return isObject(target) && isArrayLikeSchema(target, root, seen)
+    }
+
+    return false
+}
+
+const formatEnvVar = (kind: string): string | undefined => {
+    if (kind === 'string') {
+        return '"$s{ENV_VAR|default}"'
+    }
+
+    if (kind === 'integer') {
+        return '"$i{ENV_VAR|default}"'
+    }
+
+    if (kind === 'number') {
+        return '"$f{ENV_VAR|default}"'
+    }
+
+    if (kind === 'boolean') {
+        return '"$b{ENV_VAR|default}"'
+    }
+
+    return undefined
+}
+
+const formatKind = (kind: string): string | undefined => {
+    if (kind === 'string') {
+        return 'string'
+    }
+
+    if (kind === 'integer') {
+        return 'integer'
+    }
+
+    if (kind === 'number') {
+        return 'number'
+    }
+
+    if (kind === 'boolean') {
+        return 'boolean'
+    }
+
+    return undefined
+}
+
+const formatEnumValues = (values: Json[]): string =>
+    values.map(value => JSON.stringify(value)).join(', ')
+
+const getDescriptionSuffix = (
+    originalSchema: JsonObject,
+    root: JsonObject
+): string | undefined => {
+    if (Array.isArray(originalSchema.enum)) {
+        const enumKind = getEnumKind(originalSchema.enum)
+        const envVar = enumKind ? formatEnvVar(enumKind) : undefined
+
+        if (envVar) {
+            return `(${formatEnumValues(originalSchema.enum)} or ${envVar})`
+        }
+    }
+
+    const kinds = getSchemaKinds(originalSchema, root)
+    const primitiveKinds = ['string', 'integer', 'number', 'boolean']
+        .filter(kind => kinds.has(kind))
+
+    if (primitiveKinds.length === 1) {
+        const kind = primitiveKinds[0]
+        const label = formatKind(kind)
+        const envVar = formatEnvVar(kind)
+
+        if (label && envVar) {
+            return `(${label} or ${envVar})`
+        }
+    }
+
+    if (isObjectLikeSchema(originalSchema, root)) {
+        return '(object or "#/$defs/nom")'
+    }
+
+    if (isArrayLikeSchema(originalSchema, root)) {
+        return '(array or "#/$defs/nom")'
+    }
+
+    return undefined
+}
+
+const enrichDescription = (
+    schema: JsonObject,
+    originalSchema: JsonObject,
+    root: JsonObject
+): JsonObject => {
+    const baseDescription = schema.description
+    const suffix = getDescriptionSuffix(originalSchema, root)
+
+    if (typeof baseDescription !== 'string' || !suffix) {
+        return clone(schema)
+    }
+
+    return {
+        ...clone(schema),
+        description: `${baseDescription} ${suffix}`
+    }
 }
 
 export const transformSchema = (
@@ -302,14 +453,14 @@ const makeMergeObjectSchema = (
     const properties: JsonObject = {
         ...collectedProperties,
         ...transformedProperties,
-        $ref: localDefsRefSchema
+        $ref: enrichDescription(localDefsRefSchema, originalSchema, root)
     }
 
     const mergeSchema: JsonObject = {
         type: 'object',
         required: ['$ref'],
         properties,
-        description: 'Objet de configuration fusionné avec une définition locale $defs via $ref'
+        description: transformedSchema.description
     }
 
     if (originalSchema.additionalProperties === false) {
@@ -324,7 +475,7 @@ const makeMergeObjectSchema = (
         mergeSchema.unevaluatedProperties = false
     }
 
-    return mergeSchema
+    return enrichDescription(mergeSchema, originalSchema, root)
 }
 
 const withExpansionRules = (
@@ -332,23 +483,30 @@ const withExpansionRules = (
     transformedSchema: JsonObject,
     root: JsonObject
 ): JsonObject => {
-    const variants: Json[] = [transformedSchema, localDefsRefSchema]
-    const schemaKind = getSchemaKind(originalSchema, root)
+    const variants: Json[] = [
+        enrichDescription(transformedSchema, originalSchema, root),
+        enrichDescription(localDefsRefSchema, originalSchema, root)
+    ]
 
-    if (schemaKind === 'string') {
-        variants.push(envSchemaByKind.string, embeddedEnvStringSchema)
+    const schemaKinds = getSchemaKinds(originalSchema, root)
+
+    if (schemaKinds.has('string')) {
+        variants.push(
+            enrichDescription(envSchemaByKind.string, originalSchema, root),
+            enrichDescription(embeddedEnvStringSchema, originalSchema, root)
+        )
     }
 
-    if (schemaKind === 'integer') {
-        variants.push(envSchemaByKind.integer)
+    if (schemaKinds.has('integer')) {
+        variants.push(enrichDescription(envSchemaByKind.integer, originalSchema, root))
     }
 
-    if (schemaKind === 'number') {
-        variants.push(envSchemaByKind.number)
+    if (schemaKinds.has('number')) {
+        variants.push(enrichDescription(envSchemaByKind.number, originalSchema, root))
     }
 
-    if (schemaKind === 'boolean') {
-        variants.push(envSchemaByKind.boolean)
+    if (schemaKinds.has('boolean')) {
+        variants.push(enrichDescription(envSchemaByKind.boolean, originalSchema, root))
     }
 
     if (isObjectLikeSchema(originalSchema, root)) {
@@ -357,7 +515,7 @@ const withExpansionRules = (
 
     return {
         anyOf: variants,
-        description: transformedSchema.description
+        description: enrichDescription(transformedSchema, originalSchema, root).description
     }
 }
 
@@ -368,7 +526,8 @@ export const generateSchema = (
 
 const main = async () => {
     const rawSchema = JSON.parse(await readFile(inputPath, 'utf8')) as JsonObject
-    const generatedSchema = transformSchema(rawSchema, rawSchema, true)
+    const generatedSchema = generateSchema(rawSchema)
+
     await writeFile(
         outputPath,
         `${JSON.stringify(generatedSchema, null, 2)}\n`,
@@ -379,8 +538,8 @@ const main = async () => {
 }
 
 if (import.meta.main) {
-  main().catch(error => {
-    console.error(error)
-    process.exitCode = 1
-  })
+    main().catch(error => {
+        console.error(error)
+        process.exitCode = 1
+    })
 }

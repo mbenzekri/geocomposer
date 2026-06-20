@@ -1,5 +1,5 @@
 {
-    "$schema": "./config-and-rules.schema.json",
+    "$schema": "./config.schema.json",
     "$defs": {
         "cnx-postgis": "postgres://postgres:$s{GEOC_PGPWD|postgres}@localhost:5432/postgres",
         "cnx-oracle": "oracle://GEOCOMPOSER:geocomposer@localhost:1521/XEPDB1",

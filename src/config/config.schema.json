@@ -465,7 +465,7 @@
         "$ref": "#/$defs/projection",
         "description": "Value for each named entry in this registry."
       },
-      "description": "Projection registry. Each property name is a CRS code/projection identifier."
+      "description": "Named collection of Projections. ex: 'EPSG:4326' : { 'title': 'WGS84' } "
     },
     "projection": {
       "type": "object",
