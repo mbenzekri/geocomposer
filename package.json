@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsx ./src/config/generate-schema.ts",
     "test": "npm run build && npm run test:typecheck && npm run test:unit",
     "test:typecheck": "tsc --noEmit --rootDir . --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --esModuleInterop --resolveJsonModule --skipLibCheck --types node src/index.ts src/geo-composer.ts test/**/*.test.ts vitest.config.ts",
     "test:unit": "vitest run",
