@@ -98,8 +98,9 @@ Le WMTS est exposé sur `services.wmts.path`, par défaut `/wmts`. Il supporte
 Les tilesets sont déclarés à la racine dans `tilesets`. Les services `xyz` et
 `wmts` ne font que sélectionner ces tilesets par nom. Chaque tileset référence
 les layers et styles déjà déclarés dans `config/config.json` avec une propriété
-`layers`, même quand il ne contient qu'une seule couche. Les options `tileSize`,
-`minZoom`, `maxZoom` et `cacheControl` appartiennent à chaque tileset.
+`layers`, même quand il ne contient qu'une seule couche. Les options `minZoom`,
+`maxZoom` et `cacheControl` appartiennent à chaque tileset. La taille des tuiles
+appartient aux matrices du `tileMatrixSet`.
 
 La configuration est décrite par `config/config.schema.json`. Les sections
 `crs`, `sources`, `styles`, `layers` et `tilesets` sont des objets
@@ -119,7 +120,6 @@ les propriétés locales prennent priorité.
     "defaultTileset": {
       "tileMatrixSet": "WebMercatorQuad",
       "formats": ["image/png", "application/geo+json"],
-      "tileSize": 256,
       "minZoom": 0,
       "maxZoom": 8
     }

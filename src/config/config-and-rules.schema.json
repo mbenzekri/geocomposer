@@ -832,6 +832,32 @@
       ],
       "description": "Unique list of tileset names. Values must reference keys from the top-level `tilesets` registry. (object or \"#/$defs/nom\")"
     },
+    "tileMatrixSets": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/tileMatrixSets",
+          "description": "Optional tile matrix set registry. Built-in `WebMercatorQuad` is available when omitted. (object or \"#/$defs/nom\")"
+        },
+        {
+          "type": "string",
+          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+        },
+        {
+          "type": "object",
+          "required": [
+            "$ref"
+          ],
+          "properties": {
+            "$ref": {
+              "type": "string",
+              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+            }
+          },
+          "description": "Optional tile matrix set registry. Built-in `WebMercatorQuad` is available when omitted. (object or \"#/$defs/nom\")"
+        }
+      ],
+      "description": "Optional tile matrix set registry. Built-in `WebMercatorQuad` is available when omitted. (object or \"#/$defs/nom\")"
+    },
     "crs": {
       "anyOf": [
         {
@@ -4332,10 +4358,8 @@
                   "tileMatrixSet": {
                     "anyOf": [
                       {
-                        "enum": [
-                          "WebMercatorQuad"
-                        ],
-                        "description": "Tile matrix set identifier. Allowed values: `WebMercatorQuad`. (\"WebMercatorQuad\" or \"$s{ENV_VAR|default}\")"
+                        "type": "string",
+                        "description": "Tile matrix set identifier. Must reference a built-in or top-level `tileMatrixSets` entry. (string or \"$s{ENV_VAR|default}\")"
                       },
                       {
                         "type": "string",
@@ -4350,7 +4374,7 @@
                         "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                       }
                     ],
-                    "description": "Tile matrix set identifier. Allowed values: `WebMercatorQuad`. (\"WebMercatorQuad\" or \"$s{ENV_VAR|default}\")"
+                    "description": "Tile matrix set identifier. Must reference a built-in or top-level `tileMatrixSets` entry. (string or \"$s{ENV_VAR|default}\")"
                   },
                   "formats": {
                     "anyOf": [
@@ -4391,24 +4415,6 @@
                       }
                     ],
                     "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
-                  },
-                  "tileSize": {
-                    "anyOf": [
-                      {
-                        "type": "integer",
-                        "minimum": 1,
-                        "description": "Tile width and height in pixels. Minimum: 1. Common value: 256. (integer or \"$i{ENV_VAR|default}\")"
-                      },
-                      {
-                        "type": "string",
-                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
-                      },
-                      {
-                        "type": "string",
-                        "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
-                      }
-                    ],
-                    "description": "Tile width and height in pixels. Minimum: 1. Common value: 256. (integer or \"$i{ENV_VAR|default}\")"
                   },
                   "minZoom": {
                     "anyOf": [
@@ -4845,10 +4851,8 @@
                   "tileMatrixSet": {
                     "anyOf": [
                       {
-                        "enum": [
-                          "WebMercatorQuad"
-                        ],
-                        "description": "Tile matrix set identifier. Allowed values: `WebMercatorQuad`. (\"WebMercatorQuad\" or \"$s{ENV_VAR|default}\")"
+                        "type": "string",
+                        "description": "Tile matrix set identifier. Must reference a built-in or top-level `tileMatrixSets` entry. (string or \"$s{ENV_VAR|default}\")"
                       },
                       {
                         "type": "string",
@@ -4863,7 +4867,7 @@
                         "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                       }
                     ],
-                    "description": "Tile matrix set identifier. Allowed values: `WebMercatorQuad`. (\"WebMercatorQuad\" or \"$s{ENV_VAR|default}\")"
+                    "description": "Tile matrix set identifier. Must reference a built-in or top-level `tileMatrixSets` entry. (string or \"$s{ENV_VAR|default}\")"
                   },
                   "formats": {
                     "anyOf": [
@@ -4904,24 +4908,6 @@
                       }
                     ],
                     "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
-                  },
-                  "tileSize": {
-                    "anyOf": [
-                      {
-                        "type": "integer",
-                        "minimum": 1,
-                        "description": "Tile width and height in pixels. Minimum: 1. Common value: 256. (integer or \"$i{ENV_VAR|default}\")"
-                      },
-                      {
-                        "type": "string",
-                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
-                      },
-                      {
-                        "type": "string",
-                        "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
-                      }
-                    ],
-                    "description": "Tile width and height in pixels. Minimum: 1. Common value: 256. (integer or \"$i{ENV_VAR|default}\")"
                   },
                   "minZoom": {
                     "anyOf": [
@@ -5283,6 +5269,1657 @@
       ],
       "description": "Named tileset registry. (object or \"#/$defs/nom\")"
     },
+    "tileMatrixSets": {
+      "anyOf": [
+        {
+          "title": "Tile matrix set registry",
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/tileMatrixSet",
+                "description": "Value for each named tile matrix set. (object or \"#/$defs/nom\")"
+              },
+              {
+                "type": "string",
+                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "$ref"
+                ],
+                "properties": {
+                  "title": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Human-readable title shown in WMTS capabilities. (string or \"$s{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                      }
+                    ],
+                    "description": "Human-readable title shown in WMTS capabilities. (string or \"$s{ENV_VAR|default}\")"
+                  },
+                  "crs": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Coordinate reference system code used by this tile matrix set. (string or \"$s{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                      }
+                    ],
+                    "description": "Coordinate reference system code used by this tile matrix set. (string or \"$s{ENV_VAR|default}\")"
+                  },
+                  "supportedCrs": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "WMTS SupportedCRS URI. Defaults to an OGC EPSG URN for EPSG codes. (string or \"$s{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                      }
+                    ],
+                    "description": "WMTS SupportedCRS URI. Defaults to an OGC EPSG URN for EPSG codes. (string or \"$s{ENV_VAR|default}\")"
+                  },
+                  "tileMatrices": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/$defs/tileMatrix",
+                              "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                            },
+                            {
+                              "type": "string",
+                              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                            },
+                            {
+                              "type": "object",
+                              "required": [
+                                "$ref"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                                    }
+                                  ],
+                                  "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+                                },
+                                "scaleDenominator": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "exclusiveMinimum": 0,
+                                      "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+                                },
+                                "cellSize": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "exclusiveMinimum": 0,
+                                      "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+                                },
+                                "topLeftCorner": {
+                                  "anyOf": [
+                                    {
+                                      "type": "array",
+                                      "minItems": 2,
+                                      "maxItems": 2,
+                                      "prefixItems": [
+                                        {
+                                          "anyOf": [
+                                            {
+                                              "type": "number",
+                                              "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                            }
+                                          ],
+                                          "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                        },
+                                        {
+                                          "anyOf": [
+                                            {
+                                              "type": "number",
+                                              "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                            }
+                                          ],
+                                          "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                        }
+                                      ],
+                                      "items": false,
+                                      "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    }
+                                  ],
+                                  "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+                                },
+                                "tileWidth": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                                },
+                                "tileHeight": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                                },
+                                "matrixWidth": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                                },
+                                "matrixHeight": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                                },
+                                "$ref": {
+                                  "type": "string",
+                                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                }
+                              },
+                              "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                            }
+                          ],
+                          "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                        },
+                        "description": "Ordered tile matrix definitions. The array index is the internal zoom used by XYZ and tileset minZoom/maxZoom. (array or \"#/$defs/nom\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      }
+                    ],
+                    "description": "Ordered tile matrix definitions. The array index is the internal zoom used by XYZ and tileset minZoom/maxZoom. (array or \"#/$defs/nom\")"
+                  },
+                  "$ref": {
+                    "type": "string",
+                    "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                  }
+                },
+                "description": "Value for each named tile matrix set. (object or \"#/$defs/nom\")"
+              }
+            ],
+            "description": "Value for each named tile matrix set. (object or \"#/$defs/nom\")"
+          },
+          "description": "Named tile matrix set registry. Built-in `WebMercatorQuad` is always available. (object or \"#/$defs/nom\")"
+        },
+        {
+          "type": "string",
+          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+        },
+        {
+          "type": "object",
+          "required": [
+            "$ref"
+          ],
+          "properties": {
+            "$ref": {
+              "type": "string",
+              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+            }
+          },
+          "description": "Named tile matrix set registry. Built-in `WebMercatorQuad` is always available. (object or \"#/$defs/nom\")",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/tileMatrixSet",
+                "description": "Value for each named tile matrix set. (object or \"#/$defs/nom\")"
+              },
+              {
+                "type": "string",
+                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "$ref"
+                ],
+                "properties": {
+                  "title": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Human-readable title shown in WMTS capabilities. (string or \"$s{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                      }
+                    ],
+                    "description": "Human-readable title shown in WMTS capabilities. (string or \"$s{ENV_VAR|default}\")"
+                  },
+                  "crs": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "Coordinate reference system code used by this tile matrix set. (string or \"$s{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                      }
+                    ],
+                    "description": "Coordinate reference system code used by this tile matrix set. (string or \"$s{ENV_VAR|default}\")"
+                  },
+                  "supportedCrs": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "description": "WMTS SupportedCRS URI. Defaults to an OGC EPSG URN for EPSG codes. (string or \"$s{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                      }
+                    ],
+                    "description": "WMTS SupportedCRS URI. Defaults to an OGC EPSG URN for EPSG codes. (string or \"$s{ENV_VAR|default}\")"
+                  },
+                  "tileMatrices": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/$defs/tileMatrix",
+                              "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                            },
+                            {
+                              "type": "string",
+                              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                            },
+                            {
+                              "type": "object",
+                              "required": [
+                                "$ref"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                                    }
+                                  ],
+                                  "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+                                },
+                                "scaleDenominator": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "exclusiveMinimum": 0,
+                                      "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+                                },
+                                "cellSize": {
+                                  "anyOf": [
+                                    {
+                                      "type": "number",
+                                      "exclusiveMinimum": 0,
+                                      "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+                                },
+                                "topLeftCorner": {
+                                  "anyOf": [
+                                    {
+                                      "type": "array",
+                                      "minItems": 2,
+                                      "maxItems": 2,
+                                      "prefixItems": [
+                                        {
+                                          "anyOf": [
+                                            {
+                                              "type": "number",
+                                              "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                            }
+                                          ],
+                                          "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                        },
+                                        {
+                                          "anyOf": [
+                                            {
+                                              "type": "number",
+                                              "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                            },
+                                            {
+                                              "type": "string",
+                                              "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                            }
+                                          ],
+                                          "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                        }
+                                      ],
+                                      "items": false,
+                                      "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    }
+                                  ],
+                                  "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+                                },
+                                "tileWidth": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                                },
+                                "tileHeight": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                                },
+                                "matrixWidth": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                                },
+                                "matrixHeight": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                    },
+                                    {
+                                      "type": "string",
+                                      "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                    }
+                                  ],
+                                  "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                                },
+                                "$ref": {
+                                  "type": "string",
+                                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                }
+                              },
+                              "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                            }
+                          ],
+                          "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                        },
+                        "description": "Ordered tile matrix definitions. The array index is the internal zoom used by XYZ and tileset minZoom/maxZoom. (array or \"#/$defs/nom\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      }
+                    ],
+                    "description": "Ordered tile matrix definitions. The array index is the internal zoom used by XYZ and tileset minZoom/maxZoom. (array or \"#/$defs/nom\")"
+                  },
+                  "$ref": {
+                    "type": "string",
+                    "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                  }
+                },
+                "description": "Value for each named tile matrix set. (object or \"#/$defs/nom\")"
+              }
+            ],
+            "description": "Value for each named tile matrix set. (object or \"#/$defs/nom\")"
+          }
+        }
+      ],
+      "description": "Named tile matrix set registry. Built-in `WebMercatorQuad` is always available. (object or \"#/$defs/nom\")"
+    },
+    "tileMatrixSet": {
+      "anyOf": [
+        {
+          "title": "Tile matrix set",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "crs",
+            "tileMatrices"
+          ],
+          "properties": {
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Human-readable title shown in WMTS capabilities. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Human-readable title shown in WMTS capabilities. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "crs": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Coordinate reference system code used by this tile matrix set. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Coordinate reference system code used by this tile matrix set. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "supportedCrs": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "WMTS SupportedCRS URI. Defaults to an OGC EPSG URN for EPSG codes. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "WMTS SupportedCRS URI. Defaults to an OGC EPSG URN for EPSG codes. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "tileMatrices": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/tileMatrix",
+                        "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "$ref"
+                        ],
+                        "properties": {
+                          "id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                              }
+                            ],
+                            "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+                          },
+                          "scaleDenominator": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+                          },
+                          "cellSize": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+                          },
+                          "topLeftCorner": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "minItems": 2,
+                                "maxItems": 2,
+                                "prefixItems": [
+                                  {
+                                    "anyOf": [
+                                      {
+                                        "type": "number",
+                                        "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                      },
+                                      {
+                                        "type": "string",
+                                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                      },
+                                      {
+                                        "type": "string",
+                                        "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                      }
+                                    ],
+                                    "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                  },
+                                  {
+                                    "anyOf": [
+                                      {
+                                        "type": "number",
+                                        "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                      },
+                                      {
+                                        "type": "string",
+                                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                      },
+                                      {
+                                        "type": "string",
+                                        "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                      }
+                                    ],
+                                    "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                  }
+                                ],
+                                "items": false,
+                                "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              }
+                            ],
+                            "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+                          },
+                          "tileWidth": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                          },
+                          "tileHeight": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                          },
+                          "matrixWidth": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                          },
+                          "matrixHeight": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                          },
+                          "$ref": {
+                            "type": "string",
+                            "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                          }
+                        },
+                        "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                      }
+                    ],
+                    "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                  },
+                  "description": "Ordered tile matrix definitions. The array index is the internal zoom used by XYZ and tileset minZoom/maxZoom. (array or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                }
+              ],
+              "description": "Ordered tile matrix definitions. The array index is the internal zoom used by XYZ and tileset minZoom/maxZoom. (array or \"#/$defs/nom\")"
+            }
+          },
+          "description": "Tile matrix set definition with explicit matrices. (object or \"#/$defs/nom\")"
+        },
+        {
+          "type": "string",
+          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+        },
+        {
+          "type": "object",
+          "required": [
+            "$ref"
+          ],
+          "properties": {
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Human-readable title shown in WMTS capabilities. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Human-readable title shown in WMTS capabilities. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "crs": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Coordinate reference system code used by this tile matrix set. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Coordinate reference system code used by this tile matrix set. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "supportedCrs": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "WMTS SupportedCRS URI. Defaults to an OGC EPSG URN for EPSG codes. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "WMTS SupportedCRS URI. Defaults to an OGC EPSG URN for EPSG codes. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "tileMatrices": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/tileMatrix",
+                        "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "$ref"
+                        ],
+                        "properties": {
+                          "id": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                              }
+                            ],
+                            "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+                          },
+                          "scaleDenominator": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+                          },
+                          "cellSize": {
+                            "anyOf": [
+                              {
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+                          },
+                          "topLeftCorner": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "minItems": 2,
+                                "maxItems": 2,
+                                "prefixItems": [
+                                  {
+                                    "anyOf": [
+                                      {
+                                        "type": "number",
+                                        "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                      },
+                                      {
+                                        "type": "string",
+                                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                      },
+                                      {
+                                        "type": "string",
+                                        "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                      }
+                                    ],
+                                    "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                  },
+                                  {
+                                    "anyOf": [
+                                      {
+                                        "type": "number",
+                                        "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                      },
+                                      {
+                                        "type": "string",
+                                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                      },
+                                      {
+                                        "type": "string",
+                                        "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                      }
+                                    ],
+                                    "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                                  }
+                                ],
+                                "items": false,
+                                "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              }
+                            ],
+                            "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+                          },
+                          "tileWidth": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                          },
+                          "tileHeight": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                          },
+                          "matrixWidth": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                          },
+                          "matrixHeight": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 1,
+                                "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                              }
+                            ],
+                            "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                          },
+                          "$ref": {
+                            "type": "string",
+                            "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                          }
+                        },
+                        "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                      }
+                    ],
+                    "description": "Tile matrix definition. (object or \"#/$defs/nom\")"
+                  },
+                  "description": "Ordered tile matrix definitions. The array index is the internal zoom used by XYZ and tileset minZoom/maxZoom. (array or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                }
+              ],
+              "description": "Ordered tile matrix definitions. The array index is the internal zoom used by XYZ and tileset minZoom/maxZoom. (array or \"#/$defs/nom\")"
+            },
+            "$ref": {
+              "type": "string",
+              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+            }
+          },
+          "description": "Tile matrix set definition with explicit matrices. (object or \"#/$defs/nom\")",
+          "additionalProperties": false
+        }
+      ],
+      "description": "Tile matrix set definition with explicit matrices. (object or \"#/$defs/nom\")"
+    },
+    "tileMatrix": {
+      "anyOf": [
+        {
+          "title": "Tile matrix",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scaleDenominator",
+            "topLeftCorner",
+            "tileWidth",
+            "tileHeight",
+            "matrixWidth",
+            "matrixHeight"
+          ],
+          "properties": {
+            "id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "scaleDenominator": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+            },
+            "cellSize": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+            },
+            "topLeftCorner": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                    }
+                  ],
+                  "items": false,
+                  "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                }
+              ],
+              "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+            },
+            "tileWidth": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "tileHeight": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "matrixWidth": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "matrixHeight": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+            }
+          },
+          "description": "Explicit WMTS tile matrix definition. (object or \"#/$defs/nom\")"
+        },
+        {
+          "type": "string",
+          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+        },
+        {
+          "type": "object",
+          "required": [
+            "$ref"
+          ],
+          "properties": {
+            "id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "WMTS TileMatrix identifier. Defaults to the matrix array index. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "scaleDenominator": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "WMTS scale denominator for this matrix. (number or \"$f{ENV_VAR|default}\")"
+            },
+            "cellSize": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS. (number or \"$f{ENV_VAR|default}\")"
+            },
+            "topLeftCorner": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "minItems": 2,
+                  "maxItems": 2,
+                  "prefixItems": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Top-left X coordinate. (number or \"$f{ENV_VAR|default}\")"
+                    },
+                    {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$f\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Top-left Y coordinate. (number or \"$f{ENV_VAR|default}\")"
+                    }
+                  ],
+                  "items": false,
+                  "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                }
+              ],
+              "description": "Top-left corner of the tile matrix in the tile matrix set CRS. (array or \"#/$defs/nom\")"
+            },
+            "tileWidth": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Tile width in pixels. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "tileHeight": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Tile height in pixels. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "matrixWidth": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Number of tile columns in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "matrixHeight": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Number of tile rows in this matrix. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "$ref": {
+              "type": "string",
+              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+            }
+          },
+          "description": "Explicit WMTS tile matrix definition. (object or \"#/$defs/nom\")",
+          "additionalProperties": false
+        }
+      ],
+      "description": "Explicit WMTS tile matrix definition. (object or \"#/$defs/nom\")"
+    },
     "tileset": {
       "anyOf": [
         {
@@ -5366,10 +7003,8 @@
             "tileMatrixSet": {
               "anyOf": [
                 {
-                  "enum": [
-                    "WebMercatorQuad"
-                  ],
-                  "description": "Tile matrix set identifier. Allowed values: `WebMercatorQuad`. (\"WebMercatorQuad\" or \"$s{ENV_VAR|default}\")"
+                  "type": "string",
+                  "description": "Tile matrix set identifier. Must reference a built-in or top-level `tileMatrixSets` entry. (string or \"$s{ENV_VAR|default}\")"
                 },
                 {
                   "type": "string",
@@ -5384,7 +7019,7 @@
                   "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                 }
               ],
-              "description": "Tile matrix set identifier. Allowed values: `WebMercatorQuad`. (\"WebMercatorQuad\" or \"$s{ENV_VAR|default}\")"
+              "description": "Tile matrix set identifier. Must reference a built-in or top-level `tileMatrixSets` entry. (string or \"$s{ENV_VAR|default}\")"
             },
             "formats": {
               "anyOf": [
@@ -5425,24 +7060,6 @@
                 }
               ],
               "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
-            },
-            "tileSize": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "minimum": 1,
-                  "description": "Tile width and height in pixels. Minimum: 1. Common value: 256. (integer or \"$i{ENV_VAR|default}\")"
-                },
-                {
-                  "type": "string",
-                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
-                },
-                {
-                  "type": "string",
-                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
-                }
-              ],
-              "description": "Tile width and height in pixels. Minimum: 1. Common value: 256. (integer or \"$i{ENV_VAR|default}\")"
             },
             "minZoom": {
               "anyOf": [
@@ -5849,10 +7466,8 @@
             "tileMatrixSet": {
               "anyOf": [
                 {
-                  "enum": [
-                    "WebMercatorQuad"
-                  ],
-                  "description": "Tile matrix set identifier. Allowed values: `WebMercatorQuad`. (\"WebMercatorQuad\" or \"$s{ENV_VAR|default}\")"
+                  "type": "string",
+                  "description": "Tile matrix set identifier. Must reference a built-in or top-level `tileMatrixSets` entry. (string or \"$s{ENV_VAR|default}\")"
                 },
                 {
                   "type": "string",
@@ -5867,7 +7482,7 @@
                   "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                 }
               ],
-              "description": "Tile matrix set identifier. Allowed values: `WebMercatorQuad`. (\"WebMercatorQuad\" or \"$s{ENV_VAR|default}\")"
+              "description": "Tile matrix set identifier. Must reference a built-in or top-level `tileMatrixSets` entry. (string or \"$s{ENV_VAR|default}\")"
             },
             "formats": {
               "anyOf": [
@@ -5908,24 +7523,6 @@
                 }
               ],
               "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
-            },
-            "tileSize": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "minimum": 1,
-                  "description": "Tile width and height in pixels. Minimum: 1. Common value: 256. (integer or \"$i{ENV_VAR|default}\")"
-                },
-                {
-                  "type": "string",
-                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
-                },
-                {
-                  "type": "string",
-                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
-                }
-              ],
-              "description": "Tile width and height in pixels. Minimum: 1. Common value: 256. (integer or \"$i{ENV_VAR|default}\")"
             },
             "minZoom": {
               "anyOf": [

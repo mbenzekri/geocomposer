@@ -9,6 +9,7 @@ import { Source, type SourceJson } from '../source/source-build.js'
 import { Layer, type LayerJson } from '../layer/layer.js'
 import { Style, type StyleJson } from '../style/style.js'
 import { Tileset, type TilesetJson } from '../tileset/tileset.js'
+import { TileMatrixSet, type TileMatrixSetJson } from '../tileset/tile-matrix-set.js'
 
 import { JsonValidator } from '../core/json-validator.js'
 import { EnvSolver } from './env-solver.js'
@@ -44,6 +45,7 @@ export type GeoComposerJson = {
     sources: Dict<SourceJson>
     styles?: Dict<StyleJson>
     layers: Dict<LayerJson>
+    tileMatrixSets?: Dict<TileMatrixSetJson>
     tilesets?: Dict<TilesetJson>
 }
 
@@ -98,6 +100,7 @@ export class Config extends Singleton {
         Source.build(json.sources)
         await Style.build(json.styles ?? {})
         Layer.build(json.layers)
+        TileMatrixSet.build(json.tileMatrixSets ?? {})
         Tileset.build(json.tilesets ?? {})
         Service.build(json.services)
 

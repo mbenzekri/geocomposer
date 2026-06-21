@@ -25,7 +25,6 @@ type WmtsTileRequest = {
 
 type MatrixSetUse = {
     tileMatrixSet: TileMatrixSet
-    tileSize: number
     minZoom: number
     maxZoom: number
 }
@@ -116,7 +115,6 @@ export class Wmts extends Service {
 
         const tilesets = Tileset.select(opts.tilesets, 'WMTS')
         this.tilesetByName = new Map(tilesets.map((tileset) => [tileset.id, tileset]))
-        validateWmtsTilesets(tilesets)
     }
 
     static fromConfig(entry: WmtsJson): Wmts {
@@ -264,14 +262,15 @@ export class Wmts extends Service {
 
 async function renderTile(request: WmtsTileRequest): Promise<Buffer> {
     const bbox = request.tileset.bbox(request.z, request.x, request.y)
+    const matrix = request.tileset.matrix(request.z)
 
     if (!request.output.vector) {
         return getMap({
             layers: request.tileset.layers,
             styles: request.tileset.resolveStyles(),
             bbox,
-            width: request.tileset.tileSize,
-            height: request.tileset.tileSize,
+            width: matrix.tileWidth,
+            height: matrix.tileHeight,
             crs: request.tileset.crs,
             pixelRatio: 1
         })
@@ -281,7 +280,8 @@ async function renderTile(request: WmtsTileRequest): Promise<Buffer> {
         layers: request.tileset.layers,
         bbox,
         crs: request.tileset.crs,
-        tileSize: request.tileset.tileSize,
+        tileWidth: matrix.tileWidth,
+        tileHeight: matrix.tileHeight,
         format: request.output.format,
         vector: request.tileset.vector
     })
@@ -322,13 +322,13 @@ class WmtsCapabilitiesBuilder {
         const limits = []
 
         for (let z = tileset.minZoom; z <= tileset.maxZoom; z += 1) {
-            const max = 2 ** z - 1
+            const matrix = tileset.tileMatrixSet.matrix(z)
             limits.push({
-                tileMatrix: tileset.tileMatrixSet.matrixId(z),
+                tileMatrix: matrix.id,
                 minTileRow: 0,
-                maxTileRow: max,
+                maxTileRow: matrix.matrixHeight - 1,
                 minTileCol: 0,
-                maxTileCol: max
+                maxTileCol: matrix.matrixWidth - 1
             })
         }
 
@@ -339,7 +339,7 @@ class WmtsCapabilitiesBuilder {
         const matrices = []
 
         for (let z = use.minZoom; z <= use.maxZoom; z += 1) {
-            const matrix = use.tileMatrixSet.matrix(z, use.tileSize)
+            const matrix = use.tileMatrixSet.matrix(z)
             matrices.push({
                 id: matrix.id,
                 scaleDenominator: matrix.scaleDenominator,
@@ -384,7 +384,6 @@ function collectMatrixSetUses(tilesets: Tileset[]): MatrixSetUse[] {
         if (!existing) {
             uses.set(id, {
                 tileMatrixSet: tileset.tileMatrixSet,
-                tileSize: tileset.tileSize,
                 minZoom: tileset.minZoom,
                 maxZoom: tileset.maxZoom
             })
@@ -397,21 +396,6 @@ function collectMatrixSetUses(tilesets: Tileset[]): MatrixSetUse[] {
 
     return [...uses.values()]
 }
-
-function validateWmtsTilesets(tilesets: Tileset[]): void {
-    const tileSizeByMatrixSet = new Map<string, number>()
-
-    for (const tileset of tilesets) {
-        const existing = tileSizeByMatrixSet.get(tileset.tileMatrixSet.id)
-        if (existing !== undefined && existing !== tileset.tileSize) {
-            throw new Error(`WMTS tileMatrixSet "${tileset.tileMatrixSet.id}" cannot mix tileSize ${existing} and ${tileset.tileSize}`)
-        }
-
-        tileSizeByMatrixSet.set(tileset.tileMatrixSet.id, tileset.tileSize)
-    }
-}
-
-
 
 function sendWmtsError(res: ServerResponse, code: string, message: string): void {
     const body = [

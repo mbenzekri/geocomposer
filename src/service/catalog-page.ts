@@ -649,7 +649,7 @@ export class CatalogPage {
         { label: 'ID', value: this.code(tileset.id) },
         { label: 'CRS', value: this.code(tileset.crs) },
         { label: 'Zooms', value: this.code(`${tileset.minZoom}-${tileset.maxZoom}`) },
-        { label: 'Taille', value: this.code(`${tileset.tileSize}px`) }
+        { label: 'Taille', value: this.code(this.tilesetSizeLabel(tileset)) }
       ],
       details: [
         { label: 'TileMatrixSet', value: this.code(tileset.tileMatrixSet.id) },
@@ -658,6 +658,16 @@ export class CatalogPage {
       ],
       links: this.tilesetLinks(req, tileset)
     }))
+  }
+
+  private tilesetSizeLabel(tileset: Tileset): string {
+    const sizes = new Set<string>()
+    for (let z = tileset.minZoom; z <= tileset.maxZoom; z += 1) {
+      const matrix = tileset.matrix(z)
+      sizes.add(`${matrix.tileWidth}x${matrix.tileHeight}px`)
+    }
+
+    return [...sizes].join(', ')
   }
 
   private renderTypeButton(type: CatalogType, active: boolean): string {

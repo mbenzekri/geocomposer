@@ -17,7 +17,8 @@ export type VectorTileGeometryProcessorOptions = {
   extent: number
   buffer: number
   tolerance: number
-  tileSize: number
+  tileWidth: number
+  tileHeight: number
   precision: number
 }
 
@@ -33,7 +34,7 @@ export class VectorTileGeometryProcessor {
       maxX: options.extent + options.buffer,
       maxY: options.extent + options.buffer
     }
-    this.tolerance = options.tolerance * (options.extent / options.tileSize)
+    this.tolerance = options.tolerance * (options.extent / Math.max(options.tileWidth, options.tileHeight))
     this.minArea = this.tolerance * this.tolerance
   }
 

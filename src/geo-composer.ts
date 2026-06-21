@@ -9,6 +9,7 @@ import { Layer } from './layer/layer.js'
 import { Crs } from './core/crs.js'
 import { Style } from './style/style.js'
 import { Tileset } from './tileset/tileset.js'
+import { TileMatrixSet } from './tileset/tile-matrix-set.js'
 import { CatalogPage } from './service/catalog-page.js'
 
 
@@ -104,6 +105,7 @@ export class GeoComposer {
         Layer.registry.clear()
         Crs.registry.clear()
         Style.registry.clear()
+        TileMatrixSet.build({})
         Tileset.registry.clear()
     }
 
@@ -232,4 +234,3 @@ export class GeoComposer {
 if (isMain(import.meta.url)) {
     await GeoComposer.launch()
 }
-

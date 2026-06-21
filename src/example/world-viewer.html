@@ -270,7 +270,7 @@
       tileMatrixIds.push(String(z))
       tileMatrixSizes.push([matrixSize, matrixSize])
     }
-    const crs = {
+    const projections = {
       'EPSG:4326': {
         center: [0, 0],
         zoom: 1
@@ -355,7 +355,7 @@
     }
     const serviceUrlElement = document.getElementById('service-url')
     const serviceSelect = document.getElementById('service-select')
-    const crselect = document.getElementById('crs-select')
+    const crsSelect = document.getElementById('crs-select')
     const sourceSelect = document.getElementById('source-select')
     const contentSelect = document.getElementById('content-select')
     const outputSelect = document.getElementById('output-select')
@@ -366,7 +366,7 @@
     const featureInfoOutputElement = document.getElementById('feature-info-output')
     let lastRequestUrl = ''
     let currentService = 'wms'
-    let currentcrsCode = 'EPSG:3857'
+    let currentCrsCode = 'EPSG:3857'
     let currentSourceLayer = 'world'
     let currentContent = 'world-capitals'
     let currentOutputFormat = 'png'
@@ -386,7 +386,7 @@
     const map = new ol.Map({
       target: 'map',
       layers: [layer],
-      view: createView(currentcrsCode)
+      view: createView(currentCrsCode)
     })
     map.addControl(new ol.control.ScaleLine({
       units: 'metric',
@@ -443,7 +443,7 @@
     function createXyzSource(version) {
       const tileset = currentTilesetInfo()
       return new ol.source.XYZ({
-        crs: 'EPSG:3857',
+        projection: 'EPSG:3857',
         tileSize,
         minZoom: tileMinZoom,
         maxZoom: tileMaxZoom,
@@ -465,7 +465,7 @@
         layer: tileset.name,
         matrixSet: 'WebMercatorQuad',
         format: tileset.format,
-        crs: 'EPSG:3857',
+        projection: 'EPSG:3857',
         requestEncoding: 'KVP',
         style: 'default',
         wrapX: false,
@@ -490,12 +490,12 @@
       const format = tileset.format === 'application/vnd.mapbox-vector-tile'
         ? new ol.format.MVT()
         : new ol.format.GeoJSON({
-          datacrs: 'EPSG:3857',
-          featurecrs: 'EPSG:3857'
+          dataProjection: 'EPSG:3857',
+          featureProjection: 'EPSG:3857'
         })
 
       return new ol.source.VectorTile({
-        crs: 'EPSG:3857',
+        projection: 'EPSG:3857',
         tileGrid: vectorTileGrid,
         format,
         wrapX: false,
@@ -583,11 +583,11 @@
     }
 
     function createView(code) {
-      const crs = crs[code]
+      const projection = projections[code]
       return new ol.View({
-        crs: code,
-        center: crs.center,
-        zoom: crs.zoom,
+        projection: code,
+        center: projection.center,
+        zoom: projection.zoom,
         multiWorld: true
       })
     }
@@ -596,9 +596,9 @@
       if (!service || !serviceUrls[service]) return
 
       currentService = service
-      if (currentService !== 'wms' && currentcrsCode !== 'EPSG:3857') {
-        currentcrsCode = 'EPSG:3857'
-        map.setView(createView(currentcrsCode))
+      if (currentService !== 'wms' && currentCrsCode !== 'EPSG:3857') {
+        currentCrsCode = 'EPSG:3857'
+        map.setView(createView(currentCrsCode))
       }
       lastRequestUrl = ''
       requestUrlElement.textContent = 'En attente...'
@@ -666,14 +666,14 @@
       }
     }
 
-    function setcrs(code) {
-      if (!crs[code]) return
+    function setCrs(code) {
+      if (!projections[code]) return
       if (currentService !== 'wms' && code !== 'EPSG:3857') return
 
-      currentcrsCode = code
+      currentCrsCode = code
       lastRequestUrl = ''
       requestUrlElement.textContent = 'En attente...'
-      map.setView(createView(currentcrsCode))
+      map.setView(createView(currentCrsCode))
 
       if (currentService === 'wms') {
         replaceMapLayer()
@@ -690,7 +690,7 @@
 
       const wmsMode = currentService === 'wms'
 
-      for (const option of crselect.options) {
+      for (const option of crsSelect.options) {
         option.disabled = !wmsMode && option.value !== 'EPSG:3857'
       }
 
@@ -698,7 +698,7 @@
         option.disabled = wmsMode && option.value !== 'png'
       }
 
-      crselect.value = currentcrsCode
+      crsSelect.value = currentCrsCode
       sourceSelect.value = currentSourceLayer
       contentSelect.value = currentContent
       outputSelect.value = wmsMode ? 'png' : currentOutputFormat
@@ -726,9 +726,9 @@
       if (!size) return
 
       const extent = map.getView().calculateExtent(size)
-      const crs = map.getView().getcrs()
+      const projection = map.getView().getProjection()
 
-      const image = source.getImage(extent, map.getView().getResolution(), window.devicePixelRatio, crs)
+      const image = source.getImage(extent, map.getView().getResolution(), window.devicePixelRatio, projection)
       const imageElement = image && image.getImage ? image.getImage() : null
       const imageUrl = imageElement && imageElement.src ? imageElement.src : lastRequestUrl
 
@@ -755,12 +755,12 @@
 
       const view = map.getView()
       const resolution = view.getResolution()
-      const crs = view.getcrs()
+      const projection = view.getProjection()
       const layers = source.getParams().LAYERS
 
       if (resolution === undefined || !layers) return
 
-      const url = source.getFeatureInfoUrl(coordinate, resolution, crs, {
+      const url = source.getFeatureInfoUrl(coordinate, resolution, projection, {
         INFO_FORMAT: currentInfoFormat,
         QUERY_LAYERS: layers,
         FEATURE_COUNT: 10,
@@ -946,7 +946,7 @@
     }
 
     serviceSelect.addEventListener('change', () => setService(serviceSelect.value))
-    crselect.addEventListener('change', () => setcrs(crselect.value))
+    crsSelect.addEventListener('change', () => setCrs(crsSelect.value))
     sourceSelect.addEventListener('change', () => setSource(sourceSelect.value))
     contentSelect.addEventListener('change', () => setContent(contentSelect.value))
     outputSelect.addEventListener('change', () => setOutputFormat(outputSelect.value))

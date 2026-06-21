@@ -9,7 +9,8 @@ export type GetVectorTileOptions = {
   layers: Layer[]
   bbox: BBox
   crs: CrsCode
-  tileSize: number
+  tileWidth: number
+  tileHeight: number
   format: string
   vector: RequiredVectorTileOptions
 }
@@ -61,7 +62,8 @@ class VectorTileRenderer {
       extent: options.vector.extent,
       buffer: options.vector.buffer,
       tolerance: options.vector.generalization.tolerance,
-      tileSize: options.tileSize,
+      tileWidth: options.tileWidth,
+      tileHeight: options.tileHeight,
       precision: options.vector.geojsonPrecision
     })
   }

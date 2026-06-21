@@ -27,6 +27,10 @@
       "$ref": "#/$defs/tilesets",
       "description": "Unique list of tileset names. Values must reference keys from the top-level `tilesets` registry."
     },
+    "tileMatrixSets": {
+      "$ref": "#/$defs/tileMatrixSets",
+      "description": "Optional tile matrix set registry. Built-in `WebMercatorQuad` is available when omitted."
+    },
     "crs": {
       "$ref": "#/$defs/crsRegistry",
       "description": "Optional registry of custom or named crs."
@@ -323,6 +327,115 @@
       },
       "description": "Named tileset registry."
     },
+    "tileMatrixSets": {
+      "title": "Tile matrix set registry",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/tileMatrixSet",
+        "description": "Value for each named tile matrix set."
+      },
+      "description": "Named tile matrix set registry. Built-in `WebMercatorQuad` is always available."
+    },
+    "tileMatrixSet": {
+      "title": "Tile matrix set",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "crs",
+        "tileMatrices"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Human-readable title shown in WMTS capabilities."
+        },
+        "crs": {
+          "type": "string",
+          "description": "Coordinate reference system code used by this tile matrix set."
+        },
+        "supportedCrs": {
+          "type": "string",
+          "description": "WMTS SupportedCRS URI. Defaults to an OGC EPSG URN for EPSG codes."
+        },
+        "tileMatrices": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/tileMatrix",
+            "description": "Tile matrix definition."
+          },
+          "description": "Ordered tile matrix definitions. The array index is the internal zoom used by XYZ and tileset minZoom/maxZoom."
+        }
+      },
+      "description": "Tile matrix set definition with explicit matrices."
+    },
+    "tileMatrix": {
+      "title": "Tile matrix",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scaleDenominator",
+        "topLeftCorner",
+        "tileWidth",
+        "tileHeight",
+        "matrixWidth",
+        "matrixHeight"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "WMTS TileMatrix identifier. Defaults to the matrix array index."
+        },
+        "scaleDenominator": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "WMTS scale denominator for this matrix."
+        },
+        "cellSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Cell size in tile matrix CRS units per pixel. Defaults to `scaleDenominator * 0.00028`, which is correct for metre-based CRS."
+        },
+        "topLeftCorner": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {
+              "type": "number",
+              "description": "Top-left X coordinate."
+            },
+            {
+              "type": "number",
+              "description": "Top-left Y coordinate."
+            }
+          ],
+          "items": false,
+          "description": "Top-left corner of the tile matrix in the tile matrix set CRS."
+        },
+        "tileWidth": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Tile width in pixels."
+        },
+        "tileHeight": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Tile height in pixels."
+        },
+        "matrixWidth": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of tile columns in this matrix."
+        },
+        "matrixHeight": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of tile rows in this matrix."
+        }
+      },
+      "description": "Explicit WMTS tile matrix definition."
+    },
     "tileset": {
       "title": "Tileset",
       "type": "object",
@@ -338,10 +451,8 @@
       ],
       "properties": {
         "tileMatrixSet": {
-          "enum": [
-            "WebMercatorQuad"
-          ],
-          "description": "Tile matrix set identifier. Allowed values: `WebMercatorQuad`."
+          "type": "string",
+          "description": "Tile matrix set identifier. Must reference a built-in or top-level `tileMatrixSets` entry."
         },
         "formats": {
           "type": "array",
@@ -356,11 +467,6 @@
             "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`."
           },
           "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique."
-        },
-        "tileSize": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Tile width and height in pixels. Minimum: 1. Common value: 256."
         },
         "minZoom": {
           "type": "integer",

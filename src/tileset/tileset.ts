@@ -22,7 +22,6 @@ const TILE_FORMATS = new Map<string, TileOutput>([
     [MVT_TILE_FORMAT, { format: MVT_TILE_FORMAT, extension: 'pbf', vector: true }],
     ['application/x-protobuf', { format: MVT_TILE_FORMAT, extension: 'pbf', vector: true }]
 ])
-const DEFAULT_TILE_SIZE = 256
 const DEFAULT_MIN_ZOOM = 0
 const DEFAULT_MAX_ZOOM = 22
 const DEFAULT_VECTOR_EXTENT = 4096
@@ -52,7 +51,6 @@ export type TilesetLayerRefJson = string | TilesetLayerJson
 export type TilesetJson = DescInfo & {
     tileMatrixSet?: string
     formats: string[]
-    tileSize?: number
     minZoom?: number
     maxZoom?: number
     cacheControl?: string
@@ -75,7 +73,6 @@ export class Tileset extends RegistryEntry {
 
     readonly tileMatrixSet: TileMatrixSet
     readonly formats: string[]
-    readonly tileSize: number
     readonly minZoom: number
     readonly maxZoom: number
     readonly cacheControl?: string
@@ -91,7 +88,6 @@ export class Tileset extends RegistryEntry {
 
         this.tileMatrixSet = getTileMatrixSet(entry.tileMatrixSet)
         this.formats = normalizeTileFormats(entry.formats)
-        this.tileSize = entry.tileSize ?? DEFAULT_TILE_SIZE
         this.minZoom = entry.minZoom ?? DEFAULT_MIN_ZOOM
         this.maxZoom = entry.maxZoom ?? DEFAULT_MAX_ZOOM
         this.cacheControl = entry.cacheControl
@@ -144,15 +140,16 @@ export class Tileset extends RegistryEntry {
         return this.tileMatrixSet.bbox(z, x, y)
     }
 
+    matrix(z: number) {
+        return this.tileMatrixSet.matrix(z)
+    }
+
     validateCoord(z: number, x: number, y: number): void {
         if (z < this.minZoom || z > this.maxZoom) {
             throw new Error(`z must be between ${this.minZoom} and ${this.maxZoom}`)
         }
 
-        const tilesPerAxis = 2 ** z
-        if (x < 0 || x >= tilesPerAxis || y < 0 || y >= tilesPerAxis) {
-            throw new Error(`x and y must be between 0 and ${tilesPerAxis - 1} at z=${z}`)
-        }
+        this.tileMatrixSet.validateCoord(z, x, y)
     }
 
     zoomFromMatrixId(value: string): number {
@@ -193,16 +190,16 @@ export class Tileset extends RegistryEntry {
             throw new Error('Tileset id must not be empty')
         }
 
-        if (!Number.isInteger(this.tileSize) || this.tileSize <= 0) {
-            throw new Error(`Tileset "${this.id}" tileSize must be a positive integer`)
-        }
-
         if (!Number.isInteger(this.minZoom) || this.minZoom < 0) {
             throw new Error(`Tileset "${this.id}" minZoom must be a non-negative integer`)
         }
 
         if (!Number.isInteger(this.maxZoom) || this.maxZoom < this.minZoom) {
             throw new Error(`Tileset "${this.id}" maxZoom must be an integer greater than or equal to minZoom`)
+        }
+
+        for (let z = this.minZoom; z <= this.maxZoom; z += 1) {
+            this.tileMatrixSet.matrix(z)
         }
 
         if (this.layers.length === 0) {

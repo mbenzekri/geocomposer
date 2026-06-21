@@ -153,8 +153,10 @@ export class Xyz extends Service {
         }
 
         tileset.validateCoord(z, x, y)
+        const matrix = tileset.matrix(z)
 
-        const pixelSize = Math.round(tileset.tileSize * scale)
+        const pixelWidth = Math.round(matrix.tileWidth * scale)
+        const pixelHeight = Math.round(matrix.tileHeight * scale)
 
         return {
             tileset,
@@ -163,8 +165,8 @@ export class Xyz extends Service {
             x,
             y,
             bbox: tileset.bbox(z, x, y),
-            width: pixelSize,
-            height: pixelSize,
+            width: pixelWidth,
+            height: pixelHeight,
             scale
         }
     }
@@ -256,7 +258,8 @@ async function renderTile(request: TileRequest): Promise<Buffer> {
         layers: request.tileset.layers,
         bbox: request.bbox,
         crs: request.tileset.crs,
-        tileSize: request.tileset.tileSize,
+        tileWidth: request.width,
+        tileHeight: request.height,
         format: request.output.format,
         vector: request.tileset.vector
     })
