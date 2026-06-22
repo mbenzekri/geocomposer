@@ -4,6 +4,20 @@ import type { Layer } from '../../src/layer/layer.js'
 import { GeometryBboxFilter } from '../../src/stream/geometry-bbox-filter.js'
 
 describe('GeometryBboxFilter', () => {
+  test('keeps features without geometry', async () => {
+    const layer = {} as Layer
+
+    await expect(collect([
+      {
+        type: 'Feature',
+        id: 'no-geometry',
+        properties: {},
+        layer,
+        geometry: null
+      }
+    ], [-5, -5, 5, 5])).resolves.toEqual(['no-geometry'])
+  })
+
   test('rejects a multipolygon whose global bbox intersects but parts do not', async () => {
     const layer = {} as Layer
     const features: Feature[] = [
@@ -51,6 +65,36 @@ describe('GeometryBboxFilter', () => {
     ]
 
     await expect(collect(features, [-5, -5, 5, 5])).resolves.toEqual(['intersects'])
+  })
+
+  test('uses feature bbox to skip exact geometry checks when bbox is outside', async () => {
+    const layer = {} as Layer
+    const features: Feature[] = [
+      {
+        type: 'Feature',
+        id: 'bbox-outside',
+        properties: {},
+        layer,
+        bbox: [20, 20, 21, 21],
+        geometry: {
+          type: 'Point',
+          coordinates: [0, 0]
+        }
+      },
+      {
+        type: 'Feature',
+        id: 'bbox-inside',
+        properties: {},
+        layer,
+        bbox: [0, 0, 0, 0],
+        geometry: {
+          type: 'Point',
+          coordinates: [0, 0]
+        }
+      }
+    ]
+
+    await expect(collect(features, [-5, -5, 5, 5])).resolves.toEqual(['bbox-inside'])
   })
 })
 
