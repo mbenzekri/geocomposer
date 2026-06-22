@@ -179,7 +179,7 @@ export class VectorTileGeometryProcessor {
     const [minX, minY, maxX, maxY] = this.options.bbox
     const x = ((position[0] - minX) / (maxX - minX)) * this.options.extent
     const y = ((maxY - position[1]) / (maxY - minY)) * this.options.extent
-    return [x, y]
+    return [roundCoordinate(x), roundCoordinate(y)]
   }
 
   private tileToWorldGeometry(geometry: Geometry): Geometry {
@@ -256,6 +256,14 @@ export class VectorTileGeometryProcessor {
       }
 
       const [start, end] = clipped
+      if (isCornerSpike(line[index - 1], line[index], start, end, this.clipRect)) {
+        if (current.length > 0) {
+          clippedLines.push(current)
+          current = []
+        }
+        continue
+      }
+
       if (current.length === 0) {
         current.push(start, end)
         continue
@@ -307,6 +315,34 @@ function clipSegmentToRect(start: Position, end: Position, rect: Rect): [Positio
     [start[0] + t0 * dx, start[1] + t0 * dy],
     [start[0] + t1 * dx, start[1] + t1 * dy]
   ]
+}
+
+function isCornerSpike(
+  originalStart: Position,
+  originalEnd: Position,
+  clippedStart: Position,
+  clippedEnd: Position,
+  rect: Rect
+): boolean {
+  const startInside = containsRect(originalStart, rect)
+  const endInside = containsRect(originalEnd, rect)
+  if (startInside === endInside) return false
+
+  return startInside
+    ? isRectCorner(clippedEnd, rect)
+    : isRectCorner(clippedStart, rect)
+}
+
+function containsRect(position: Position, rect: Rect): boolean {
+  return position[0] >= rect.minX
+    && position[0] <= rect.maxX
+    && position[1] >= rect.minY
+    && position[1] <= rect.maxY
+}
+
+function isRectCorner(position: Position, rect: Rect): boolean {
+  return (position[0] === rect.minX || position[0] === rect.maxX)
+    && (position[1] === rect.minY || position[1] === rect.maxY)
 }
 
 function clipRingToRect(ring: Position[], rect: Rect): Position[] | null {
@@ -471,4 +507,8 @@ export function samePosition(a: Position, b: Position): boolean {
 function roundToPrecision(value: number, precision: number): number {
   const factor = 10 ** precision
   return Math.round(value * factor) / factor
+}
+
+function roundCoordinate(value: number): number {
+  return roundToPrecision(value, 12)
 }

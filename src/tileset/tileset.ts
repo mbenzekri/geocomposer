@@ -121,8 +121,7 @@ export class Tileset extends RegistryEntry {
         }
 
         const selected = names.map((name) => {
-            const tileset = Tileset.registry.get(name)
-            if (tileset) return tileset
+            if (Tileset.registry.has(name)) return Tileset.registry.get(name)
             throw new Error(`Unknown tileset "${name}" in ${serviceName} service`)
         })
 
@@ -169,7 +168,9 @@ export class Tileset extends RegistryEntry {
     }
 
     resolveOutput(format?: string): TileOutput {
-        const normalized = normalizeTileFormat(format ?? this.defaultFormat)
+        const normalized = format === undefined
+            ? normalizeTileFormat(this.defaultFormat)
+            : tileFormatFromExtension(format)
         if (!this.formats.includes(normalized)) {
             throw new Error(`Tileset "${this.id}" does not support format "${normalized}"`)
         }

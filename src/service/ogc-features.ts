@@ -5,8 +5,7 @@ import { Crs } from '../core/crs.js'
 import { Gt } from '../core/geotools.js'
 import type { Props } from '../core/tools.js'
 import { Layer } from '../layer/layer.js'
-import { GeoJsonFeatureEncoder } from '../ogc/feature-api/geojson-feature-encoder.js'
-import { LayerFeatureRepository } from '../ogc/feature-api/layer-feature-repository.js'
+import { GeoJsonFeatureEncoder } from '../ogc/geojson-feature-encoder.js'
 import { Service } from './service.js'
 
 const DEFAULT_LIMIT = 100
@@ -49,7 +48,6 @@ export class OgcFeatures extends Service {
   private readonly defaultLimit: number
   private readonly maxLimit: number
   private readonly supportedCrs: CrsCode[]
-  private readonly repository = new LayerFeatureRepository()
   private nextTraceId = 1
 
   constructor(options: OgcFeaturesJson) {
@@ -179,7 +177,7 @@ export class OgcFeatures extends Service {
     if (segments.length === 3 && segments[2] === 'items') {
       const request = this.parseItemsRequest(this.requireLayer(segments[1]), url)
       this.logHandleParams(this.nextTraceId - 1, request)
-      const page = await this.repository.queryPage(request.layer, {
+      const page = await request.layer.queryPage({
         bbox: request.bbox,
         bboxCrs: request.bboxCrs,
         crs: request.crs,
@@ -200,7 +198,7 @@ export class OgcFeatures extends Service {
     if (segments.length === 4 && segments[2] === 'items') {
       const request = this.parseItemRequest(this.requireLayer(segments[1]), segments[3], url)
       this.logHandleParams(this.nextTraceId - 1, request)
-      const feature = await this.repository.readById(request.layer, request.featureId, {
+      const feature = await request.layer.readById(request.featureId, {
         crs: request.crs
       })
 

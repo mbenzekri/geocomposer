@@ -1,8 +1,8 @@
-import type { BBox } from '../../core/geometry.js'
-import type { Feature } from '../../core/feature.js'
-import { IdFromFeature } from '../../core/feature.js'
-import { Gt } from '../../core/geotools.js'
-import type { Props } from '../../core/tools.js'
+import type { BBox } from '../core/geometry.js'
+import type { Feature } from '../core/feature.js'
+import { IdFromFeature } from '../core/feature.js'
+import { Gt } from '../core/geotools.js'
+import type { Props } from '../core/tools.js'
 
 export type FeatureCollectionMetadata = {
   timeStamp: string

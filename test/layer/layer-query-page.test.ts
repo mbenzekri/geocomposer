@@ -1,12 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import type { Feature } from '../../src/core/feature.js'
 import type { BBox } from '../../src/core/geometry.js'
-import type { Layer, LayerQueryOptions } from '../../src/layer/layer.js'
-import { LayerFeatureRepository } from '../../src/ogc/feature-api/layer-feature-repository.js'
+import { Layer, type LayerQueryOptions } from '../../src/layer/layer.js'
 
-describe('LayerFeatureRepository', () => {
+describe('Layer.queryPage', () => {
   test('applies bbox exact filtering before offset and limit', async () => {
-    const repository = new LayerFeatureRepository()
     const layer = layerWithFeatures([
       disjointMultipolygon('false-positive-1'),
       polygon('hit-1', [-2, -2, -1, -1]),
@@ -15,7 +13,7 @@ describe('LayerFeatureRepository', () => {
       polygon('hit-3', [2, 2, 3, 3])
     ])
 
-    const page = await repository.queryPage(layer, {
+    const page = await layer.queryPage({
       bbox: [-5, -5, 5, 5],
       bboxCrs: 'EPSG:4326',
       crs: 'EPSG:4326',
@@ -38,14 +36,17 @@ function layerWithFeatures(features: Feature[]): Layer {
 
       return new ReadableStream<Feature>({
         start(controller) {
-          for (const feature of features) controller.enqueue({ ...feature, layer: layer as Layer })
+          for (const feature of features) {
+            controller.enqueue({ ...feature, layer: layer as unknown as Layer })
+          }
           controller.close()
         }
       })
     }
   }
 
-  return layer as Layer
+  Object.setPrototypeOf(layer, Layer.prototype)
+  return layer as unknown as Layer
 }
 
 function polygon(id: string, bbox: BBox): Feature {
