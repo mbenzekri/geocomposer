@@ -1233,6 +1233,7 @@ class DynamicIconOptionsNormalizer {
       delete options.img
     } else if (typeof options.src === 'string') {
       options.src = this.sourceUrl(options.src)
+      delete options.img
     }
   }
 
@@ -1338,4 +1339,3 @@ function escapeJsonPointer(value: string): string {
 function unescapeJsonPointer(value: string): string {
   return value.replace(/~1/g, '/').replace(/~0/g, '~')
 }
-

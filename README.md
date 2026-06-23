@@ -1,14 +1,12 @@
-# GeoComposer is a GIS Server (GC for short)
+# GeoComposer est un Serveur SIG (aka GC)
 
-
-- utilise node-canvas comme backend Canvas serveur
-- les features en interne sont des POJO Geojson
+- les features en interne sont des plain object Geojson
 - Utilise OpenLayers + Style Ol + canvas pour le rendu
 - Utilise Proj4 pour les transformation de coordonnées
 - Orientation Web Streams pour le pipeline de rendu (Source -> filtre -> projection -> Rendu) 
 
 __La suite GeoComposer__
-- GeoComposer-Server: Le serveur SUG GeoCompose lui meme
+- GeoComposer-Server: Le serveur SIG GeoCompose lui meme
 - GeoComposer-Admin:  Une extension VSCode extension to preparer des confiuration GC sous forme de repo GIT
 - GeoComposer-Worker: Une Application batch (containerisable) pour automatisé la production de tuiles
 
