@@ -1,6 +1,5 @@
 # Todo liste du projet
 
-
 Aujourd'hui, les architectures les plus appréciées sont proches de :
 
 * Planetiler
@@ -86,11 +85,7 @@ C'est probablement la fonctionnalité la plus utilisée.
 
 ---
 
-### 5. crs EPSG:4326 et 3857 (DONE)
 
-Minimum absolu.
-
----
 
 ### 6. Métadonnées
 

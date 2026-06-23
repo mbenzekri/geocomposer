@@ -1,28 +1,18 @@
-import {
-    Canvas,
-    CanvasRenderingContext2D,
-    createCanvas,
-    loadImage
-} from 'canvas'
+import { Canvas, CanvasRenderingContext2D, createCanvas, loadImage } from 'canvas'
 import './openlayers-node-shim.js'
 import ImageState from 'ol/ImageState.js'
+import type OlGeometry from 'ol/geom/Geometry.js'
 import { toContext } from 'ol/render.js'
 import Style from 'ol/style/Style.js'
 import type { Feature } from '../core/feature.js'
 import type { Geometry, BBox } from '../core/geometry.js'
 import type { StyleContext, StyleFn } from '../style/style-fn.js'
-import {
-    copyTextRenderMetadata,
-    getStyleTextDeclutterMode,
-    getStyleTextDeclutterRank,
-    getStyleTextRenderStep,
-    type TextDeclutterMode,
-    type TextRenderStep
+import { copyTextRenderMetadata, getStyleTextDeclutterMode, getStyleTextDeclutterRank,
+    getStyleTextRenderStep, type TextDeclutterMode, type TextRenderStep
 } from '../style/text-render-step.js'
 import { toPixels } from '../stream/to-pixels.js'
 import { OlGeometryAdapter } from './ol-geometry-adapter.js'
 
-type OlGeometry = ReturnType<OlGeometryAdapter['toGeometry']>
 type DeferredTextRenderStep = Exclude<TextRenderStep, 'layer'>
 
 type DeferredTextRenderItem = {
