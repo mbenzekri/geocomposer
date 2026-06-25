@@ -17,6 +17,11 @@ RUN apk add --no-cache \
     tar \
     git
 
+RUN apk add --no-cache \
+    font-noto \
+    font-noto-cjk \
+    font-noto-extra
+
 RUN npm ci
 
 COPY dist ./dist/

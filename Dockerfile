@@ -20,6 +20,11 @@ RUN apk add --no-cache \
     tar \
     git
 
+RUN apk add --no-cache \
+    font-noto \
+    font-noto-cjk \
+    font-noto-extra
+
 RUN curl -fsSL "${GEOC_RELEASE_BASE_URL}/${GEOC_VERSION}/geo-composer-${GEOC_VERSION}.tar.gz" \
     | tar -xz
 
