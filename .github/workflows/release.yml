@@ -37,10 +37,11 @@ jobs:
           cp -R dist release/
           cp package.json release/
           cp package-lock.json release/
-          cp src/config/config.schema.json release/
-          cp src/style/dynstyle.schema.json release/
 
           tar czf "$ARCHIVE" -C release .
+
+          cp src/config/config-and-rules.schema.json ./config.schema.json
+          cp src/style/dynstyle.schema.json ./dynstyle.schema.json
 
           rm -rf release
 
@@ -49,4 +50,7 @@ jobs:
         with:
           name: Geo Composer ${{ github.ref_name }}
           body: Geo Composer ${{ github.ref_name }}
-          files: geo-composer-${{ github.ref_name }}.tar.gz
+          files: |
+            geo-composer-${{ github.ref_name }}.tar.gz
+            config.schema.json
+            dynstyle.schema.json
