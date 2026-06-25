@@ -1,0 +1,34 @@
+services:
+  geo-composer-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: geo-composer-server:dev
+    container_name: geo-composer-server-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+    restart: unless-stopped
+  geo-composer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GEOC_VERSION: ${v1.0.0}
+        GEOC_RELEASE_BASE_URL: ${GEOC_RELEASE_BASE_URL}
+        GEOC_CONFIG_REPO: ${GEOC_CONFIG_REPO}
+        GEOC_CONFIG_BRANCH: ${GEOC_CONFIG_BRANCH}
+    image: geo-composer-server:${GEOC_VERSION}-${GEOC_CONFIG_BRANCH}
+    container_name: geo-composer-server
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    restart: unless-stopped

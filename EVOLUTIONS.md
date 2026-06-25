@@ -103,7 +103,7 @@ C'est un repo GIT composé :
 ```
   config.schema.json
   style.schema.json
-  project.json
+  config.json
   profiles.json
   fonts/
     arial.ttf
@@ -123,7 +123,6 @@ de GC containerisé dans l'infratructure cloud de l'entreprise (Azure/AWS/GCloud
 Le processus est :
 
 ### construire et utiliser un projet GeoComposer
----
 
 En utilisant la plateforme DevObs de mon choix (GitHub, GitLab, Azure DevOps, Bitbucket, ...)
 
@@ -813,7 +812,7 @@ GitHub = seulement un hébergeur possible
 Pour la Community :
 
 /config
-  project.yaml
+  project.json
   layers/
   styles/
   assets/
@@ -1250,7 +1249,7 @@ GeoComposer Project
 Structure :
 
 project/
-├── project.yaml
+├── config.json
 ├── layers/
 ├── services/
 ├── styles/
