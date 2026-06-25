@@ -47,4 +47,6 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          name: Geo Composer ${{ github.ref_name }}
+          body: Geo Composer ${{ github.ref_name }}
           files: geo-composer-${{ github.ref_name }}.tar.gz
