@@ -38,7 +38,7 @@ jobs:
           cp package.json release/
           cp package-lock.json release/
           cp src/config/config.schema.json release/
-          cp src/style/style.schema.json release/
+          cp src/style/dynstyle.schema release/
 
           tar czf "$ARCHIVE" -C release .
 
