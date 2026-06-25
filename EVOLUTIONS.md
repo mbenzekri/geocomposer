@@ -715,6 +715,14 @@ Ainsi GC ne fait pas confiance à n'importe qui.
 Je résumerais l'architecture cible ainsi :
 
 
+## gestion des polices de caractères
+
+- améliorer l'ensemble de polices de base ;
+- vérifier les substitutions Fontconfig (Arial → Liberation Sans ou équivalent) ;
+- éventuellement permettre l'ajout de polices spécifiques via geocomposer-conf.
+L'image alpine3/23 sur lequel est basé le Dockerfile contient tres peu de police 
+C'est un pb , le Dockerfile en instale quelques unes. 
+Mais pour les style c'est un problème l'utilisateur doit pouvoir les embarquer dans le container
 
 ## Scalabilité 
 
