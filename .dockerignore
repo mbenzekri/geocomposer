@@ -1,0 +1,15 @@
+.agents
+.codex
+.vscode
+cache
+coverage
+data
+db
+docs
+node_modules
+.git
+.gitignore
+style-smoke
+test
+npm-debug.log
+.env

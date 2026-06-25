@@ -8,11 +8,14 @@ ARG GEOC_CONFIG_BRANCH
 WORKDIR /app
 
 RUN apk add --no-cache \
-    cairo \
-    pango \
-    jpeg \
-    giflib \
-    librsvg \
+    python3 \
+    make \
+    g++ \
+    cairo-dev \
+    pango-dev \
+    jpeg-dev \
+    giflib-dev \
+    librsvg-dev \
     curl \
     tar \
     git
@@ -32,4 +35,5 @@ RUN npm ci --omit=dev
 
 EXPOSE 3000
 
-CMD ["node", "dist/geo-composer.js", "-cc"]
+#CMD ["/bin/sh"]
+CMD ["node", "dist/geo-composer.js", "-c","/app/config/config.json" ]

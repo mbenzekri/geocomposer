@@ -9,9 +9,13 @@ services:
       - "3000:3000"
     volumes:
       - ./data:/app/data
+      - ./config:/app/config
     environment:
       NODE_ENV: development
       PORT: 3000
+      GEOC_POSTGIS_HOST: postgis
+      GEOC_ORACLE_HOST: oracle
+      GEOC_MSSQL_HOST: mssql
     restart: unless-stopped
   geo-composer:
     build:
@@ -32,3 +36,8 @@ services:
       NODE_ENV: production
       PORT: 3000
     restart: unless-stopped
+
+networks:
+  default:
+    external: true
+    name: geoc-network

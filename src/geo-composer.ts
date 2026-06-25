@@ -54,8 +54,14 @@ export class GeoComposer {
                 await geoc.run()
             } catch (error) {
                 // runtime error caught
-                console.error(`[GeoComposer] Runtime failure`)
-                console.error(String(error))
+                if (error instanceof Error) {
+                    console.error(`[GeoComposer] Runtime failure ${error.message}/${error.cause}`)
+                        if (error instanceof AggregateError) {
+                            error.errors.forEach((err, i) => console.error(`- Error ${i + 1}: ${err}`))
+                        }
+                } else {
+                    console.error(`[GeoComposer] Runtime failure ${ error }`)
+                }
             }
         } catch (error) {
             // Initialisation error caught

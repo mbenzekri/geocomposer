@@ -22,3 +22,8 @@ services:
 
 volumes:
   mssql-data:
+
+networks:
+  default:
+    external: true
+    name: geoc-network

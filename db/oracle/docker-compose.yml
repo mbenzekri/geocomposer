@@ -19,3 +19,9 @@ services:
 
 volumes:
   oracle-data:
+
+networks:
+  default:
+    external: true
+    name: geoc-network
+
