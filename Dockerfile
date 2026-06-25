@@ -17,13 +17,8 @@ RUN apk add --no-cache \
     tar \
     git
 
-RUN test -n "$GEOC_VERSION" \
-    && test -n "$GEOC_RELEASE_BASE_URL" \
-    && test -n "$GEOC_CONFIG_REPO" \
-    && test -n "$GEOC_CONFIG_BRANCH"
-
 RUN curl -fsSL "${GEOC_RELEASE_BASE_URL}/${GEOC_VERSION}/geo-composer-${GEOC_VERSION}.tar.gz" \
-    | tar -xz --strip-components=1
+    | tar -xz
 
 RUN git clone \
     --depth 1 \
@@ -31,9 +26,9 @@ RUN git clone \
     "$GEOC_CONFIG_REPO" \
     config
 
-RUN npm ci --omit=dev
-
 RUN rm -rf config/.git
+
+RUN npm ci --omit=dev
 
 EXPOSE 3000
 

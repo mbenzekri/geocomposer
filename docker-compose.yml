@@ -18,7 +18,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        GEOC_VERSION: ${v1.0.0}
+        GEOC_VERSION: ${GEOC_VERSION}
         GEOC_RELEASE_BASE_URL: ${GEOC_RELEASE_BASE_URL}
         GEOC_CONFIG_REPO: ${GEOC_CONFIG_REPO}
         GEOC_CONFIG_BRANCH: ${GEOC_CONFIG_BRANCH}
