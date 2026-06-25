@@ -1,8 +1,8 @@
 {
     "$schema": "./config.schema.json",
     "$defs": {
-        "cnx-postgis": "postgres://postgres:$s{GEOC_PGPWD|postgres}@$s{GEOC_POSTGIS_HOST}:5432/postgres",
-        "cnx-oracle": "oracle://GEOCOMPOSER:geocomposer@$s{GEOC_ORACLE_HOST}:1521/XEPDB1",
+        "cnx-postgis": "postgres://postgres:$s{GEOC_PGPWD|postgres}@$s{GEOC_POSTGIS_HOST|localhost}:5432/postgres",
+        "cnx-oracle": "oracle://GEOCOMPOSER:geocomposer@$s{GEOC_ORACLE_HOST|localhost}:1521/XEPDB1",
         "worldExtent": [
             -180,
             -90,

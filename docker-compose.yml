@@ -35,6 +35,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      GEOC_POSTGIS_HOST: postgis
+      GEOC_ORACLE_HOST: oracle
+      GEOC_MSSQL_HOST: mssql
     restart: unless-stopped
 
 networks:

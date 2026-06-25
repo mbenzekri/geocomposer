@@ -15,7 +15,8 @@
     "serve": "tsx src/geo-composer.ts -cc",
     "demo:styles": "tsx src/example/demo-styles.ts",
     "demo:dynstyle": "tsx src/example/demo-dynstyle.ts",
-    "demo:all": "npm run build && npm run demo:styles && npm run demo:dynstyle"
+    "demo:all": "npm run build && npm run demo:styles && npm run demo:dynstyle",
+    "release": "git tag v$npm_package_version && git push && git push origin v$npm_package_version"
   },
   "dependencies": {
     "@turf/bbox-polygon": "^7.3.5",

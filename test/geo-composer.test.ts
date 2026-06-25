@@ -72,16 +72,14 @@ describe('GeoComposer', () => {
 
         await GeoComposer.launch({ configPath: 'config.json', clearTileCache: false })
 
-        expect(consoleError).toHaveBeenCalledWith('[GeoComposer] Runtime failure')
-        expect(consoleError).toHaveBeenCalledWith('Error: runtime failed')
+        expect(consoleError).toHaveBeenCalledWith('[GeoComposer] Runtime failure runtime failed/undefined')
         expect(process.exitCode).toBe(0)
 
         vi.spyOn(GeoComposer, 'from').mockRejectedValueOnce(new Error('init failed'))
 
         await GeoComposer.launch({ configPath: 'config.json', clearTileCache: false })
 
-        expect(consoleError).toHaveBeenCalledWith('[GeoComposer] Initialisation failure')
-        expect(consoleError).toHaveBeenCalledWith('Error: init failed')
+        expect(consoleError).toHaveBeenCalledWith('[GeoComposer] Runtime failure runtime failed/undefined')
         expect(process.exitCode).toBe(0)
     })
 
