@@ -9,6 +9,7 @@ import {
     Registry,
     Singleton,
     assertExistsCreateDir,
+    assertExistsDir,
     assertExistsFile,
     escape,
     isObject,
@@ -216,6 +217,16 @@ describe('tools', () => {
             const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tools-test-'))
 
             expect(() => assertExistsFile(dir)).toThrow(`Not a file: ${dir}`)
+        })
+
+        it('accepts an existing directory', () => {
+            expect(() => assertExistsDir(tempPath)).not.toThrow()
+        })
+
+        it('throws when directory does not exist', () => {
+            expect(() => assertExistsDir('/missing/dir')).toThrow(
+                'Directory not found: /missing/dir'
+            )
         })
 
         it('does nothing for undefined directory path', () => {

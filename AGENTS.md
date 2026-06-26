@@ -1,5 +1,8 @@
 # Project Notes for Codex
 
+## Collaboration policy
+
+- Do not modify files, generate patches, run formatters, or alter project state without the user's explicit approval for that specific change. Analysis, reading files, and reporting findings are allowed; implementation requires a clear "go" from the user.
 
 - File-backed source streams must preserve future random-access indexing data. When a `Feature` comes from a file, set `Feature.sourceRef` with the source id plus byte `offset` and `byteLength` of the feature in that source file.
 - For GeoJSON, `sourceRef.offset` must point to the opening `{` and `sourceRef.byteLength` must include the closing `}`, so the referenced byte slice is directly `JSON.parse`-able.

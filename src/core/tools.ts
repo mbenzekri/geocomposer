@@ -138,6 +138,11 @@ export function assertExistsFile(path: string | undefined ) {
     if (!fs.existsSync(path)) throw new Error(`File not found: ${path}`)
     if (!fs.statSync(path).isFile()) throw new Error(`Not a file: ${path}`)            
 }
+export function assertExistsDir(path: string | undefined ) {
+    if(path == null) return
+    if (!fs.existsSync(path)) throw new Error(`Directory not found: ${path}`)
+    if (!fs.statSync(path).isDirectory()) throw new Error(`Not a directory: ${path}`)
+}
 export function assertExistsCreateDir(path: string | undefined ) {
     if(path == null) return
     if (fs.existsSync(path) && !fs.statSync(path).isDirectory()) {

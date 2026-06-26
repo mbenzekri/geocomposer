@@ -11,17 +11,20 @@ import { Style } from './style/style.js'
 import { Tileset } from './tileset/tileset.js'
 import { TileMatrixSet } from './tileset/tile-matrix-set.js'
 import { CatalogPage } from './service/catalog-page.js'
+import { StaticSite } from './service/static-site.js'
 
 
 export class GeoComposer {
     readonly port: number
     readonly server: Server
     private readonly catalogPage = new CatalogPage()
+    private readonly staticSite?: StaticSite
     private shuttingDown = false
     private opened = false
     
     private constructor(config: Config) {
         this.port = config.port
+        this.staticSite = config.site ? new StaticSite(config.site) : undefined
 
         this.server = createServer((req, res) => {
             this.handle(req, res).catch((error) => {
@@ -194,6 +197,11 @@ export class GeoComposer {
             return
         }
 
+        if (this.staticSite?.matches(url.pathname)) {
+            await this.staticSite.handle(req, res)
+            return
+        }
+
         if (this.catalogPage.matches(url.pathname)) {
             await this.catalogPage.handle(req, res)
             return
@@ -213,6 +221,9 @@ export class GeoComposer {
     private logListening(): void {
         const baseUrl = `http://localhost:${this.port}`
         console.log(`[Catalog] landing page: ${baseUrl}/`)
+        if (this.staticSite) {
+            console.log(`[Site] static site: ${baseUrl}/site/`)
+        }
         Service.registry.all.forEach(
             service => service.logListening(baseUrl)
         )

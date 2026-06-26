@@ -1,5 +1,5 @@
 import { resolve } from "node:path"
-import { assertExistsCreateDir, assertExistsFile, isPlainObject } from "../core/tools.js"
+import { assertExistsCreateDir, assertExistsDir, assertExistsFile, isPlainObject } from "../core/tools.js"
 
 export class PathsSolver {
     constructor(readonly baseDir: string) { }
@@ -13,6 +13,9 @@ export class PathsSolver {
 
         fullpath = this.resolveProp(document, ['services', 'wmts', 'cache'])
         assertExistsCreateDir(fullpath)
+
+        fullpath = this.resolveProp(document, ['server', 'site'])
+        assertExistsDir(fullpath)
 
         Object.entries(document.styles ?? {}).forEach(([name, stylejson]) => {
             if (isPlainObject(stylejson)) {

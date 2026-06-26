@@ -36,6 +36,8 @@ RUN git clone \
 
 RUN rm -rf config/.git
 
+RUN cp -R config/site site
+
 RUN npm ci --omit=dev
 
 EXPOSE 3000

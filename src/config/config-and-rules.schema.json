@@ -51,10 +51,10 @@
             "port": {
               "anyOf": [
                 {
+                  "description": "HTTP server port. Minimum: 0. Maximum: 65535. (integer or \"$i{ENV_VAR|default}\")",
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 65535,
-                  "description": "HTTP server port. Minimum: 0. Maximum: 65535. (integer or \"$i{ENV_VAR|default}\")"
+                  "maximum": 65535
                 },
                 {
                   "type": "string",
@@ -70,6 +70,7 @@
             "logLevel": {
               "anyOf": [
                 {
+                  "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")",
                   "type": "string",
                   "enum": [
                     "DEBUG",
@@ -77,8 +78,7 @@
                     "WARN",
                     "ERROR",
                     "NONE"
-                  ],
-                  "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
+                  ]
                 },
                 {
                   "type": "string",
@@ -94,6 +94,27 @@
                 }
               ],
               "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
+            },
+            "site": {
+              "anyOf": [
+                {
+                  "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")",
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")"
             },
             "$ref": {
               "type": "string",
@@ -1394,16 +1415,17 @@
     "server": {
       "anyOf": [
         {
+          "description": "Server runtime configuration. (object or \"#/$defs/nom\")",
           "type": "object",
           "additionalProperties": false,
           "properties": {
             "port": {
               "anyOf": [
                 {
+                  "description": "HTTP server port. Minimum: 0. Maximum: 65535. (integer or \"$i{ENV_VAR|default}\")",
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 65535,
-                  "description": "HTTP server port. Minimum: 0. Maximum: 65535. (integer or \"$i{ENV_VAR|default}\")"
+                  "maximum": 65535
                 },
                 {
                   "type": "string",
@@ -1419,6 +1441,7 @@
             "logLevel": {
               "anyOf": [
                 {
+                  "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")",
                   "type": "string",
                   "enum": [
                     "DEBUG",
@@ -1426,8 +1449,7 @@
                     "WARN",
                     "ERROR",
                     "NONE"
-                  ],
-                  "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
+                  ]
                 },
                 {
                   "type": "string",
@@ -1443,9 +1465,29 @@
                 }
               ],
               "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
+            },
+            "site": {
+              "anyOf": [
+                {
+                  "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")",
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")"
             }
-          },
-          "description": "Server runtime configuration. (object or \"#/$defs/nom\")"
+          }
         },
         {
           "type": "string",
@@ -1460,10 +1502,10 @@
             "port": {
               "anyOf": [
                 {
+                  "description": "HTTP server port. Minimum: 0. Maximum: 65535. (integer or \"$i{ENV_VAR|default}\")",
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 65535,
-                  "description": "HTTP server port. Minimum: 0. Maximum: 65535. (integer or \"$i{ENV_VAR|default}\")"
+                  "maximum": 65535
                 },
                 {
                   "type": "string",
@@ -1479,6 +1521,7 @@
             "logLevel": {
               "anyOf": [
                 {
+                  "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")",
                   "type": "string",
                   "enum": [
                     "DEBUG",
@@ -1486,8 +1529,7 @@
                     "WARN",
                     "ERROR",
                     "NONE"
-                  ],
-                  "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
+                  ]
                 },
                 {
                   "type": "string",
@@ -1503,6 +1545,27 @@
                 }
               ],
               "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
+            },
+            "site": {
+              "anyOf": [
+                {
+                  "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")",
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")"
             },
             "$ref": {
               "type": "string",

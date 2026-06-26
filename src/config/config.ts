@@ -34,6 +34,7 @@ class ConfigValidator extends JsonValidator<GeoComposerJson> {
 export type ServerJson = {
     port?: number
     logLevel?: "DEBUG" | "LOG" | "WARN" | "ERROR" | "NONE"
+    site?: string
 }
 
 export type GeoComposerJson = {
@@ -54,7 +55,9 @@ export class Config extends Singleton {
     readonly path: string
     readonly dir: string
     get port(): number { return this._port ?? 3000 }
+    get site(): string | undefined { return this._site }
     private _port?: number
+    private _site?: string
     private loaded = false
 
     constructor(configPath: string, port?: number) {
@@ -94,6 +97,10 @@ export class Config extends Singleton {
         console.setLevel(logLevel)
         this._port ??= json.server?.port ?? 3000
         console.log(`[CONFIG]: Server port set to ${this._port}`)
+        this._site = json.server?.site
+        if (this._site) {
+            console.log(`[CONFIG]: Static site set to ${this._site}`)
+        }
 
         // creating all app objects in their registries
         Crs.build(json.crs ?? {})

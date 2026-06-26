@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import fs from 'node:fs'
+import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Feature, SourceRef } from '../src/core/feature.js'
 import type { BBox } from '../src/core/geometry.js'
@@ -6,6 +8,7 @@ import type { Layer } from '../src/layer/layer.js'
 import { GeoComposer } from '../src/geo-composer.js'
 import { Source, type StreamOptions } from '../src/source/source.js'
 import { Service } from '../src/service/service.js'
+import { testTempPath } from './test-temp.js'
 import { config_base, config_full_path, config_min, init, writeConf } from './test-tools.js'
 
 describe('GeoComposer', () => {
@@ -178,6 +181,44 @@ describe('GeoComposer', () => {
         await app.stop('test')
 
         expect(app.server.listening).toBe(false)
+    })
+
+    test('serves configured static site under /site while keeping catalog unchanged', async () => {
+        const siteName = 'geo-composer-static-site'
+        const sitePath = testTempPath(siteName)
+        fs.mkdirSync(sitePath, { recursive: true })
+        fs.writeFileSync(path.join(sitePath, 'index.html'), '<!doctype html><title>Static Site</title>')
+        fs.writeFileSync(path.join(sitePath, 'index.css'), 'body { color: black; }')
+
+        const app = await composerWithSite(siteName)
+        const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+        await app.run()
+
+        const baseUrl = serverUrl(app)
+        const catalogResponse = await fetch(`${baseUrl}/`)
+        const siteResponse = await fetch(`${baseUrl}/site/`)
+        const siteNoSlashResponse = await fetch(`${baseUrl}/site`)
+        const cssResponse = await fetch(`${baseUrl}/site/index.css`)
+        const headResponse = await fetch(`${baseUrl}/site/index.html`, { method: 'HEAD' })
+        const traversalResponse = await fetch(`${baseUrl}/site/%2e%2e/geo_composer_static_site.json`)
+
+        expect(catalogResponse.status).toBe(200)
+        expect(await catalogResponse.text()).toContain('Catalogue GeoComposer')
+        expect(siteResponse.status).toBe(200)
+        expect(await siteResponse.text()).toContain('Static Site')
+        expect(siteNoSlashResponse.status).toBe(200)
+        expect(await siteNoSlashResponse.text()).toContain('Static Site')
+        expect(cssResponse.status).toBe(200)
+        expect(cssResponse.headers.get('content-type')).toContain('text/css')
+        expect(await cssResponse.text()).toBe('body { color: black; }')
+        expect(headResponse.status).toBe(200)
+        expect(await headResponse.text()).toBe('')
+        expect(traversalResponse.status).toBe(404)
+        expect(consoleLog).toHaveBeenCalledWith('[Catalog] landing page: http://localhost:0/')
+        expect(consoleLog).toHaveBeenCalledWith('[Site] static site: http://localhost:0/site/')
+
+        await app.stop('test')
     })
 
     test('run closes resources and preserves the run error when startup fails', async () => {
@@ -389,6 +430,13 @@ async function composerWithSources(...sources: TestSource[]): Promise<GeoCompose
     }
 
     return app
+}
+
+async function composerWithSite(sitePath: string): Promise<GeoComposer> {
+    init()
+    config_min.server.site = sitePath
+    const configPath = writeConf('geo_composer_static_site.json', config_min)
+    return GeoComposer.from({ configPath, port: 0 })
 }
 
 function serverUrl(app: GeoComposer): string {
