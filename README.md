@@ -85,8 +85,8 @@ Le viewer OpenLayers de test est `src/example/world-viewer.html`.
 Si vous l'ouvrez avec VS Code Live Server, le projet ignore `cache/**` pour
 eviter qu'une tuile XYZ/WMTS rendue recharge automatiquement la page.
 
-Le viewer des styles de test est `src/example/styles-preview.html`.
-Il affiches les images produites par les demos
+Les anciens rendus de demonstration des styles sont couverts par
+`test/example/rendering-examples.test.ts`.
 
 
 Le WMS est exposé sur le chemin `services.wms.path` de `config/config.json`, par

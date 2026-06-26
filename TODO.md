@@ -573,7 +573,7 @@ C'est probablement l'angle le plus original aujourd'hui : la plupart des serveur
 
 ### A decider - documentation et exploitation
 
-- [ ] Documenter les versions Node supportees, surtout pour `node:sqlite`, et ajuster `demo:all` pour ne pas echouer silencieusement sur un Node trop ancien.
+- [ ] Documenter les versions Node supportees, surtout pour `node:sqlite`.
 - [ ] Documenter le modele `FileSource` vs `DbSource`, les garanties `sourceRef`, et les invariants attendus par les futurs index.
 - [ ] Documenter les conventions de style dynamique: `cacheKey`, `static` vs `dynamic`, securite des expressions, et erreurs courantes.
 - [ ] Ajouter une page "operating notes": cache, purge, ports, CORS, reverse proxy, logs, limites WMS, ressources CPU/memoire.
