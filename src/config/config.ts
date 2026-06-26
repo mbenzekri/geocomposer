@@ -1,4 +1,5 @@
-import { dirname, resolve } from 'node:path'
+import { existsSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { Dict, Singleton } from '../core/tools.js'
 
 import { LogLevel} from "../core/log-level.js"
@@ -34,7 +35,6 @@ class ConfigValidator extends JsonValidator<GeoComposerJson> {
 export type ServerJson = {
     port?: number
     logLevel?: "DEBUG" | "LOG" | "WARN" | "ERROR" | "NONE"
-    site?: string
 }
 
 export type GeoComposerJson = {
@@ -97,7 +97,7 @@ export class Config extends Singleton {
         console.setLevel(logLevel)
         this._port ??= json.server?.port ?? 3000
         console.log(`[CONFIG]: Server port set to ${this._port}`)
-        this._site = json.server?.site
+        this._site = this.findStaticSite()
         if (this._site) {
             console.log(`[CONFIG]: Static site set to ${this._site}`)
         }
@@ -115,5 +115,12 @@ export class Config extends Singleton {
         console.log(`[CONFIG]: ${this.path} loaded`)
 
         return this
+    }
+
+    private findStaticSite(): string | undefined {
+        const sitePath = join(this.dir, 'site')
+        return existsSync(sitePath) && statSync(sitePath).isDirectory()
+            ? sitePath
+            : undefined
     }
 }

@@ -24,8 +24,6 @@ RUN apk add --no-cache \
 
 RUN npm ci
 
-COPY dist ./dist/
-
 EXPOSE 3000
 
 #CMD ["/bin/sh"]

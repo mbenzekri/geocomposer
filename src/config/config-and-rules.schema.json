@@ -95,27 +95,6 @@
               ],
               "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
             },
-            "site": {
-              "anyOf": [
-                {
-                  "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")",
-                  "type": "string"
-                },
-                {
-                  "type": "string",
-                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
-                },
-                {
-                  "type": "string",
-                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
-                },
-                {
-                  "type": "string",
-                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
-                }
-              ],
-              "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")"
-            },
             "$ref": {
               "type": "string",
               "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -1465,27 +1444,6 @@
                 }
               ],
               "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
-            },
-            "site": {
-              "anyOf": [
-                {
-                  "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")",
-                  "type": "string"
-                },
-                {
-                  "type": "string",
-                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
-                },
-                {
-                  "type": "string",
-                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
-                },
-                {
-                  "type": "string",
-                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
-                }
-              ],
-              "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")"
             }
           }
         },
@@ -1545,27 +1503,6 @@
                 }
               ],
               "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
-            },
-            "site": {
-              "anyOf": [
-                {
-                  "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")",
-                  "type": "string"
-                },
-                {
-                  "type": "string",
-                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
-                },
-                {
-                  "type": "string",
-                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
-                },
-                {
-                  "type": "string",
-                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
-                }
-              ],
-              "description": "Path of static web site to publish (string or \"$s{ENV_VAR|default}\")"
             },
             "$ref": {
               "type": "string",

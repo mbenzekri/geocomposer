@@ -10,7 +10,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./config:/app/config
-      - ./site:/app/site:ro
+      - ./dist:/app/dist:ro
     environment:
       NODE_ENV: development
       PORT: 3000

@@ -47,6 +47,14 @@ export class StaticSite {
       return
     }
 
+    const pathname = new URL(req.url ?? this.mountPath, 'http://localhost').pathname
+    if (pathname === this.mountPath) {
+      res.statusCode = 308
+      res.setHeader('Location', `${this.mountPath}/`)
+      res.end()
+      return
+    }
+
     const filePath = await this.filePath(req.url ?? this.mountPath)
     if (!filePath) {
       Service.sendText(res, 404, 'Not Found', 'text/plain; charset=utf-8', req.method === 'HEAD')

@@ -62,8 +62,7 @@
     },
     "server": {
         "port": "$i{GEOC_PORT|3000}",
-        "logLevel": "$s{GEOC_LOGLEVEL|LOG}",
-        "site": "../site"
+        "logLevel": "$s{GEOC_LOGLEVEL|LOG}"
     },
     "services": {
         "wms": {

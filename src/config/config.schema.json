@@ -140,10 +140,6 @@
             "ERROR",
             "NONE"
           ]
-        },
-        "site": {
-          "description": "Path of static web site to publish",
-          "type": "string"
         }
       }
     },
