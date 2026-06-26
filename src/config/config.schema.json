@@ -120,16 +120,18 @@
       "description": "Bounding box as `[minX, minY, maxX, maxY]` in the CRS of the related layer or request. Exactly 4 numbers are required. Array length: minimum 4, maximum 4."
     },
     "server": {
+      "description": "Server runtime configuration.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "port": {
+          "description": "HTTP server port. Minimum: 0. Maximum: 65535.",
           "type": "integer",
           "minimum": 0,
-          "maximum": 65535,
-          "description": "HTTP server port. Minimum: 0. Maximum: 65535."
+          "maximum": 65535
         },
         "logLevel": {
+          "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`.",
           "type": "string",
           "enum": [
             "DEBUG",
@@ -137,11 +139,13 @@
             "WARN",
             "ERROR",
             "NONE"
-          ],
-          "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`."
+          ]
+        },
+        "site": {
+          "description": "Path of static web site to publish",
+          "type": "string"
         }
-      },
-      "description": "Server runtime configuration."
+      }
     },
     "services": {
       "title": "Enabled services",

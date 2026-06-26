@@ -1,0 +1,719 @@
+const configuredServiceOrigin = new URLSearchParams(window.location.search).get('server')
+const serviceOrigin = configuredServiceOrigin || 'http://localhost:3000'
+const serviceUrls = {
+    wms: `${serviceOrigin}/wms`,
+    wmts: `${serviceOrigin}/wmts`,
+    xyz: `${serviceOrigin}/tiles`
+}
+const webMercatorMax = 20037508.342789244
+const webMercatorExtent = [-webMercatorMax, -webMercatorMax, webMercatorMax, webMercatorMax]
+const tileSize = 256
+const tileMinZoom = 0
+const tileMaxZoom = 8
+const tileResolutions = []
+const tileMatrixIds = []
+const tileMatrixSizes = []
+for (let z = tileMinZoom; z <= tileMaxZoom; z += 1) {
+    const matrixSize = Math.pow(2, z)
+    tileResolutions.push((webMercatorMax * 2) / (tileSize * matrixSize))
+    tileMatrixIds.push(String(z))
+    tileMatrixSizes.push([matrixSize, matrixSize])
+}
+const projections = {
+    'EPSG:4326': {
+        center: [0, 0],
+        zoom: 1
+    },
+    'EPSG:3857': {
+        center: [0, 0],
+        zoom: 1
+    }
+}
+const serviceLabels = {
+    wms: 'WMS',
+    wmts: 'WMTS',
+    xyz: 'XYZ'
+}
+const sourceLabels = {
+    world: 'GeoJSON',
+    'world-mem': 'MEM',
+    'world-gml': 'GML',
+    'world-shp': 'SHP',
+    'world-gpkg': 'GPKG',
+    'world-postgis': 'PostGIS',
+    'world-mssql': 'MSSQL',
+    'world-oracle': 'Oracle'
+}
+const contentLabels = {
+    world: 'World',
+    'world-capitals': 'World + Capitals'
+}
+const outputFormats = {
+    png: {
+        label: 'PNG',
+        format: 'image/png',
+        extension: 'png',
+        vector: false
+    },
+    geojson: {
+        label: 'GeoJSON',
+        format: 'application/geo+json',
+        extension: 'geojson',
+        vector: true
+    },
+    pbf: {
+        label: 'PBF',
+        format: 'application/vnd.mapbox-vector-tile',
+        extension: 'pbf',
+        vector: true
+    }
+}
+const vectorTileGrid = ol.tilegrid.createXYZ({
+    extent: webMercatorExtent,
+    minZoom: tileMinZoom,
+    maxZoom: tileMaxZoom,
+    tileSize
+})
+const vectorStyles = {
+    polygon: new ol.style.Style({
+        fill: new ol.style.Fill({
+            color: 'rgba(56, 189, 248, 0.18)'
+        }),
+        stroke: new ol.style.Stroke({
+            color: '#334155',
+            width: 0.75
+        })
+    }),
+    line: new ol.style.Style({
+        stroke: new ol.style.Stroke({
+            color: '#2563eb',
+            width: 1.5
+        })
+    }),
+    point: new ol.style.Style({
+        image: new ol.style.Circle({
+            radius: 3.5,
+            fill: new ol.style.Fill({
+                color: 'rgba(220, 38, 38, 0.95)'
+            }),
+            stroke: new ol.style.Stroke({
+                color: '#ffffff',
+                width: 1
+            })
+        })
+    })
+}
+const serviceUrlElement = document.getElementById('service-url')
+const serviceSelect = document.getElementById('service-select')
+const crsSelect = document.getElementById('crs-select')
+const sourceSelect = document.getElementById('source-select')
+const contentSelect = document.getElementById('content-select')
+const outputSelect = document.getElementById('output-select')
+const infoFormatSelect = document.getElementById('info-format-select')
+const requestUrlElement = document.getElementById('request-url')
+const featureInfoStatusElement = document.getElementById('feature-info-status')
+const featureInfoUrlElement = document.getElementById('feature-info-url')
+const featureInfoOutputElement = document.getElementById('feature-info-output')
+let lastRequestUrl = ''
+let currentService = 'wms'
+let currentCrsCode = 'EPSG:3857'
+let currentSourceLayer = 'world'
+let currentContent = 'world-capitals'
+let currentOutputFormat = 'png'
+let currentInfoFormat = 'application/geo+json'
+let currentInfoFormatLabel = 'GeoJSON'
+let lastFeatureInfoCoordinate = null
+let featureInfoAbortController = null
+let pointerDownPixel = null
+let lastMapDragAt = 0
+let sourceVersion = 0
+const featureInfoDragDelayMs = 350
+const featureInfoDragTolerancePx = 4
+
+let source = createSourceForService(currentService, sourceVersion)
+let layer = createLayerForService(currentService, source)
+
+const map = new ol.Map({
+    target: 'map',
+    layers: [layer],
+    view: createView(currentCrsCode)
+})
+map.addControl(new ol.control.ScaleLine({
+    units: 'metric',
+    bar: true,
+    steps: 4,
+    text: true,
+    minWidth: 140
+}))
+
+function createSourceForService(service, version) {
+    if (service === 'wms') return createWmsSource(version)
+    if (currentTilesetInfo().vector) return createVectorTileSource(service, version)
+    if (service === 'wmts') return createWmtsSource(version)
+    return createXyzSource(version)
+}
+
+function createLayerForService(service, source) {
+    if (service === 'wms') {
+        return new ol.layer.Image({ source })
+    }
+
+    if (currentTilesetInfo().vector) {
+        return new ol.layer.VectorTile({
+            source,
+            style: vectorTileStyle
+        })
+    }
+
+    return new ol.layer.Tile({ source })
+}
+
+function createWmsSource(version) {
+    return new ol.source.ImageWMS({
+        url: serviceUrls.wms,
+        params: {
+            SERVICE: 'WMS',
+            VERSION: '1.3.0',
+            LAYERS: currentWmsLayers(),
+            STYLES: currentWmsStyles(),
+            FORMAT: 'image/png',
+            TRANSPARENT: true
+        },
+        ratio: 1,
+        serverType: 'mapserver',
+        imageLoadFunction: (image, src) => {
+            if (!isActiveSource('wms', version)) return
+
+            setLastRequestUrl(src, 'wms', version)
+            image.getImage().src = src
+        }
+    })
+}
+
+function createXyzSource(version) {
+    const tileset = currentTilesetInfo()
+    return new ol.source.XYZ({
+        projection: 'EPSG:3857',
+        tileSize,
+        minZoom: tileMinZoom,
+        maxZoom: tileMaxZoom,
+        wrapX: false,
+        url: `${serviceUrls.xyz}/${encodeURIComponent(tileset.name)}/{z}/{x}/{y}.${tileset.extension}`,
+        tileLoadFunction: (tile, src) => {
+            if (!isActiveSource('xyz', version)) return
+
+            setLastRequestUrl(src, 'xyz', version)
+            tile.getImage().src = src
+        }
+    })
+}
+
+function createWmtsSource(version) {
+    const tileset = currentTilesetInfo()
+    return new ol.source.WMTS({
+        url: serviceUrls.wmts,
+        layer: tileset.name,
+        matrixSet: 'WebMercatorQuad',
+        format: tileset.format,
+        projection: 'EPSG:3857',
+        requestEncoding: 'KVP',
+        style: 'default',
+        wrapX: false,
+        tileGrid: new ol.tilegrid.WMTS({
+            origin: [-webMercatorMax, webMercatorMax],
+            tileSize,
+            resolutions: tileResolutions,
+            matrixIds: tileMatrixIds,
+            sizes: tileMatrixSizes
+        }),
+        tileLoadFunction: (tile, src) => {
+            if (!isActiveSource('wmts', version)) return
+
+            setLastRequestUrl(src, 'wmts', version)
+            tile.getImage().src = src
+        }
+    })
+}
+
+function createVectorTileSource(service, version) {
+    const tileset = currentTilesetInfo()
+    const format = tileset.format === 'application/vnd.mapbox-vector-tile'
+        ? new ol.format.MVT()
+        : new ol.format.GeoJSON({
+            dataProjection: 'EPSG:3857',
+            featureProjection: 'EPSG:3857'
+        })
+
+    return new ol.source.VectorTile({
+        projection: 'EPSG:3857',
+        tileGrid: vectorTileGrid,
+        format,
+        wrapX: false,
+        tileUrlFunction: (tileCoord) => {
+            if (!tileCoord) return undefined
+
+            const url = service === 'wmts'
+                ? wmtsVectorTileUrl(tileCoord, tileset)
+                : xyzVectorTileUrl(tileCoord, tileset)
+            setLastRequestUrl(url, service, version)
+            return url
+        }
+    })
+}
+
+function xyzVectorTileUrl(tileCoord, tileset) {
+    const [z, x, y] = tileCoord
+    return `${serviceUrls.xyz}/${encodeURIComponent(tileset.name)}/${z}/${x}/${y}.${tileset.extension}`
+}
+
+function wmtsVectorTileUrl(tileCoord, tileset) {
+    const [z, x, y] = tileCoord
+    return `${serviceUrls.wmts}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(tileset.name)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}&FORMAT=${encodeURIComponent(tileset.format)}`
+}
+
+function vectorTileStyle(feature) {
+    const geometryType = feature.getGeometry()?.getType()
+    if (geometryType === 'Point' || geometryType === 'MultiPoint') return vectorStyles.point
+    if (geometryType === 'LineString' || geometryType === 'MultiLineString') return vectorStyles.line
+    return vectorStyles.polygon
+}
+
+function currentTilesetInfo() {
+    const sourceLayer = sourceLabels[currentSourceLayer] ? currentSourceLayer : 'world'
+    const content = contentLabels[currentContent] ? currentContent : 'world-capitals'
+    const formatKey = outputFormats[currentOutputFormat] ? currentOutputFormat : 'png'
+    const format = outputFormats[formatKey]
+
+    return {
+        ...format,
+        name: tilesetName(sourceLayer, content),
+        sourceLayer,
+        content,
+        formatKey,
+        sourceLabel: sourceLabels[sourceLayer],
+        contentLabel: contentLabels[content]
+    }
+}
+
+function tilesetName(sourceLayer, content) {
+    if (content === 'world') return sourceLayer
+    return sourceLayer === 'world' ? 'world-capitals' : `${sourceLayer}-capitals`
+}
+
+function currentWmsLayers() {
+    return currentContent === 'world-capitals'
+        ? `${currentSourceLayer},capitals`
+        : currentSourceLayer
+}
+
+function currentWmsStyles() {
+    return currentContent === 'world-capitals'
+        ? 'world,capitals'
+        : 'world'
+}
+
+function isActiveSource(service, version) {
+    return currentService === service && sourceVersion === version
+}
+
+function setLastRequestUrl(url, service, version) {
+    if (!isActiveSource(service, version)) return
+
+    lastRequestUrl = url
+    requestUrlElement.textContent = url
+}
+
+function replaceMapLayer() {
+    sourceVersion += 1
+    source = createSourceForService(currentService, sourceVersion)
+    const nextLayer = createLayerForService(currentService, source)
+    map.getLayers().clear()
+    map.addLayer(nextLayer)
+    layer = nextLayer
+}
+
+function createView(code) {
+    const projection = projections[code]
+    return new ol.View({
+        projection: code,
+        center: projection.center,
+        zoom: projection.zoom,
+        multiWorld: true
+    })
+}
+
+function setService(service) {
+    if (!service || !serviceUrls[service]) return
+
+    currentService = service
+    if (currentService !== 'wms' && currentCrsCode !== 'EPSG:3857') {
+        currentCrsCode = 'EPSG:3857'
+        map.setView(createView(currentCrsCode))
+    }
+    lastRequestUrl = ''
+    requestUrlElement.textContent = 'En attente...'
+    replaceMapLayer()
+
+    syncServiceControls()
+    clearFeatureInfo()
+    updateRequestUrl()
+}
+
+function setSource(sourceLayer) {
+    if (!sourceLayer || !sourceLabels[sourceLayer]) return
+
+    currentSourceLayer = sourceLayer
+    sourceSelect.value = sourceLayer
+
+    lastRequestUrl = ''
+    requestUrlElement.textContent = 'En attente...'
+    if (currentService === 'wms') {
+        source.updateParams({
+            LAYERS: currentWmsLayers(),
+            STYLES: currentWmsStyles()
+        })
+        clearFeatureInfo()
+    } else {
+        replaceMapLayer()
+    }
+
+    updateRequestUrl()
+}
+
+function setContent(content) {
+    if (!content || !contentLabels[content]) return
+
+    currentContent = content
+    contentSelect.value = content
+
+    lastRequestUrl = ''
+    requestUrlElement.textContent = 'En attente...'
+    if (currentService === 'wms') {
+        source.updateParams({
+            LAYERS: currentWmsLayers(),
+            STYLES: currentWmsStyles()
+        })
+        clearFeatureInfo()
+    } else {
+        replaceMapLayer()
+    }
+
+    updateRequestUrl()
+}
+
+function setOutputFormat(format) {
+    if (!format || !outputFormats[format]) return
+    if (currentService === 'wms' && format !== 'png') return
+
+    currentOutputFormat = format
+    outputSelect.value = format
+
+    if (currentService !== 'wms') {
+        lastRequestUrl = ''
+        requestUrlElement.textContent = 'En attente...'
+        replaceMapLayer()
+        updateRequestUrl()
+    }
+}
+
+function setCrs(code) {
+    if (!projections[code]) return
+    if (currentService !== 'wms' && code !== 'EPSG:3857') return
+
+    currentCrsCode = code
+    lastRequestUrl = ''
+    requestUrlElement.textContent = 'En attente...'
+    map.setView(createView(currentCrsCode))
+
+    if (currentService === 'wms') {
+        replaceMapLayer()
+    }
+
+    syncServiceControls()
+    clearFeatureInfo()
+    updateRequestUrl()
+}
+
+function syncServiceControls() {
+    serviceUrlElement.textContent = serviceUrls[currentService]
+    serviceSelect.value = currentService
+
+    const wmsMode = currentService === 'wms'
+
+    for (const option of crsSelect.options) {
+        option.disabled = !wmsMode && option.value !== 'EPSG:3857'
+    }
+
+    for (const option of outputSelect.options) {
+        option.disabled = wmsMode && option.value !== 'png'
+    }
+
+    crsSelect.value = currentCrsCode
+    sourceSelect.value = currentSourceLayer
+    contentSelect.value = currentContent
+    outputSelect.value = wmsMode ? 'png' : currentOutputFormat
+}
+
+function setInfoFormat(format, label) {
+    if (!format) return
+
+    currentInfoFormat = format
+    currentInfoFormatLabel = label || format
+    infoFormatSelect.value = format
+
+    if (lastFeatureInfoCoordinate) {
+        requestFeatureInfo(lastFeatureInfoCoordinate)
+    }
+}
+
+function updateRequestUrl() {
+    if (currentService !== 'wms') {
+        requestUrlElement.textContent = lastRequestUrl || tileRequestTemplate()
+        return
+    }
+
+    const size = map.getSize()
+    if (!size) return
+
+    const extent = map.getView().calculateExtent(size)
+    const projection = map.getView().getProjection()
+
+    const image = source.getImage(extent, map.getView().getResolution(), window.devicePixelRatio, projection)
+    const imageElement = image && image.getImage ? image.getImage() : null
+    const imageUrl = imageElement && imageElement.src ? imageElement.src : lastRequestUrl
+
+    requestUrlElement.textContent = imageUrl || 'En attente...'
+}
+
+function tileRequestTemplate() {
+    if (currentService === 'xyz') {
+        const tileset = currentTilesetInfo()
+        return `${serviceUrls.xyz}/${encodeURIComponent(tileset.name)}/{z}/{x}/{y}.${tileset.extension}`
+    }
+
+    const tileset = currentTilesetInfo()
+    return `${serviceUrls.wmts}?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${encodeURIComponent(tileset.name)}&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX={TileMatrix}&TILEROW={TileRow}&TILECOL={TileCol}&FORMAT=${encodeURIComponent(tileset.format)}`
+}
+
+async function requestFeatureInfo(coordinate) {
+    if (currentService !== 'wms') {
+        featureInfoStatusElement.textContent = 'GetFeatureInfo disponible uniquement en WMS'
+        featureInfoUrlElement.textContent = 'En attente...'
+        featureInfoOutputElement.textContent = 'Aucun resultat'
+        return
+    }
+
+    const view = map.getView()
+    const resolution = view.getResolution()
+    const projection = view.getProjection()
+    const layers = source.getParams().LAYERS
+
+    if (resolution === undefined || !layers) return
+
+    const url = source.getFeatureInfoUrl(coordinate, resolution, projection, {
+        INFO_FORMAT: currentInfoFormat,
+        QUERY_LAYERS: layers,
+        FEATURE_COUNT: 10,
+        BUFFER: 6
+    })
+
+    if (!url) return
+
+    lastFeatureInfoCoordinate = coordinate.slice()
+    if (featureInfoAbortController) {
+        featureInfoAbortController.abort()
+    }
+    featureInfoAbortController = new AbortController()
+
+    featureInfoStatusElement.textContent = `Requete ${currentInfoFormatLabel}...`
+    featureInfoUrlElement.textContent = url
+    featureInfoOutputElement.textContent = 'En attente...'
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                Accept: currentInfoFormat
+            },
+            signal: featureInfoAbortController.signal
+        })
+        const body = await response.text()
+
+        if (!response.ok) {
+            throw new Error(body || `${response.status} ${response.statusText}`)
+        }
+
+        renderFeatureInfo(body)
+    } catch (error) {
+        if (error && error.name === 'AbortError') return
+
+        featureInfoStatusElement.textContent = 'Echec de la requete GetFeatureInfo'
+        featureInfoOutputElement.textContent = error instanceof Error ? error.message : String(error)
+    }
+}
+
+function abortFeatureInfoRequest() {
+    if (!featureInfoAbortController) return
+
+    featureInfoAbortController.abort()
+    featureInfoAbortController = null
+}
+
+function handleMapPointerDown(event) {
+    pointerDownPixel = event.pixel ? event.pixel.slice() : null
+}
+
+function handleMapPointerDrag() {
+    lastMapDragAt = Date.now()
+    abortFeatureInfoRequest()
+}
+
+function handleMapPointerUp(event) {
+    if (pointerDownPixel && event.pixel && pixelDistance(pointerDownPixel, event.pixel) > featureInfoDragTolerancePx) {
+        lastMapDragAt = Date.now()
+    }
+
+    pointerDownPixel = null
+}
+
+function handleFeatureInfoClick(event) {
+    if (Date.now() - lastMapDragAt < featureInfoDragDelayMs) {
+        return
+    }
+
+    requestFeatureInfo(event.coordinate)
+}
+
+function pixelDistance(a, b) {
+    const dx = a[0] - b[0]
+    const dy = a[1] - b[1]
+    return Math.sqrt(dx * dx + dy * dy)
+}
+
+function renderFeatureInfo(body) {
+    if (currentInfoFormat.includes('json')) {
+        renderGeoJsonInfo(body)
+        return
+    }
+
+    renderXmlInfo(body)
+}
+
+function renderGeoJsonInfo(body) {
+    let data
+
+    try {
+        data = JSON.parse(body)
+    } catch {
+        featureInfoStatusElement.textContent = 'Reponse GeoJSON invalide'
+        featureInfoOutputElement.textContent = body
+        return
+    }
+
+    const features = Array.isArray(data.features) ? data.features : []
+    featureInfoStatusElement.textContent = `${features.length} objet(s) trouve(s) en ${currentInfoFormatLabel}`
+    featureInfoOutputElement.textContent = formatFeatureList(features)
+}
+
+function renderXmlInfo(body) {
+    const documentXml = new DOMParser().parseFromString(body, 'application/xml')
+    const root = documentXml.documentElement
+    const parseError = documentXml.querySelector('parsererror')
+
+    if (parseError) {
+        featureInfoStatusElement.textContent = 'Reponse XML invalide'
+        featureInfoOutputElement.textContent = body
+        return
+    }
+
+    const count = root.getAttribute('numberReturned') || '0'
+    featureInfoStatusElement.textContent = `${count} objet(s) trouve(s) en ${currentInfoFormatLabel}`
+    featureInfoOutputElement.textContent = formatXml(body)
+}
+
+function formatFeatureList(features) {
+    if (features.length === 0) return 'Aucun resultat'
+
+    return features.map((feature, index) => {
+        const lines = [`#${index + 1}`]
+
+        if (feature.layer) lines.push(`Couche: ${feature.layer}`)
+        if (feature.id !== undefined) lines.push(`ID: ${feature.id}`)
+
+        const properties = feature.properties && typeof feature.properties === 'object'
+            ? Object.entries(feature.properties)
+            : []
+
+        if (properties.length > 0) {
+            lines.push('Proprietes:')
+            for (const [name, value] of properties) {
+                lines.push(`  ${name}: ${formatValue(value)}`)
+            }
+        }
+
+        if (feature.geometry && feature.geometry.type) {
+            lines.push(`Geometrie: ${feature.geometry.type}`)
+        }
+
+        return lines.join('\n')
+    }).join('\n\n')
+}
+
+function formatValue(value) {
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string') return value
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+    return JSON.stringify(value)
+}
+
+function formatXml(xml) {
+    const compact = xml.replace(/>\s+</g, '><')
+    const parts = compact.split(/(?=<)/g).filter(Boolean)
+    let indent = 0
+
+    return parts.map((part) => {
+        if (/^<\//.test(part)) {
+            indent = Math.max(0, indent - 1)
+        }
+
+        const line = `${'  '.repeat(indent)}${part}`
+
+        if (/^<[^!?/][^>]*[^/]?>$/.test(part) && !part.includes('</')) {
+            indent += 1
+        }
+
+        return line
+    }).join('\n')
+}
+
+function clearFeatureInfo() {
+    abortFeatureInfoRequest()
+
+    featureInfoStatusElement.textContent = currentService === 'wms'
+        ? 'Aucune selection'
+        : 'GetFeatureInfo disponible uniquement en WMS'
+    featureInfoUrlElement.textContent = 'En attente...'
+    featureInfoOutputElement.textContent = 'Aucun resultat'
+}
+
+serviceSelect.addEventListener('change', () => setService(serviceSelect.value))
+crsSelect.addEventListener('change', () => setCrs(crsSelect.value))
+sourceSelect.addEventListener('change', () => setSource(sourceSelect.value))
+contentSelect.addEventListener('change', () => setContent(contentSelect.value))
+outputSelect.addEventListener('change', () => setOutputFormat(outputSelect.value))
+infoFormatSelect.addEventListener('change', () => {
+    const option = infoFormatSelect.selectedOptions[0]
+    setInfoFormat(infoFormatSelect.value, option?.dataset.infoFormatLabel)
+})
+
+map.on('pointerdown', handleMapPointerDown)
+map.on('pointerdrag', handleMapPointerDrag)
+map.on('pointerup', handleMapPointerUp)
+map.on('singleclick', handleFeatureInfoClick)
+map.once('postrender', () => {
+    updateRequestUrl()
+})
+map.on('moveend', updateRequestUrl)
+
+syncServiceControls()
+clearFeatureInfo()
+updateRequestUrl()

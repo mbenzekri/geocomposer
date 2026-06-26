@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenLayers Services Test</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css">
+  <link rel="stylesheet" href="./index.css">
+</head>
+<body>
+  <main>
+    <h1>GeoComposer Viewer</h1>
+    <p class="meta">Service courant: <code id="service-url">http://localhost:3000/wms</code></p>
+
+    <div class="controls">
+      <div class="toolbar">
+        <label for="service-select" class="toolbar-label">Service</label>
+        <select id="service-select" class="choice-select">
+          <option value="wms" selected>WMS</option>
+          <option value="wmts">WMTS</option>
+          <option value="xyz">XYZ</option>
+        </select>
+      </div>
+
+      <div class="toolbar">
+        <label for="crs-select" class="toolbar-label">crs</label>
+        <select id="crs-select" class="choice-select">
+          <option value="EPSG:4326">EPSG:4326</option>
+          <option value="EPSG:3857" selected>EPSG:3857</option>
+        </select>
+      </div>
+
+      <div class="toolbar">
+        <label for="source-select" class="toolbar-label">Source</label>
+        <select id="source-select" class="choice-select">
+          <option value="world" selected>GeoJSON</option>
+          <option value="world-mem">MEM</option>
+          <option value="world-gml">GML</option>
+          <option value="world-shp">SHP</option>
+          <option value="world-gpkg">GPKG</option>
+          <option value="world-postgis">PostGIS</option>
+          <option value="world-mssql">MSSQL</option>
+          <option value="world-oracle">Oracle</option>
+        </select>
+      </div>
+
+      <div class="toolbar">
+        <label for="content-select" class="toolbar-label">Contenu</label>
+        <select id="content-select" class="choice-select">
+          <option value="world">World</option>
+          <option value="world-capitals" selected>World + Capitals</option>
+        </select>
+      </div>
+
+      <div class="toolbar">
+        <label for="output-select" class="toolbar-label">Sortie</label>
+        <select id="output-select" class="choice-select">
+          <option value="png" selected>PNG</option>
+          <option value="geojson">GeoJSON</option>
+          <option value="pbf">PBF</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="map-shell">
+      <div id="map" aria-label="Carte du monde"></div>
+    </div>
+
+    <div class="request">
+      <div><strong>Derniere requete</strong></div>
+      <code id="request-url" class="request-url">En attente...</code>
+    </div>
+
+    <div class="request">
+      <div class="info-header">
+        <strong>GetFeatureInfo</strong>
+        <select id="info-format-select" class="choice-select compact" aria-label="Format GetFeatureInfo">
+          <option value="application/geo+json" data-info-format-label="GeoJSON" selected>GeoJSON</option>
+          <option value="text/xml" data-info-format-label="XML">XML</option>
+        </select>
+      </div>
+      <div id="feature-info-status" class="feature-info-status">Aucune selection</div>
+      <code id="feature-info-url" class="request-url">En attente...</code>
+      <pre id="feature-info-output" class="feature-info-output">Aucun resultat</pre>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script>
+  <script src="./index.js"></script>
+</body>
+</html>
