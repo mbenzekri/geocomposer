@@ -1,0 +1,60 @@
+{
+    "$schema": "./config.schema.json",
+    "server": {
+        "port": 3000
+    },
+    "services": {
+        "wms": {
+            "path": "/wms",
+            "title": "GeoComposer MSSQL WMS",
+            "abstract": "Minimal WMS server backed by a SQL Server geometry source.",
+            "layers": ["world-mssql"]
+        }
+    },
+    "crs": {
+        "EPSG:4326": {
+            "title": "WGS84"
+        },
+        "EPSG:3857": {
+            "title": "Web Mercator"
+        }
+    },
+    "sources": {
+        "mssql-main": {
+            "type": "mssql",
+            "title": "World MSSQL",
+            "abstract": "World polygons from a SQL Server geometry table.",
+            "connection": {
+                "server": "$s{GEOC_MSSQL_HOST|localhost}",
+                "port": 1433,
+                "database": "$s{GEOC_MSSQL_DB|geocdb}",
+                "user": "$s{GEOC_MSSQL_USER|geocuser}",
+                "password": "$s{GEOC_MSSQL_PASSWORD|Geocomposer0!}",
+                "encrypt": false,
+                "trustServerCertificate": true
+            },
+            "schema": "$s{GEOC_MSSQL_SCHEMA|geoc}",
+            "datasets": {
+                "world": {
+                    "tableName": "world",
+                    "geometryColumn": "geom",
+                    "primaryKey": "fid",
+                    "srid": 4326
+                }
+            },
+            "batchSize": 500,
+            "extentStrategy": "exact"
+        }
+    },
+    "layers": {
+        "world-mssql": {
+            "title": "World MSSQL",
+            "abstract": "World polygons from SQL Server.",
+            "source": "mssql-main",
+            "dataset": "world",
+            "crs": "EPSG:4326",
+            "extent": [-180, -90, 180, 90],
+            "style": "default"
+        }
+    }
+}

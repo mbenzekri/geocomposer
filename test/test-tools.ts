@@ -102,3 +102,18 @@ export const oracle_cnx_long = {
     "queueTimeout": 30000,
     "callTimeout": 30000
 }
+
+export const mssql_cnx_short = "mssql://geocuser:$s{GEOC_MSSQL_PASSWORD|Geocomposer0!}@localhost:1433/geocdb"
+export const mssql_cnx_long = {
+    "server": "$s{GEOC_MSSQL_HOST|localhost}",
+    "port": 1433,
+    "database": "$s{GEOC_MSSQL_DB|geocdb}",
+    "user": "$s{GEOC_MSSQL_USER|geocuser}",
+    "password": "$s{GEOC_MSSQL_PASSWORD|Geocomposer0!}",
+    "poolMin": 0,
+    "poolMax": 4,
+    "connectionTimeoutMillis": 30000,
+    "requestTimeoutMillis": 30000,
+    "encrypt": false,
+    "trustServerCertificate": true
+}

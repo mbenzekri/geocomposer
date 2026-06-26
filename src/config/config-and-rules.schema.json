@@ -9625,6 +9625,206 @@
             {
               "anyOf": [
                 {
+                  "$ref": "#/$defs/mssqlSource",
+                  "description": "SQL Server source variant. (object or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "$ref"
+                  ],
+                  "properties": {
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "abstract": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "type": {
+                      "anyOf": [
+                        {
+                          "const": "mssql",
+                          "description": "Source discriminator. Must be `mssql`. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Source discriminator. Must be `mssql`. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "connection": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/mssqlConnection",
+                          "description": "Database connection configuration. Can be a connection string or an object, depending on the source type. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Database connection configuration. Can be a connection string or an object, depending on the source type. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "schema": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Database schema name. Minimum length: 1 where constrained. Minimum length: 1 character(s). (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Database schema name. Minimum length: 1 where constrained. Minimum length: 1 character(s). (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "datasets": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/sqlDatasets",
+                          "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "$ref"
+                          ],
+                          "properties": {
+                            "$ref": {
+                              "type": "string",
+                              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                            }
+                          },
+                          "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+                        }
+                      ],
+                      "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+                    },
+                    "batchSize": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "description": "Number of features/rows fetched per batch. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Number of features/rows fetched per batch. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "extentStrategy": {
+                      "anyOf": [
+                        {
+                          "enum": [
+                            "exact",
+                            "none"
+                          ],
+                          "description": "Strategy used to compute source extents. SQL Server allowed values: `exact`, `none`. Allowed values: `exact`, `none`. (\"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Strategy used to compute source extents. SQL Server allowed values: `exact`, `none`. Allowed values: `exact`, `none`. (\"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+                    },
+                    "$ref": {
+                      "type": "string",
+                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                    }
+                  },
+                  "description": "SQL Server source variant. (object or \"#/$defs/nom\")"
+                }
+              ],
+              "description": "SQL Server source variant. (object or \"#/$defs/nom\")"
+            },
+            {
+              "anyOf": [
+                {
                   "$ref": "#/$defs/oracleSource",
                   "description": "Oracle source variant. (object or \"#/$defs/nom\")"
                 },
@@ -9824,14 +10024,14 @@
               "description": "Oracle source variant. (object or \"#/$defs/nom\")"
             }
           ],
-          "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS or Oracle."
+          "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
         },
         {
           "type": "string",
           "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
         }
       ],
-      "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS or Oracle."
+      "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
     },
     "geojsonSource": {
       "anyOf": [
@@ -13037,6 +13237,993 @@
         }
       ],
       "description": "PostgreSQL/PostGIS connection configuration. Use either a connection string or an object with individual connection pool options. (string or \"$s{ENV_VAR|default}\")"
+    },
+    "mssqlSource": {
+      "anyOf": [
+        {
+          "title": "SQL Server source",
+          "type": "object",
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/describedEntry",
+                  "description": "Includes common descriptive fields: `title` and `abstract`. (object or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "$ref"
+                  ],
+                  "properties": {
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "abstract": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "$ref": {
+                      "type": "string",
+                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                    }
+                  },
+                  "description": "Includes common descriptive fields: `title` and `abstract`. (object or \"#/$defs/nom\")"
+                }
+              ],
+              "description": "Includes common descriptive fields: `title` and `abstract`. (object or \"#/$defs/nom\")"
+            }
+          ],
+          "required": [
+            "type",
+            "connection",
+            "datasets"
+          ],
+          "properties": {
+            "type": {
+              "anyOf": [
+                {
+                  "const": "mssql",
+                  "description": "Source discriminator. Must be `mssql`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Source discriminator. Must be `mssql`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "connection": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/mssqlConnection",
+                  "description": "Database connection configuration. Can be a connection string or an object, depending on the source type. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Database connection configuration. Can be a connection string or an object, depending on the source type. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Database schema name. Minimum length: 1 where constrained. Minimum length: 1 character(s). (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Database schema name. Minimum length: 1 where constrained. Minimum length: 1 character(s). (string or \"$s{ENV_VAR|default}\")"
+            },
+            "datasets": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sqlDatasets",
+                  "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "$ref"
+                  ],
+                  "properties": {
+                    "$ref": {
+                      "type": "string",
+                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                    }
+                  },
+                  "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+                }
+              ],
+              "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+            },
+            "batchSize": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Number of features/rows fetched per batch. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Number of features/rows fetched per batch. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "extentStrategy": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "exact",
+                    "none"
+                  ],
+                  "description": "Strategy used to compute source extents. SQL Server allowed values: `exact`, `none`. Allowed values: `exact`, `none`. (\"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Strategy used to compute source extents. SQL Server allowed values: `exact`, `none`. Allowed values: `exact`, `none`. (\"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+            }
+          },
+          "unevaluatedProperties": false,
+          "description": "SQL Server source. Requires `type: \"mssql\"`, `connection` and `datasets`. (object or \"#/$defs/nom\")"
+        },
+        {
+          "type": "string",
+          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+        },
+        {
+          "type": "object",
+          "required": [
+            "$ref"
+          ],
+          "properties": {
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "abstract": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "type": {
+              "anyOf": [
+                {
+                  "const": "mssql",
+                  "description": "Source discriminator. Must be `mssql`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Source discriminator. Must be `mssql`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "connection": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/mssqlConnection",
+                  "description": "Database connection configuration. Can be a connection string or an object, depending on the source type. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Database connection configuration. Can be a connection string or an object, depending on the source type. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Database schema name. Minimum length: 1 where constrained. Minimum length: 1 character(s). (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Database schema name. Minimum length: 1 where constrained. Minimum length: 1 character(s). (string or \"$s{ENV_VAR|default}\")"
+            },
+            "datasets": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sqlDatasets",
+                  "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "$ref"
+                  ],
+                  "properties": {
+                    "$ref": {
+                      "type": "string",
+                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                    }
+                  },
+                  "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+                }
+              ],
+              "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+            },
+            "batchSize": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Number of features/rows fetched per batch. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Number of features/rows fetched per batch. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "extentStrategy": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "exact",
+                    "none"
+                  ],
+                  "description": "Strategy used to compute source extents. SQL Server allowed values: `exact`, `none`. Allowed values: `exact`, `none`. (\"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Strategy used to compute source extents. SQL Server allowed values: `exact`, `none`. Allowed values: `exact`, `none`. (\"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+            },
+            "$ref": {
+              "type": "string",
+              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+            }
+          },
+          "description": "SQL Server source. Requires `type: \"mssql\"`, `connection` and `datasets`. (object or \"#/$defs/nom\")",
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "SQL Server source. Requires `type: \"mssql\"`, `connection` and `datasets`. (object or \"#/$defs/nom\")"
+    },
+    "mssqlConnection": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Short form using a SQL Server connection string. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Short form using a SQL Server connection string. (string or \"$s{ENV_VAR|default}\")"
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "connectionString": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "SQL Server connection string. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "SQL Server connection string. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "server": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "SQL Server host name or IP address. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "SQL Server host name or IP address. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "host": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Alias for SQL Server host name or IP address. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Alias for SQL Server host name or IP address. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "port": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535,
+                          "description": "SQL Server port. Minimum: 1. Maximum: 65535. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "SQL Server port. Minimum: 1. Maximum: 65535. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "database": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Database name. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Database name. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "user": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Database user name. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Database user name. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "password": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Database password. Prefer environment placeholders instead of committing secrets. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Database password. Prefer environment placeholders instead of committing secrets. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "poolMin": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Minimum SQL Server pool size. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Minimum SQL Server pool size. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "poolMax": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "description": "Maximum SQL Server pool size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Maximum SQL Server pool size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "connectionTimeoutMillis": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Connection timeout in milliseconds. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Connection timeout in milliseconds. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "requestTimeoutMillis": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Request timeout in milliseconds. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Request timeout in milliseconds. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "encrypt": {
+                      "anyOf": [
+                        {
+                          "type": "boolean",
+                          "description": "Whether TLS encryption is enabled for the SQL Server connection. (boolean or \"$b{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Whether TLS encryption is enabled for the SQL Server connection. (boolean or \"$b{ENV_VAR|default}\")"
+                    },
+                    "trustServerCertificate": {
+                      "anyOf": [
+                        {
+                          "type": "boolean",
+                          "description": "Whether the SQL Server certificate is trusted without validation. (boolean or \"$b{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Whether the SQL Server certificate is trusted without validation. (boolean or \"$b{ENV_VAR|default}\")"
+                    }
+                  },
+                  "description": "Object form for explicit configuration. (object or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "$ref"
+                  ],
+                  "properties": {
+                    "connectionString": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "SQL Server connection string. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "SQL Server connection string. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "server": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "SQL Server host name or IP address. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "SQL Server host name or IP address. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "host": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Alias for SQL Server host name or IP address. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Alias for SQL Server host name or IP address. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "port": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535,
+                          "description": "SQL Server port. Minimum: 1. Maximum: 65535. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "SQL Server port. Minimum: 1. Maximum: 65535. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "database": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Database name. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Database name. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "user": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Database user name. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Database user name. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "password": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Database password. Prefer environment placeholders instead of committing secrets. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Database password. Prefer environment placeholders instead of committing secrets. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "poolMin": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Minimum SQL Server pool size. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Minimum SQL Server pool size. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "poolMax": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "description": "Maximum SQL Server pool size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Maximum SQL Server pool size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "connectionTimeoutMillis": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Connection timeout in milliseconds. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Connection timeout in milliseconds. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "requestTimeoutMillis": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "Request timeout in milliseconds. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Request timeout in milliseconds. Minimum: 0. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "encrypt": {
+                      "anyOf": [
+                        {
+                          "type": "boolean",
+                          "description": "Whether TLS encryption is enabled for the SQL Server connection. (boolean or \"$b{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Whether TLS encryption is enabled for the SQL Server connection. (boolean or \"$b{ENV_VAR|default}\")"
+                    },
+                    "trustServerCertificate": {
+                      "anyOf": [
+                        {
+                          "type": "boolean",
+                          "description": "Whether the SQL Server certificate is trusted without validation. (boolean or \"$b{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Whether the SQL Server certificate is trusted without validation. (boolean or \"$b{ENV_VAR|default}\")"
+                    },
+                    "$ref": {
+                      "type": "string",
+                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                    }
+                  },
+                  "description": "Object form for explicit configuration. (object or \"#/$defs/nom\")",
+                  "additionalProperties": false
+                }
+              ],
+              "description": "Object form for explicit configuration. (object or \"#/$defs/nom\")"
+            }
+          ],
+          "description": "SQL Server connection configuration. Use either a connection string or an object with individual connection pool options. (string or \"$s{ENV_VAR|default}\")"
+        },
+        {
+          "type": "string",
+          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+        },
+        {
+          "type": "string",
+          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+        },
+        {
+          "type": "string",
+          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+        }
+      ],
+      "description": "SQL Server connection configuration. Use either a connection string or an object with individual connection pool options. (string or \"$s{ENV_VAR|default}\")"
     },
     "oracleSource": {
       "anyOf": [

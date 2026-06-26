@@ -17,6 +17,13 @@ BEGIN
         + N', CHECK_POLICY = OFF;';
     EXEC(@sql);
 END;
+ELSE
+BEGIN
+    SET @sql = N'ALTER LOGIN ' + QUOTENAME(@login)
+        + N' WITH PASSWORD = ' + QUOTENAME(@password, '''')
+        + N', CHECK_POLICY = OFF;';
+    EXEC(@sql);
+END;
 
 SET @sql = N'
 USE ' + QUOTENAME(@db) + N';
@@ -24,6 +31,10 @@ USE ' + QUOTENAME(@db) + N';
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N' + QUOTENAME(@login, '''') + N')
 BEGIN
     CREATE USER ' + QUOTENAME(@login) + N' FOR LOGIN ' + QUOTENAME(@login) + N';
+END;
+ELSE
+BEGIN
+    ALTER USER ' + QUOTENAME(@login) + N' WITH LOGIN = ' + QUOTENAME(@login) + N';
 END;
 
 IF SCHEMA_ID(N' + QUOTENAME(@schema, '''') + N') IS NULL

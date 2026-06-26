@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { config_base, config_min, init, oracle_cnx_long, oracle_cnx_short, postgis_cnx_long, postgis_cnx_short, world_min_datasets, writeConf} from '../test-tools.js'
+import { config_base, config_min, init, mssql_cnx_long, mssql_cnx_short, oracle_cnx_long, oracle_cnx_short, postgis_cnx_long, postgis_cnx_short, world_min_datasets, writeConf} from '../test-tools.js'
 
 import { GeoComposer } from '../../src/geo-composer.js'
 import { Service } from '../../src/service/service.js'
 import { Source } from '../../src/source/source.js'
 import { PostgisSource } from '../../src/source/postgis-source.js'
 import { OracleSource } from '../../src/source/oracle-source.js'
+import { MssqlSource } from '../../src/source/mssql-source.js'
 import { Layer } from '../../src/layer/layer.js'
 import { Style } from '../../src/style/style.js'
 import { Feature } from '../../src/core/feature.js'
@@ -170,6 +171,21 @@ describe('test sources loading', () => {
 
         await GeoComposer.from({ configPath })
         expect(Source.registry.get('world')).toBeInstanceOf(OracleSource)
+    })
+
+    test.each([
+        ['object', mssql_cnx_long],
+        ['string', mssql_cnx_short]
+    ])('mssql source accepts %s connection during configuration load', async (name, connection) => {
+        config_base.sources.world = {
+            type: "mssql",
+            connection: connection,
+            datasets: world_min_datasets
+        }
+        const configPath = writeConf(`config_mssql_connection_${name}.json`,config_base)
+
+        await GeoComposer.from({ configPath })
+        expect(Source.registry.get('world')).toBeInstanceOf(MssqlSource)
     })
 
     test.each([

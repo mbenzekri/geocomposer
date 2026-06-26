@@ -6,7 +6,6 @@
     "scripts": {
         "build": "tsc && tsx ./src/config/generate-schema.ts",
         "serve": "tsx src/geo-composer.ts -cc",
-
         "test": "npm run build && npm run test:typecheck && npm run test:unit",
         "test:typecheck": "tsc --noEmit --rootDir . --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --esModuleInterop --resolveJsonModule --skipLibCheck --types node src/index.ts src/geo-composer.ts test/**/*.test.ts vitest.config.ts",
         "test:unit": "vitest run",
@@ -17,7 +16,6 @@
         "demo:styles": "tsx src/example/demo-styles.ts",
         "demo:dynstyle": "tsx src/example/demo-dynstyle.ts",
         "demo:all": "npm run build && npm run demo:styles && npm run demo:dynstyle",
-        
         "docker:dev:build": "docker compose build --no-cache geo-composer-dev",
         "docker:dev:up": "docker compose up -d geo-composer-dev",
         "docker:dev:down": "docker compose down geo-composer-dev",
@@ -25,7 +23,6 @@
         "docker:up": "docker compose up -d geo-composer",
         "docker:down": "docker compose down geo-composer",
         "docker:ps": "docker container ps",
-        
         "tag-release": "git tag v$npm_package_version && git push && git push origin v$npm_package_version"
     },
     "dependencies": {
@@ -33,6 +30,7 @@
         "@turf/boolean-intersects": "^7.3.5",
         "ajv": "^8.20.0",
         "canvas": "^3.2.0",
+        "mssql": "^12.6.0",
         "ol": "^10.6.1",
         "oracledb": "^7.0.0",
         "pg": "^8.21.0",
@@ -41,6 +39,7 @@
     },
     "devDependencies": {
         "@mapbox/shp-write": "^0.4.3",
+        "@types/mssql": "^12.3.0",
         "@types/node": "^22.15.0",
         "@types/oracledb": "^7.0.1",
         "@types/pg": "^8.20.0",

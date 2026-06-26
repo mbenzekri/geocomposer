@@ -2,6 +2,7 @@ import type { Props, Registry } from '../core/tools.js'
 import { GeoJsonSource, type GeoJsonSourceJson } from './geojson-source.js'
 import { GmlSource, type GmlSourceJson } from './gml-source.js'
 import { GpkgSource, type GpkgSourceJson } from './gpkg-source.js'
+import { MssqlSource, type MssqlSourceJson } from './mssql-source.js'
 import { OracleSource, type OracleSourceJson } from './oracle-source.js'
 import { PostgisSource, type PostgisSourceJson } from './postgis-source.js'
 import { ShpSource, type ShpSourceJson } from './shp-source.js'
@@ -35,6 +36,7 @@ export type {
     GeoJsonSourceJson,
     GmlSourceJson,
     GpkgSourceJson,
+    MssqlSourceJson,
     OracleSourceJson,
     PostgisSourceJson,
     ShpSourceJson
@@ -46,6 +48,7 @@ export type SourceJson =
     | ShpSourceJson
     | GpkgSourceJson
     | PostgisSourceJson
+    | MssqlSourceJson
     | OracleSourceJson
 
 Source.build = function createAll(
@@ -71,6 +74,7 @@ Source.create = function create(
     if (ShpSource.acceptsConfig(entry)) return ShpSource.fromConfig(name, entry)
     if (GpkgSource.acceptsConfig(entry)) return GpkgSource.fromConfig(name, entry)
     if (PostgisSource.acceptsConfig(entry)) return PostgisSource.fromConfig(name, entry)
+    if (MssqlSource.acceptsConfig(entry)) return MssqlSource.fromConfig(name, entry)
     if (OracleSource.acceptsConfig(entry)) return OracleSource.fromConfig(name, entry)
 
     const type = typeof entry === 'object' && entry !== null && !Array.isArray(entry)

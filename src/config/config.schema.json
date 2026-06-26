@@ -627,11 +627,15 @@
           "description": "PostGIS source variant."
         },
         {
+          "$ref": "#/$defs/mssqlSource",
+          "description": "SQL Server source variant."
+        },
+        {
           "$ref": "#/$defs/oracleSource",
           "description": "Oracle source variant."
         }
       ],
-      "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS or Oracle."
+      "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
     },
     "geojsonSource": {
       "title": "GeoJSON source",
@@ -1033,6 +1037,128 @@
         }
       ],
       "description": "PostgreSQL/PostGIS connection configuration. Use either a connection string or an object with individual connection pool options."
+    },
+    "mssqlSource": {
+      "title": "SQL Server source",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
+        }
+      ],
+      "required": [
+        "type",
+        "connection",
+        "datasets"
+      ],
+      "properties": {
+        "type": {
+          "const": "mssql",
+          "description": "Source discriminator. Must be `mssql`."
+        },
+        "connection": {
+          "$ref": "#/$defs/mssqlConnection",
+          "description": "Database connection configuration. Can be a connection string or an object, depending on the source type."
+        },
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Database schema name. Minimum length: 1 where constrained. Minimum length: 1 character(s)."
+        },
+        "datasets": {
+          "$ref": "#/$defs/sqlDatasets",
+          "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers."
+        },
+        "batchSize": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of features/rows fetched per batch. Minimum: 1."
+        },
+        "extentStrategy": {
+          "enum": [
+            "exact",
+            "none"
+          ],
+          "description": "Strategy used to compute source extents. SQL Server allowed values: `exact`, `none`. Allowed values: `exact`, `none`."
+        }
+      },
+      "unevaluatedProperties": false,
+      "description": "SQL Server source. Requires `type: \"mssql\"`, `connection` and `datasets`."
+    },
+    "mssqlConnection": {
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "Short form using a SQL Server connection string."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "connectionString": {
+              "type": "string",
+              "description": "SQL Server connection string."
+            },
+            "server": {
+              "type": "string",
+              "description": "SQL Server host name or IP address."
+            },
+            "host": {
+              "type": "string",
+              "description": "Alias for SQL Server host name or IP address."
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "description": "SQL Server port. Minimum: 1. Maximum: 65535."
+            },
+            "database": {
+              "type": "string",
+              "description": "Database name."
+            },
+            "user": {
+              "type": "string",
+              "description": "Database user name."
+            },
+            "password": {
+              "type": "string",
+              "description": "Database password. Prefer environment placeholders instead of committing secrets."
+            },
+            "poolMin": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Minimum SQL Server pool size. Minimum: 0."
+            },
+            "poolMax": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Maximum SQL Server pool size. Minimum: 1."
+            },
+            "connectionTimeoutMillis": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Connection timeout in milliseconds. Minimum: 0."
+            },
+            "requestTimeoutMillis": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Request timeout in milliseconds. Minimum: 0."
+            },
+            "encrypt": {
+              "type": "boolean",
+              "description": "Whether TLS encryption is enabled for the SQL Server connection."
+            },
+            "trustServerCertificate": {
+              "type": "boolean",
+              "description": "Whether the SQL Server certificate is trusted without validation."
+            }
+          },
+          "description": "Object form for explicit configuration."
+        }
+      ],
+      "description": "SQL Server connection configuration. Use either a connection string or an object with individual connection pool options."
     },
     "oracleSource": {
       "title": "Oracle source",
