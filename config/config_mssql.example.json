@@ -30,6 +30,10 @@
                 "database": "$s{GEOC_MSSQL_DB|geocdb}",
                 "user": "$s{GEOC_MSSQL_USER|geocuser}",
                 "password": "$s{GEOC_MSSQL_PASSWORD|Geocomposer0!}",
+                "poolMin": 0,
+                "poolMax": 4,
+                "connectionTimeoutMillis": 30000,
+                "requestTimeoutMillis": 30000,
                 "encrypt": false,
                 "trustServerCertificate": true
             },
@@ -39,7 +43,8 @@
                     "tableName": "world",
                     "geometryColumn": "geom",
                     "primaryKey": "fid",
-                    "srid": 4326
+                    "srid": 4326,
+                    "properties": ["name", "label_x", "label_y"]
                 }
             },
             "batchSize": 500,

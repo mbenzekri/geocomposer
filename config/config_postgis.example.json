@@ -8,7 +8,7 @@
             "path": "/wms",
             "title": "GeoComposer PostGIS WMS",
             "abstract": "Minimal WMS server backed by a PostGIS source.",
-            "layers": ["roads"]
+            "layers": ["world-postgis"]
         }
     },
     "crs": {
@@ -22,22 +22,43 @@
     "sources": {
         "postgis-main": {
             "type": "postgis",
-            "title": "Roads PostGIS",
-            "abstract": "Road network from a PostGIS table.",
-            "connection": "$s{GEOCOMPOSER_POSTGIS_URL}",
+            "title": "World PostGIS",
+            "abstract": "World polygons from a PostGIS table.",
+            "connection": {
+                "connectionString": "postgres://$s{GEOC_POSTGIS_USER|postgres}:$s{GEOC_POSTGIS_PASSWORD|postgres}@$s{GEOC_POSTGIS_HOST|localhost}:5432/$s{GEOC_POSTGIS_DB|postgres}",
+                "host": "$s{GEOC_POSTGIS_HOST|localhost}",
+                "port": 5432,
+                "database": "$s{GEOC_POSTGIS_DB|postgres}",
+                "user": "$s{GEOC_POSTGIS_USER|postgres}",
+                "password": "$s{GEOC_POSTGIS_PASSWORD|postgres}",
+                "ssl": false,
+                "max": 4,
+                "connectionTimeoutMillis": 5000,
+                "idleTimeoutMillis": 30000,
+                "statementTimeoutMillis": 30000,
+                "queryTimeoutMillis": 30000,
+                "applicationName": "geocomposer"
+            },
             "schema": "public",
             "datasets": {
-                "roads": "roads"
+                "world": {
+                    "tableName": "world",
+                    "geometryColumn": "wkb_geometry",
+                    "primaryKey": "ogc_fid",
+                    "srid": 4326,
+                    "properties": ["name", "label_x", "label_y"]
+                }
             },
             "batchSize": 500,
             "extentStrategy": "estimated"
         }
     },
     "layers": {
-        "roads": {
-            "title": "Roads",
-            "abstract": "Roads from PostGIS.",
+        "world-postgis": {
+            "title": "World PostGIS",
+            "abstract": "World polygons from PostGIS.",
             "source": "postgis-main",
+            "dataset": "world",
             "crs": "EPSG:4326",
             "extent": [-180, -90, 180, 90],
             "style": "default"

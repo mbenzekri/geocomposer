@@ -24,10 +24,27 @@
             "type": "oracle",
             "title": "World Oracle",
             "abstract": "World polygons from an Oracle MDSYS.SDO_GEOMETRY table.",
-            "connection": "oracle://GEOCOMPOSER:geocomposer@localhost:1521/XEPDB1",
-            "schema": "GEOCOMPOSER",
+            "connection": {
+                "connectionString": "oracle://$s{GEOC_ORACLE_USER|GEOCOMPOSER}:$s{GEOC_ORACLE_PASSWORD|geocomposer}@$s{GEOC_ORACLE_HOST|localhost}:1521/$s{GEOC_ORACLE_SERVICE|XEPDB1}",
+                "externalAuth": false,
+                "homogeneous": true,
+                "poolMin": 0,
+                "poolMax": 4,
+                "poolIncrement": 1,
+                "poolTimeout": 60,
+                "queueTimeout": 30000,
+                "stmtCacheSize": 30,
+                "callTimeout": 30000
+            },
+            "schema": "$s{GEOC_ORACLE_SCHEMA|GEOCOMPOSER}",
             "datasets": {
-                "world": "WORLD"
+                "world": {
+                    "tableName": "WORLD",
+                    "geometryColumn": "GEOM",
+                    "primaryKey": "ID",
+                    "srid": 4326,
+                    "properties": ["NAME", "LABEL_X", "LABEL_Y"]
+                }
             },
             "batchSize": 500,
             "extentStrategy": "metadata"
