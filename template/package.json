@@ -4,7 +4,7 @@
   "scripts": {
     "validate:json": "node -e \"JSON.parse(require('node:fs').readFileSync('config.json', 'utf8'))\"",
     "build" : "docker compose build server",
-    "run" : "docker compose run --rm server",
+    "run" : "docker compose run --rm --service-ports server",
     "up" : "docker compose up -d server",
     "down" : "docker compose down  server",
     "rm" : "npm run down; docker compose rm  server"

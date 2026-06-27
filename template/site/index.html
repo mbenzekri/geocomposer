@@ -4,8 +4,87 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>GeoComposer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script>
+    <style>
+      html, body { margin: 0; height: 100%; font: 14px system-ui, sans-serif; }
+      body { display: grid; grid-template-rows: auto 1fr; }
+      header { padding: 12px 16px; border-bottom: 1px solid #ddd; }
+      h1 { margin: 0; font-size: 18px; }
+      main { display: grid; grid-template-columns: repeat(3, 1fr); min-height: 0; }
+      section { position: relative; min-width: 0; border-right: 1px solid #ddd; }
+      section:last-child { border-right: 0; }
+      h2 { position: absolute; z-index: 1; top: 8px; left: 8px; margin: 0; padding: 4px 8px; background: white; font-size: 13px; }
+      .map { width: 100%; height: 100%; }
+      @media (max-width: 900px) {
+        main { grid-template-columns: 1fr; grid-template-rows: repeat(3, 1fr); }
+        section { border-right: 0; border-bottom: 1px solid #ddd; min-height: 260px; }
+      }
+    </style>
   </head>
   <body>
-    <h1>GeoComposer</h1>
+    <header><h1>GeoComposer</h1></header>
+    <main>
+      <section><h2>WMS</h2><div id="wms" class="map"></div></section>
+      <section><h2>XYZ</h2><div id="xyz" class="map"></div></section>
+      <section><h2>WMTS</h2><div id="wmts" class="map"></div></section>
+    </main>
+    <script>
+      const extent4326 = [-180, -85, 180, 85];
+      const extent3857 = ol.proj.transformExtent(extent4326, 'EPSG:4326', 'EPSG:3857');
+      const projection = ol.proj.get('EPSG:3857');
+      const grid = ol.tilegrid.createXYZ({ maxZoom: 6, extent: projection.getExtent() });
+      const view = () => {
+        const mapView = new ol.View({ projection: 'EPSG:3857', zoom: 1 });
+        mapView.fit(extent3857, { size: [360, 260], padding: [20, 20, 20, 20] });
+        return mapView;
+      };
+      const maps = [
+        new ol.Map({
+          target: 'wms',
+          view: view(),
+          layers: [
+            new ol.layer.Image({
+              source: new ol.source.ImageWMS({
+                url: '/wms',
+                params: { LAYERS: 'world', VERSION: '1.3.0', CRS: 'EPSG:3857', FORMAT: 'image/png', TRANSPARENT: true },
+                serverType: 'geoserver'
+              })
+            })
+          ]
+        }),
+        new ol.Map({
+          target: 'xyz',
+          view: view(),
+          layers: [
+            new ol.layer.Tile({
+              source: new ol.source.XYZ({ url: '/tiles/world/{z}/{x}/{y}.png', maxZoom: 6 })
+            })
+          ]
+        }),
+        new ol.Map({
+          target: 'wmts',
+          view: view(),
+          layers: [
+            new ol.layer.Tile({
+              source: new ol.source.WMTS({
+                url: '/wmts',
+                layer: 'world',
+                matrixSet: 'WebMercatorQuad',
+                format: 'image/png',
+                style: 'default',
+                tileGrid: new ol.tilegrid.WMTS({
+                  origin: ol.extent.getTopLeft(projection.getExtent()),
+                  resolutions: grid.getResolutions(),
+                  matrixIds: grid.getResolutions().map((_, z) => String(z))
+                })
+              })
+            })
+          ]
+        })
+      ];
+
+      addEventListener('resize', () => maps.forEach((map) => map.updateSize()));
+    </script>
   </body>
 </html>
