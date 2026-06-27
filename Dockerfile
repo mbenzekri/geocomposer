@@ -7,6 +7,7 @@ ARG GEOC_CONFIG_BRANCH
 
 WORKDIR /app
 
+# -- install des librairies 
 RUN apk add --no-cache \
     python3 \
     make \
@@ -20,19 +21,14 @@ RUN apk add --no-cache \
     tar \
     git
 
-RUN apk add --no-cache \
-    font-noto \
-    font-noto-cjk \
-    font-noto-extra
+# -- install les polices minimales 
+RUN apk add --no-cache font-noto font-noto-cjk font-noto-extra
 
-RUN curl -fsSL "${GEOC_RELEASE_BASE_URL}/${GEOC_VERSION}/geo-composer-${GEOC_VERSION}.tar.gz" \
-    | tar -xz
+# -- install la version de geo-composer cible
+RUN curl -fsSL "${GEOC_RELEASE_BASE_URL}/${GEOC_VERSION}/geo-composer-${GEOC_VERSION}.tar.gz" | tar -xz
 
-RUN git clone \
-    --depth 1 \
-    --branch "$GEOC_CONFIG_BRANCH" \
-    "$GEOC_CONFIG_REPO" \
-    config
+# -- install la branche de config à deployer
+RUN git clone --depth 1 --branch "$GEOC_CONFIG_BRANCH" "$GEOC_CONFIG_REPO"  config
 
 RUN rm -rf config/.git
 

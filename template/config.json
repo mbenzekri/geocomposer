@@ -1,0 +1,85 @@
+{
+  "$schema": "./schemas/config.schema.json",
+  "$defs": {
+    "worldExtent": [-10, 40, 12, 52],
+    "defaultTileset": {
+      "tileMatrixSet": "WebMercatorQuad",
+      "formats": ["image/png", "application/geo+json"],
+      "minZoom": 0,
+      "maxZoom": 6
+    }
+  },
+  "server": {
+    "port": "$i{PORT|3000}",
+    "logLevel": "$s{LOGLEVEL|LOG}"
+  },
+  "services": {
+    "wms": {
+      "path": "/wms",
+      "title": "GeoComposer WMS",
+      "abstract": "GeoComposer WMS service.",
+      "onlineResource": "http://localhost:3000/wms",
+      "maxWidth": 4096,
+      "maxHeight": 4096
+    },
+    "xyz": {
+      "path": "/tiles",
+      "maxScaleFactor": 4,
+      "tilesets": ["world"]
+    },
+    "wmts": {
+      "path": "/wmts",
+      "title": "GeoComposer WMTS",
+      "abstract": "GeoComposer WMTS service.",
+      "onlineResource": "http://localhost:3000/wmts",
+      "tilesets": ["world"]
+    }
+  },
+  "tilesets": {
+    "world": {
+      "$ref": "#/$defs/defaultTileset",
+      "title": "World",
+      "abstract": "Minimal template tileset.",
+      "layers": [
+        {
+          "layer": "world",
+          "style": "world"
+        }
+      ]
+    }
+  },
+  "sources": {
+    "world": {
+      "type": "geojson",
+      "title": "World",
+      "abstract": "Minimal GeoJSON source bundled with the template.",
+      "path": "data/world.geojson"
+    }
+  },
+  "styles": {
+    "world": {
+      "type": "dynamic",
+      "title": "World",
+      "abstract": "Minimal polygon style.",
+      "path": "styles/world.json"
+    }
+  },
+  "layers": {
+    "world": {
+      "title": "World",
+      "abstract": "Minimal world layer.",
+      "source": "world",
+      "crs": "EPSG:4326",
+      "extent": "#/$defs/worldExtent",
+      "style": "world"
+    }
+  },
+  "crs": {
+    "EPSG:4326" : { 
+        "title": "WGS84 world geodetic coord sys"
+    },
+    "EPSG:3857" : { 
+        "title": "Web Mercator (standard Google, ...)"
+    }
+  }
+}

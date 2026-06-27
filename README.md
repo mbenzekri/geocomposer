@@ -10,6 +10,27 @@ __La suite GeoComposer__
 - GeoComposer-Admin:  Une extension VSCode extension to preparer des confiuration GC sous forme de repo GIT
 - GeoComposer-Worker: Une Application batch (containerisable) pour automatisé la production de tuiles
 
+## Template de configuration et de déploiement
+
+La documentation CI/CD destinée aux repos de configuration est dans
+`template/CICD.md`.
+
+Le répertoire `template/` est publié avec une release GeoComposer. Il sert à
+créer un repo de configuration compatible avec cette release et contient :
+
+- `config.json`
+- `styles/`
+- `site/`
+- `data/`
+- `Dockerfile`
+- `compose.yml`
+- `.env`
+- `schemas/config.schema.json`
+- `schemas/dynstyle.schema.json`
+- `package.json`
+- `README.md`
+- `CICD.md`
+
 ## Installation Ubuntu
 
 Pour travailler avec PostGIS voir ``db/postgis/README.md``

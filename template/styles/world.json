@@ -1,0 +1,16 @@
+{
+  "$schema": "../schemas/dynstyle.schema.json",
+  "title": "World",
+  "static": {
+    "default": {
+      "type": "Style",
+      "fill": {
+        "color": "rgba(180, 210, 235, 0.7)"
+      },
+      "stroke": {
+        "color": "#315f7d",
+        "width": 1
+      }
+    }
+  }
+}

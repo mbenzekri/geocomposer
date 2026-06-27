@@ -1,0 +1,17 @@
+name: geocomposer
+services:
+  server:
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GEOC_VERSION: ${GEOC_VERSION}
+        GEOC_RELEASE_BASE_URL: ${GEOC_RELEASE_BASE_URL}
+    image: geo-composer:${GEOC_VERSION}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data:ro
+    restart: unless-stopped

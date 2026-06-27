@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "template-area",
+      "properties": {
+        "name": "Template Area"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-5.0, 42.0],
+            [8.0, 42.0],
+            [8.0, 50.0],
+            [-5.0, 50.0],
+            [-5.0, 42.0]
+          ]
+        ]
+      }
+    }
+  ]
+}

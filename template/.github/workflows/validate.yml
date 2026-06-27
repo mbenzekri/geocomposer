@@ -1,0 +1,35 @@
+name: Validate
+
+on:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Load env
+        run: cat .env >> "$GITHUB_ENV"
+
+      - name: Validate JSON
+        run: npm run validate:json
+
+      - name: Build image
+        run: |
+          docker build \
+            --build-arg GEOC_VERSION="${GEOC_VERSION}" \
+            --build-arg GEOC_RELEASE_BASE_URL="${GEOC_RELEASE_BASE_URL}" \
+            -t geocomposer-config:test .
+
+      - name: Smoke test
+        run: |
+          docker run -d --rm --name geocomposer-config-test -p 3000:3000 -v "${PWD}/data:/app/data:ro" geocomposer-config:test
+          sleep 5
+          curl -fsS "http://localhost:3000/wms?SERVICE=WMS&REQUEST=GetCapabilities"
+          docker stop geocomposer-config-test
