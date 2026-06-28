@@ -1,6 +1,9 @@
 import { open, readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import RBush from 'rbush'
 import type { Feature, SourceRef } from '../core/feature.js'
+import type { BBox } from '../core/geometry.js'
+import { Gt } from '../core/geotools.js'
 import type { Layer } from '../layer/layer.js'
 import { Index } from '../layer/layer-index.js'
 import { FileSource, type SourceFile } from './source.js'
@@ -8,8 +11,14 @@ import { FileSource, type SourceFile } from './source.js'
 export const FILE_INDEX_MAGIC = 'GEOC-IDX'
 export const FILE_INDEX_VERSION = 1
 export const RECORD_INDEX_NAME = 'record'
+export const RTREE_INDEX_NAME = 'rtree'
 export const RECORD_INDEX_ENTRY_SIZE = 12
-const HEADER_LENGTH = 16 + 1 + RECORD_INDEX_NAME.length + 8 + 8 + 4 + 2
+export const RTREE_INDEX_ENTRY_SIZE = 36
+const RTREE_CHUNK_SIZE = 100
+const HEADER_LENGTH = 16
+  + descriptorHeaderLength(RECORD_INDEX_NAME)
+  + descriptorHeaderLength(RTREE_INDEX_NAME)
+const RTREE_LEAF_FLAG = 1
 
 export type FileIndexDescriptor = {
   name: string
@@ -41,9 +50,11 @@ export class LayerFileIndexer {
     let recordCount = 0
     let sourceId: string | undefined
     let position = HEADER_LENGTH
+    let chunk = new RtreeChunk(0)
+    const chunks: RtreeItem[] = []
 
     try {
-      await handle.write(createHeader(0), 0, HEADER_LENGTH, 0)
+      await handle.write(createHeader(0, 0, 0), 0, HEADER_LENGTH, 0)
       const reader = this.layer.stream({ signal }).getReader()
       let completed = false
 
@@ -65,7 +76,13 @@ export class LayerFileIndexer {
           record.writeUInt32LE(sourceRef.byteLength, 8)
           await handle.write(record, 0, record.length, position)
           position += record.length
+          chunk.add(result.value, recordCount)
           recordCount += 1
+
+          if (chunk.count === RTREE_CHUNK_SIZE) {
+            if (chunk.hasBbox) chunks.push(chunk.toItem())
+            chunk = new RtreeChunk(recordCount)
+          }
         }
       } finally {
         if (!completed) {
@@ -78,7 +95,11 @@ export class LayerFileIndexer {
         reader.releaseLock()
       }
 
-      await handle.write(createHeader(recordCount), 0, HEADER_LENGTH, 0)
+      if (chunk.hasBbox) chunks.push(chunk.toItem())
+
+      const rtreeBuffer = createRtreeBuffer(chunks)
+      await handle.write(rtreeBuffer, 0, rtreeBuffer.length, position)
+      await handle.write(createHeader(recordCount, rtreeBuffer.length / RTREE_INDEX_ENTRY_SIZE, rtreeBuffer.length), 0, HEADER_LENGTH, 0)
     } finally {
       await handle.close()
     }
@@ -90,6 +111,7 @@ export class LayerFileIndexer {
       await readFile(outputPath)
     )
     this.layer.indexes.set(index.id, index)
+    this.layer.indexes.set(RTREE_INDEX_NAME, new IndexRtree(this.layer, index))
     return index
   }
 
@@ -134,7 +156,7 @@ export class LayerFileIndexer {
   }
 }
 
-function createHeader(recordCount: number): Buffer {
+function createHeader(recordCount: number, rtreeNodeCount: number, rtreeByteLength: number): Buffer {
   const header = Buffer.alloc(HEADER_LENGTH)
   let position = 0
   header.write(FILE_INDEX_MAGIC, position, 'ascii')
@@ -143,20 +165,140 @@ function createHeader(recordCount: number): Buffer {
   position += 2
   header.writeUInt32LE(header.length, position)
   position += 4
-  header.writeUInt16LE(1, position)
+  header.writeUInt16LE(2, position)
   position += 2
-  header.writeUInt8(RECORD_INDEX_NAME.length, position)
-  position += 1
-  header.write(RECORD_INDEX_NAME, position, 'ascii')
-  position += RECORD_INDEX_NAME.length
-  header.writeBigUInt64LE(BigInt(HEADER_LENGTH), position)
-  position += 8
-  header.writeBigUInt64LE(BigInt(recordCount * RECORD_INDEX_ENTRY_SIZE), position)
-  position += 8
-  header.writeUInt32LE(recordCount, position)
-  position += 4
-  header.writeUInt16LE(RECORD_INDEX_ENTRY_SIZE, position)
+  position = writeDescriptor(header, position, {
+    name: RECORD_INDEX_NAME,
+    offset: HEADER_LENGTH,
+    byteLength: recordCount * RECORD_INDEX_ENTRY_SIZE,
+    recordCount,
+    entrySize: RECORD_INDEX_ENTRY_SIZE
+  })
+  writeDescriptor(header, position, {
+    name: RTREE_INDEX_NAME,
+    offset: HEADER_LENGTH + recordCount * RECORD_INDEX_ENTRY_SIZE,
+    byteLength: rtreeByteLength,
+    recordCount: rtreeNodeCount,
+    entrySize: RTREE_INDEX_ENTRY_SIZE
+  })
   return header
+}
+
+function descriptorHeaderLength(name: string): number {
+  return 1 + name.length + 8 + 8 + 4 + 2
+}
+
+function writeDescriptor(buffer: Buffer, position: number, descriptor: FileIndexDescriptor): number {
+  buffer.writeUInt8(descriptor.name.length, position)
+  position += 1
+  buffer.write(descriptor.name, position, 'ascii')
+  position += descriptor.name.length
+  buffer.writeBigUInt64LE(BigInt(descriptor.offset), position)
+  position += 8
+  buffer.writeBigUInt64LE(BigInt(descriptor.byteLength), position)
+  position += 8
+  buffer.writeUInt32LE(descriptor.recordCount, position)
+  position += 4
+  buffer.writeUInt16LE(descriptor.entrySize, position)
+  return position + 2
+}
+
+type RtreeItem = {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+  recordStart: number
+  recordEnd: number
+}
+
+type RtreeNode = {
+  minX: number
+  minY: number
+  maxX: number
+  maxY: number
+  children: Array<RtreeNode | RtreeItem>
+  leaf: boolean
+}
+
+class RtreeChunk {
+  private bbox: BBox | null = null
+  count = 0
+
+  constructor(private readonly recordStart: number) {}
+
+  add(feature: Feature, record: number): void {
+    const bbox = feature.bbox
+    this.count = record - this.recordStart + 1
+    if (!bbox) return
+
+    this.bbox = this.bbox ? Gt.expand(this.bbox, bbox) : bbox
+  }
+
+  get hasBbox(): boolean {
+    return this.bbox !== null
+  }
+
+  toItem(): RtreeItem {
+    if (!this.bbox || this.count === 0) {
+      throw new Error('Cannot index an empty R-tree chunk')
+    }
+
+    return {
+      minX: this.bbox[0],
+      minY: this.bbox[1],
+      maxX: this.bbox[2],
+      maxY: this.bbox[3],
+      recordStart: this.recordStart,
+      recordEnd: this.recordStart + this.count - 1
+    }
+  }
+}
+
+function createRtreeBuffer(items: RtreeItem[]): Buffer {
+  if (items.length === 0) return Buffer.alloc(0)
+
+  const tree = new RBush<RtreeItem>()
+  tree.load(items)
+  const entries: Buffer[] = []
+  appendRtreeEntry(tree.toJSON() as RtreeNode, entries)
+  return Buffer.concat(entries)
+}
+
+function appendRtreeEntry(node: RtreeNode | RtreeItem, entries: Buffer[]): number {
+  const index = entries.length
+  entries.push(Buffer.alloc(RTREE_INDEX_ENTRY_SIZE))
+  writeRtreeEntryAt(index, node, entries)
+  return index
+}
+
+function writeRtreeEntryAt(index: number, node: RtreeNode | RtreeItem, entries: Buffer[]): void {
+  const entry = entries[index]
+
+  const children = isRtreeNode(node) ? node.children : []
+  const firstChild = children.length > 0 ? entries.length : -1
+  for (const _child of children) entries.push(Buffer.alloc(RTREE_INDEX_ENTRY_SIZE))
+  for (let childIndex = 0; childIndex < children.length; childIndex += 1) {
+    writeRtreeEntryAt(firstChild + childIndex, children[childIndex], entries)
+  }
+
+  writeRtreeEntry(entry, node, firstChild, children.length, isRtreeNode(node) ? 0 : RTREE_LEAF_FLAG)
+}
+
+function writeRtreeEntry(buffer: Buffer, item: RtreeNode | RtreeItem, firstChild: number, childCount: number, flags: number): void {
+  buffer.writeFloatLE(item.minX, 0)
+  buffer.writeFloatLE(item.minY, 4)
+  buffer.writeFloatLE(item.maxX, 8)
+  buffer.writeFloatLE(item.maxY, 12)
+  buffer.writeInt32LE(firstChild, 16)
+  buffer.writeInt32LE(childCount, 20)
+  buffer.writeInt32LE(isRtreeNode(item) ? -1 : item.recordStart, 24)
+  buffer.writeInt32LE(isRtreeNode(item) ? -1 : item.recordEnd, 28)
+  buffer.writeInt32LE(flags, 32)
+}
+
+function isRtreeNode(item: RtreeNode | RtreeItem): item is RtreeNode {
+  return 'children' in item
 }
 
 export class IndexRecord extends Index<number | readonly number[]> {
@@ -166,7 +308,7 @@ export class IndexRecord extends Index<number | readonly number[]> {
     layer: Layer,
     readonly path: string,
     readonly sourceId: string,
-    private readonly buffer: Buffer,
+    readonly buffer: Buffer,
     readonly indexes: FileIndexDescriptor[]
   ) {
     super(RECORD_INDEX_NAME, layer)
@@ -288,5 +430,116 @@ export class IndexRecord extends Index<number | readonly number[]> {
     }
 
     return typeof criteria === 'number' ? [criteria] : [...criteria]
+  }
+}
+
+export class IndexRtree extends Index<BBox> {
+  readonly rtreeIndex: FileIndexDescriptor
+
+  constructor(
+    layer: Layer,
+    private readonly recordIndex: IndexRecord
+  ) {
+    super(RTREE_INDEX_NAME, layer)
+
+    const rtreeIndex = recordIndex.indexes.find((index) => index.name === RTREE_INDEX_NAME)
+    if (!rtreeIndex) {
+      throw new Error('File index does not contain an rtree index')
+    }
+
+    this.rtreeIndex = rtreeIndex
+  }
+
+  stream(bbox?: BBox): ReadableStream<Feature> {
+    if (!bbox) {
+      throw new Error('IndexRtree.stream requires a bbox')
+    }
+
+    const records = this.records(bbox)
+    let position = 0
+
+    return new ReadableStream({
+      pull: async (controller) => {
+        while (position < records.length) {
+          const feature = await this.recordIndex.get(records[position])
+          position += 1
+          if (feature?.bbox && Gt.intersects(feature.bbox, bbox)) {
+            controller.enqueue(feature)
+            return
+          }
+        }
+
+        controller.close()
+      }
+    })
+  }
+
+  records(bbox: BBox): number[] {
+    if (this.rtreeIndex.byteLength === 0) return []
+
+    const records: number[] = []
+    const stack = [0]
+
+    while (stack.length > 0) {
+      const entry = stack.pop()!
+      if (!this.entryIntersects(entry, bbox)) continue
+
+      if (this.entryFlags(entry) === RTREE_LEAF_FLAG) {
+        for (let record = this.entryRecordStart(entry); record <= this.entryRecordEnd(entry); record += 1) {
+          records.push(record)
+        }
+        continue
+      }
+
+      const firstChild = this.entryFirstChild(entry)
+      const childCount = this.entryChildCount(entry)
+      for (let offset = childCount - 1; offset >= 0; offset -= 1) {
+        stack.push(firstChild + offset)
+      }
+    }
+
+    return records
+  }
+
+  private entryIntersects(entry: number, bbox: BBox): boolean {
+    return Gt.intersects(this.entryBbox(entry), bbox)
+  }
+
+  private entryBbox(entry: number): BBox {
+    const offset = this.entryOffset(entry)
+    return [
+      this.recordIndexBuffer.readFloatLE(offset),
+      this.recordIndexBuffer.readFloatLE(offset + 4),
+      this.recordIndexBuffer.readFloatLE(offset + 8),
+      this.recordIndexBuffer.readFloatLE(offset + 12)
+    ]
+  }
+
+  private entryFirstChild(entry: number): number {
+    return this.recordIndexBuffer.readInt32LE(this.entryOffset(entry) + 16)
+  }
+
+  private entryChildCount(entry: number): number {
+    return this.recordIndexBuffer.readInt32LE(this.entryOffset(entry) + 20)
+  }
+
+  private entryRecordStart(entry: number): number {
+    return this.recordIndexBuffer.readInt32LE(this.entryOffset(entry) + 24)
+  }
+
+  private entryRecordEnd(entry: number): number {
+    return this.recordIndexBuffer.readInt32LE(this.entryOffset(entry) + 28)
+  }
+
+  private entryFlags(entry: number): number {
+    return this.recordIndexBuffer.readInt32LE(this.entryOffset(entry) + 32)
+  }
+
+  private entryOffset(entry: number): number {
+    return this.rtreeIndex.offset + entry * RTREE_INDEX_ENTRY_SIZE
+  }
+
+  private get recordIndexBuffer(): Buffer {
+    return this.recordIndex.buffer
   }
 }

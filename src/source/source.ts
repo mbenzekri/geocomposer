@@ -3,6 +3,7 @@ import type { BBox } from '../core/geometry.js'
 import type { DescInfo, Feature, SourceRef } from '../core/feature.js'
 import { IdFromFeature } from '../core/feature.js'
 import { RegistryEntry } from '../core/feature.js'
+import { withLazyBbox } from '../core/feature.js'
 import { Gt } from '../core/geotools.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
 import { PageFilter } from '../stream/page-filter.js'
@@ -141,7 +142,7 @@ export abstract class FeatureSource extends Source {
       ? await this.transformFeature(feature, index)
       : feature
 
-    return {
+    return withLazyBbox({
       ...output,
       layer,
       crs: layer.crs,
@@ -151,7 +152,7 @@ export abstract class FeatureSource extends Source {
           recordIndex: feature.sourceRef.recordIndex ?? index
         }
         : undefined
-    }
+    })
   }
 }
 

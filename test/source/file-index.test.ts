@@ -12,10 +12,13 @@ import {
   FILE_INDEX_MAGIC,
   FILE_INDEX_VERSION,
   IndexRecord,
+  IndexRtree,
   FileSource,
   LayerFileIndexer,
   RECORD_INDEX_ENTRY_SIZE,
   RECORD_INDEX_NAME,
+  RTREE_INDEX_ENTRY_SIZE,
+  RTREE_INDEX_NAME,
   Source,
   type SourceFile,
   type StreamOptions
@@ -102,6 +105,7 @@ describe('LayerFileIndexer', () => {
       recordCount: 3
     })
     expect(layer.indexes.get('record')).toBe(index)
+    expect(layer.indexes.get('rtree')).toBeInstanceOf(IndexRtree)
     expect(indexBuffer.subarray(0, 8).toString('ascii')).toBe(FILE_INDEX_MAGIC)
     expect(indexBuffer.readUInt16LE(8)).toBe(FILE_INDEX_VERSION)
     expect(recordIndex).toEqual({
@@ -111,7 +115,16 @@ describe('LayerFileIndexer', () => {
       recordCount: 3,
       entrySize: RECORD_INDEX_ENTRY_SIZE
     })
-    expect(indexBuffer.length).toBe(recordIndex.offset + recordIndex.byteLength)
+    const rtreeIndex = index.indexes.find((item) => item.name === RTREE_INDEX_NAME)
+    expect(rtreeIndex).toEqual({
+      name: RTREE_INDEX_NAME,
+      offset: recordIndex.offset + recordIndex.byteLength,
+      byteLength: expect.any(Number),
+      recordCount: expect.any(Number),
+      entrySize: RTREE_INDEX_ENTRY_SIZE
+    })
+    expect(rtreeIndex?.byteLength).toBe((rtreeIndex?.recordCount ?? 0) * RTREE_INDEX_ENTRY_SIZE)
+    expect(indexBuffer.length).toBe((rtreeIndex?.offset ?? 0) + (rtreeIndex?.byteLength ?? 0))
 
     for (let index = 0; index < streamed.length; index += 1) {
       const entryOffset = recordIndex.offset + index * RECORD_INDEX_ENTRY_SIZE
@@ -121,7 +134,9 @@ describe('LayerFileIndexer', () => {
     }
 
     await expect(index.get(1)).resolves.toEqual(streamed[1])
-    expect(await collect(index.stream([2, 0]))).toEqual([streamed[2], streamed[0]])
+    expect(materializeBbox(await collect(index.stream([2, 0])))).toEqual(materializeBbox([streamed[2], streamed[0]]))
+    const rtree = layer.indexes.get('rtree') as IndexRtree
+    expect(materializeBbox(await collect(rtree.stream([0, 0, 4, 5])))).toEqual(materializeBbox([streamed[0], streamed[1]]))
   })
 
   it('rejects layers that are not backed by a FileSource', async () => {
@@ -207,12 +222,18 @@ describe('LayerFileIndexer', () => {
       expect(index.recordIndex.name).toBe(RECORD_INDEX_NAME)
       expect(index.recordIndex.recordCount).toBe(streamed.length)
       expect(streamed.length).toBeGreaterThan(0)
-      expect(await collect(index.stream())).toEqual(streamed)
+      expect(materializeBbox(await collect(index.stream()))).toEqual(materializeBbox(streamed))
+      const rtree = layer.indexes.get('rtree') as IndexRtree
+      const worldBbox: BBox = [-180, -90, 180, 90]
+      expect(materializeBbox(await collect(rtree.stream(worldBbox)))).toEqual(materializeBbox(streamed))
+      await expect(rtree.get(streamed[0].bbox!)).resolves.toEqual(streamed[0])
 
       for (let record = 0; record < streamed.length; record += 1) {
         const streamedRef = assertFileRef(streamed[record].sourceRef)
         expect(index.sourceRef(record).sourceId).toBe(streamedRef.sourceId)
-        await expect(index.get(record)).resolves.toEqual(streamed[record])
+        const read = await index.get(record)
+        if (read) void read.bbox
+        expect(read).toEqual(streamed[record])
       }
     }
   })
@@ -372,6 +393,11 @@ async function collect<T>(stream: ReadableStream<T>): Promise<T[]> {
   } finally {
     reader.releaseLock()
   }
+}
+
+function materializeBbox(features: Feature[]): Feature[] {
+  for (const feature of features) void feature.bbox
+  return features
 }
 
 class TestFileSource extends FileSource {

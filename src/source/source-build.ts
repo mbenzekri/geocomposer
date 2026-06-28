@@ -23,8 +23,11 @@ export {
     FILE_INDEX_MAGIC,
     FILE_INDEX_VERSION,
     IndexRecord,
+    IndexRtree,
     LayerFileIndexer,
     RECORD_INDEX_ENTRY_SIZE,
+    RTREE_INDEX_ENTRY_SIZE,
+    RTREE_INDEX_NAME,
     RECORD_INDEX_NAME
 } from './file-index.js'
 export type {
