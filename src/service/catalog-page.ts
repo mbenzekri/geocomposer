@@ -449,7 +449,6 @@ export class CatalogPage {
     </div>
   </header>
   <main class="wrap">
-    <p class="notice">Les sources internes ne sont pas publiées ici : pas de chemins de fichiers, de connexions, ni de détails de tables source.</p>
     <div class="type-switcher" role="tablist" aria-label="Types d'objets">
       ${types.map((type, index) => this.renderTypeButton(type, index === 0)).join('')}
     </div>
