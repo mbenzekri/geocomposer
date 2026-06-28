@@ -11,6 +11,7 @@ import { Gt } from '../core/geotools.js'
 import { Dict, Registry } from '../core/tools.js'
 import { Crs } from '../core/crs.js'
 import { MemSource } from '../source/mem-source.js'
+import type { Index } from './layer-index.js'
 
 export type PointProperties = {
     x: string
@@ -63,6 +64,7 @@ export class Layer extends RegistryEntry {
     readonly crs: CrsCode
     readonly extent?: BBox
     readonly pointProperties: Array<PointProperties & { crs: CrsCode }>
+    readonly indexes = new Registry<Index<any>>('INDEX')
     private readonly styleName: string
 
     constructor(id: string, entry: LayerJson ) {

@@ -19,6 +19,14 @@ export {
 export {
     DbDataset
 } from './db-dataset.js'
+export {
+    FILE_INDEX_MAGIC,
+    FILE_INDEX_VERSION,
+    IndexRecord,
+    LayerFileIndexer,
+    RECORD_INDEX_ENTRY_SIZE,
+    RECORD_INDEX_NAME
+} from './file-index.js'
 export type {
     DbDatasetJson,
     DbDatasetOptions
