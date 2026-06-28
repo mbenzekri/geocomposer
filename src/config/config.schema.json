@@ -637,6 +637,20 @@
       ],
       "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
     },
+    "sourceIndexes": {
+      "description": "Source index configuration. Use `true` to build the minimal file indexes (`record` and `rtree`). Object form is reserved for explicit index families such as property indexes.",
+      "oneOf": [
+        {
+          "const": true,
+          "description": "Build the minimal indexes for this source."
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Future explicit index configuration."
+        }
+      ]
+    },
     "geojsonSource": {
       "title": "GeoJSON source",
       "type": "object",
@@ -667,6 +681,9 @@
           "type": "integer",
           "minimum": 1,
           "description": "Stream buffer size. Minimum: 1."
+        },
+        "indexes": {
+          "$ref": "#/$defs/sourceIndexes"
         }
       },
       "unevaluatedProperties": false,
@@ -726,6 +743,9 @@
             "yx"
           ],
           "description": "Coordinate axis order for GML coordinates. Allowed values: `auto`, `xy`, `yx`."
+        },
+        "indexes": {
+          "$ref": "#/$defs/sourceIndexes"
         }
       },
       "unevaluatedProperties": false,
@@ -766,6 +786,9 @@
           "type": "integer",
           "minimum": 1,
           "description": "Stream buffer size. Minimum: 1."
+        },
+        "indexes": {
+          "$ref": "#/$defs/sourceIndexes"
         }
       },
       "unevaluatedProperties": false,
@@ -797,6 +820,9 @@
         "datasets": {
           "$ref": "#/$defs/gpkgDatasets",
           "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers."
+        },
+        "indexes": {
+          "$ref": "#/$defs/sourceIndexes"
         }
       },
       "unevaluatedProperties": false,
@@ -958,6 +984,9 @@
             "none"
           ],
           "description": "Strategy used to compute source extents. PostGIS allowed values: `estimated`, `exact`, `none`. Oracle allowed values: `metadata`, `exact`, `none`. Allowed values: `estimated`, `exact`, `none`."
+        },
+        "indexes": {
+          "$ref": "#/$defs/sourceIndexes"
         }
       },
       "unevaluatedProperties": false,
@@ -1081,6 +1110,9 @@
             "none"
           ],
           "description": "Strategy used to compute source extents. SQL Server allowed values: `exact`, `none`. Allowed values: `exact`, `none`."
+        },
+        "indexes": {
+          "$ref": "#/$defs/sourceIndexes"
         }
       },
       "unevaluatedProperties": false,
@@ -1204,6 +1236,9 @@
             "none"
           ],
           "description": "Strategy used to compute source extents. PostGIS allowed values: `estimated`, `exact`, `none`. Oracle allowed values: `metadata`, `exact`, `none`. Allowed values: `metadata`, `exact`, `none`."
+        },
+        "indexes": {
+          "$ref": "#/$defs/sourceIndexes"
         }
       },
       "unevaluatedProperties": false,

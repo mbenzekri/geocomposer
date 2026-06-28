@@ -327,7 +327,8 @@
             "type": "geojson",
             "title": "World GeoJSON",
             "abstract": "World country boundaries GeoJSON demo source.",
-            "path": "../data/world.geojson"
+            "path": "../data/world.geojson",
+            "indexes": true
         },
         "capitals": {
             "type": "geojson",
@@ -340,14 +341,16 @@
             "title": "World GML",
             "abstract": "World country boundaries GML demo source.",
             "path": "../data/world.gml",
-            "axisOrder": "auto"
+            "axisOrder": "auto",
+            "indexes": true
         },
         "world-shp": {
             "type": "shp",
             "title": "World Shapefile",
             "abstract": "World country boundaries shapefile demo source.",
             "shpPath": "../data/shapefile/world.shp",
-            "dbfPath": "../data/shapefile/world.dbf"
+            "dbfPath": "../data/shapefile/world.dbf",
+            "indexes": true
         },
         "world-gpkg": {
             "type": "gpkg",

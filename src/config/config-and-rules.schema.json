@@ -8863,6 +8863,21 @@
                       ],
                       "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
                     },
+                    "indexes": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/sourceIndexes"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ]
+                    },
                     "$ref": {
                       "type": "string",
                       "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -9105,6 +9120,21 @@
                       ],
                       "description": "Coordinate axis order for GML coordinates. Allowed values: `auto`, `xy`, `yx`. (\"auto\", \"xy\", \"yx\" or \"$s{ENV_VAR|default}\")"
                     },
+                    "indexes": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/sourceIndexes"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ]
+                    },
                     "$ref": {
                       "type": "string",
                       "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -9275,6 +9305,21 @@
                       ],
                       "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
                     },
+                    "indexes": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/sourceIndexes"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ]
+                    },
                     "$ref": {
                       "type": "string",
                       "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -9410,6 +9455,21 @@
                         }
                       ],
                       "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+                    },
+                    "indexes": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/sourceIndexes"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ]
                     },
                     "$ref": {
                       "type": "string",
@@ -9612,6 +9672,21 @@
                       ],
                       "description": "Strategy used to compute source extents. PostGIS allowed values: `estimated`, `exact`, `none`. Oracle allowed values: `metadata`, `exact`, `none`. Allowed values: `estimated`, `exact`, `none`. (\"estimated\", \"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
                     },
+                    "indexes": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/sourceIndexes"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ]
+                    },
                     "$ref": {
                       "type": "string",
                       "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -9811,6 +9886,21 @@
                         }
                       ],
                       "description": "Strategy used to compute source extents. SQL Server allowed values: `exact`, `none`. Allowed values: `exact`, `none`. (\"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+                    },
+                    "indexes": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/sourceIndexes"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ]
                     },
                     "$ref": {
                       "type": "string",
@@ -10013,6 +10103,21 @@
                       ],
                       "description": "Strategy used to compute source extents. PostGIS allowed values: `estimated`, `exact`, `none`. Oracle allowed values: `metadata`, `exact`, `none`. Allowed values: `metadata`, `exact`, `none`. (\"metadata\", \"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
                     },
+                    "indexes": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/sourceIndexes"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ]
+                    },
                     "$ref": {
                       "type": "string",
                       "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -10032,6 +10137,68 @@
         }
       ],
       "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
+    },
+    "sourceIndexes": {
+      "anyOf": [
+        {
+          "description": "Source index configuration. Use `true` to build the minimal file indexes (`record` and `rtree`). Object form is reserved for explicit index families such as property indexes. (boolean or \"$b{ENV_VAR|default}\")",
+          "oneOf": [
+            {
+              "anyOf": [
+                {
+                  "const": true,
+                  "description": "Build the minimal indexes for this source. (boolean or \"$b{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Build the minimal indexes for this source. (boolean or \"$b{ENV_VAR|default}\")"
+            },
+            {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "description": "Future explicit index configuration. (object or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "$ref"
+                  ],
+                  "properties": {
+                    "$ref": {
+                      "type": "string",
+                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                    }
+                  },
+                  "description": "Future explicit index configuration. (object or \"#/$defs/nom\")"
+                }
+              ],
+              "description": "Future explicit index configuration. (object or \"#/$defs/nom\")"
+            }
+          ]
+        },
+        {
+          "type": "string",
+          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+        },
+        {
+          "type": "string",
+          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+        }
+      ],
+      "description": "Source index configuration. Use `true` to build the minimal file indexes (`record` and `rtree`). Object form is reserved for explicit index families such as property indexes. (boolean or \"$b{ENV_VAR|default}\")"
     },
     "geojsonSource": {
       "anyOf": [
@@ -10193,6 +10360,21 @@
                 }
               ],
               "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             }
           },
           "unevaluatedProperties": false,
@@ -10330,6 +10512,21 @@
                 }
               ],
               "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             },
             "$ref": {
               "type": "string",
@@ -10595,6 +10792,21 @@
                 }
               ],
               "description": "Coordinate axis order for GML coordinates. Allowed values: `auto`, `xy`, `yx`. (\"auto\", \"xy\", \"yx\" or \"$s{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             }
           },
           "unevaluatedProperties": false,
@@ -10826,6 +11038,21 @@
               ],
               "description": "Coordinate axis order for GML coordinates. Allowed values: `auto`, `xy`, `yx`. (\"auto\", \"xy\", \"yx\" or \"$s{ENV_VAR|default}\")"
             },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
+            },
             "$ref": {
               "type": "string",
               "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -11019,6 +11246,21 @@
                 }
               ],
               "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             }
           },
           "unevaluatedProperties": false,
@@ -11177,6 +11419,21 @@
                 }
               ],
               "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             },
             "$ref": {
               "type": "string",
@@ -11337,6 +11594,21 @@
                 }
               ],
               "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             }
           },
           "unevaluatedProperties": false,
@@ -11461,6 +11733,21 @@
                 }
               ],
               "description": "Dataset registry for this source. Each key is a dataset identifier referenced by layers. (object or \"#/$defs/nom\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             },
             "$ref": {
               "type": "string",
@@ -12460,6 +12747,21 @@
                 }
               ],
               "description": "Strategy used to compute source extents. PostGIS allowed values: `estimated`, `exact`, `none`. Oracle allowed values: `metadata`, `exact`, `none`. Allowed values: `estimated`, `exact`, `none`. (\"estimated\", \"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             }
           },
           "unevaluatedProperties": false,
@@ -12649,6 +12951,21 @@
                 }
               ],
               "description": "Strategy used to compute source extents. PostGIS allowed values: `estimated`, `exact`, `none`. Oracle allowed values: `metadata`, `exact`, `none`. Allowed values: `estimated`, `exact`, `none`. (\"estimated\", \"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             },
             "$ref": {
               "type": "string",
@@ -13450,6 +13767,21 @@
                 }
               ],
               "description": "Strategy used to compute source extents. SQL Server allowed values: `exact`, `none`. Allowed values: `exact`, `none`. (\"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             }
           },
           "unevaluatedProperties": false,
@@ -13638,6 +13970,21 @@
                 }
               ],
               "description": "Strategy used to compute source extents. SQL Server allowed values: `exact`, `none`. Allowed values: `exact`, `none`. (\"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             },
             "$ref": {
               "type": "string",
@@ -14438,6 +14785,21 @@
                 }
               ],
               "description": "Strategy used to compute source extents. PostGIS allowed values: `estimated`, `exact`, `none`. Oracle allowed values: `metadata`, `exact`, `none`. Allowed values: `metadata`, `exact`, `none`. (\"metadata\", \"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             }
           },
           "unevaluatedProperties": false,
@@ -14627,6 +14989,21 @@
                 }
               ],
               "description": "Strategy used to compute source extents. PostGIS allowed values: `estimated`, `exact`, `none`. Oracle allowed values: `metadata`, `exact`, `none`. Allowed values: `metadata`, `exact`, `none`. (\"metadata\", \"exact\", \"none\" or \"$s{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
             },
             "$ref": {
               "type": "string",

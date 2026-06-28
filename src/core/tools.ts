@@ -14,6 +14,7 @@ export function isMain(metaurl: string): boolean {
 export type Args = {
     configPath: string
     clearTileCache?: boolean
+    buildIndex?: boolean
     port?: number
 }
 
@@ -32,6 +33,11 @@ export function parseArgs(): Args {
 
         if (arg === '--clear-cache' || arg === '-cc') {
             options.clearTileCache = true
+            continue
+        }
+
+        if (arg === '--build-index' || arg === '-bi') {
+            options.buildIndex = true
             continue
         }
 

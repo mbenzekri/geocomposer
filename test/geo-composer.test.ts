@@ -48,6 +48,45 @@ describe('GeoComposer', () => {
         expect(app).toBeInstanceOf(GeoComposer)
     })
 
+    test('builds configured source indexes and closes the app', async () => {
+        const dataPath = testTempPath('indexed.geojson')
+        fs.writeFileSync(dataPath, JSON.stringify({
+            type: 'FeatureCollection',
+            features: [
+                {
+                    type: 'Feature',
+                    id: 'a',
+                    properties: { name: 'A' },
+                    geometry: { type: 'Point', coordinates: [1, 2] }
+                }
+            ]
+        }))
+
+        config_min.sources.world = {
+            type: 'geojson',
+            path: dataPath,
+            indexes: true
+        }
+        const configPath = writeConf('config_build_index.json', config_min)
+        const app = await GeoComposer.from({ configPath })
+        const result = await app.buildIndexes()
+
+        expect(result).toMatchObject({
+            created: 1,
+            skipped: 0,
+            failed: 0
+        })
+        expect(result.items[0]).toMatchObject({
+            status: 'created',
+            layer: 'world',
+            source: 'world',
+            path: `${dataPath}.idx`,
+            message: '1 records'
+        })
+        expect(fs.existsSync(`${dataPath}.idx`)).toBe(true)
+        expect(Source.registry.all).toHaveLength(0)
+    })
+
     test('loads the default config path and applies PORT from the environment', async () => {
         process.env.PORT = '1'
 
@@ -59,6 +98,7 @@ describe('GeoComposer', () => {
     test('launch reports runtime and initialisation failures without throwing', async () => {
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
         const run = vi.fn().mockResolvedValue(undefined)
+        const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined)
 
         vi.spyOn(GeoComposer, 'from').mockResolvedValueOnce({
             run
@@ -78,12 +118,33 @@ describe('GeoComposer', () => {
         expect(consoleError).toHaveBeenCalledWith('[GeoComposer] Runtime failure runtime failed/undefined')
         expect(process.exitCode).toBe(0)
 
+        vi.spyOn(GeoComposer, 'from').mockResolvedValueOnce({
+            run,
+            buildIndexes: vi.fn().mockResolvedValue({
+                created: 1,
+                skipped: 0,
+                failed: 0,
+                items: [{
+                    status: 'created',
+                    layer: 'world',
+                    source: 'world',
+                    path: 'world.geojson.idx',
+                    message: '1 records'
+                }]
+            })
+        } as unknown as GeoComposer)
+
+        await GeoComposer.launch({ configPath: 'config.json', clearTileCache: false, buildIndex: true })
+
+        expect(consoleLog).toHaveBeenCalledWith('[GeoComposer] Build index: 1 created, 0 skipped, 0 failed')
+        expect(process.exitCode).toBe(0)
+
         vi.spyOn(GeoComposer, 'from').mockRejectedValueOnce(new Error('init failed'))
 
         await GeoComposer.launch({ configPath: 'config.json', clearTileCache: false })
 
-        expect(consoleError).toHaveBeenCalledWith('[GeoComposer] Runtime failure runtime failed/undefined')
-        expect(process.exitCode).toBe(0)
+        expect(consoleError).toHaveBeenCalledWith('[GeoComposer] Initialisation failure')
+        expect(process.exitCode).toBe(1)
     })
 
     test('opens sources only once and closes opened sources once', async () => {

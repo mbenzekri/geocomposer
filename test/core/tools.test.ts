@@ -65,6 +65,14 @@ describe('tools', () => {
             expect(parseArgs().clearTileCache).toBe(true)
         })
 
+        it('parses build index options', () => {
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '--build-index'])
+            expect(parseArgs().buildIndex).toBe(true)
+
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '-bi'])
+            expect(parseArgs().buildIndex).toBe(true)
+        })
+
         it('parses port option', () => {
             vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '--port', '8080'])
 

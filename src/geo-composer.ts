@@ -4,7 +4,7 @@ import { createServer, type Server, type IncomingMessage, type ServerResponse } 
 import { Args, DEFAULT_CONFIG_PATH, isMain, parseArgs, parsePort } from './core/tools.js'
 import { Config } from './config/config.js'
 import { Service } from './service/service-build.js'
-import { Source } from './source/source-build.js'
+import { FileSource, LayerFileIndexer, Source } from './source/source-build.js'
 import { Layer } from './layer/layer.js'
 import { Crs } from './core/crs.js'
 import { Style } from './style/style.js'
@@ -48,10 +48,17 @@ export class GeoComposer {
     }
 
     static async launch(args = parseArgs()) {
-        let geoc: GeoComposer
         try {
             // Init GeoComposer from Conf
-            geoc = await GeoComposer.from(args)
+            const geoc = await GeoComposer.from(args)
+
+            if (args.buildIndex) {
+                const result = await geoc.buildIndexes()
+                GeoComposer.logBuildIndexResult(result)
+                process.exitCode = result.failed === 0 ? 0 : 1
+                return
+            }
+
             try {
                 // Run server and handle requests
                 await geoc.run()
@@ -71,6 +78,7 @@ export class GeoComposer {
             process.exitCode = 1
             console.error(`[GeoComposer] Initialisation failure`)
             console.error(String(error))
+            return
         }
         process.exitCode = 0
     }
@@ -187,6 +195,67 @@ export class GeoComposer {
         if (firstError) throw firstError
     }
 
+    async buildIndexes(): Promise<BuildIndexResult> {
+        const result: BuildIndexResult = {
+            created: 0,
+            skipped: 0,
+            failed: 0,
+            items: []
+        }
+
+        await this.open()
+
+        try {
+            for (const layer of Layer.registry.all) {
+                if (!layer.source.indexes) continue
+
+                if (!(layer.source instanceof FileSource)) {
+                    result.skipped += 1
+                    result.items.push({
+                        status: 'skipped',
+                        layer: layer.id,
+                        source: layer.source.id,
+                        message: 'source is not a FileSource'
+                    })
+                    continue
+                }
+
+                try {
+                    const index = await new LayerFileIndexer(layer).build()
+                    result.created += 1
+                    result.items.push({
+                        status: 'created',
+                        layer: layer.id,
+                        source: layer.source.id,
+                        path: index.path,
+                        message: `${index.recordCount} records`
+                    })
+                } catch (error) {
+                    result.failed += 1
+                    result.items.push({
+                        status: 'failed',
+                        layer: layer.id,
+                        source: layer.source.id,
+                        message: error instanceof Error ? error.message : String(error)
+                    })
+                }
+            }
+        } finally {
+            await this.close()
+        }
+
+        return result
+    }
+
+    private static logBuildIndexResult(result: BuildIndexResult): void {
+        console.log(`[GeoComposer] Build index: ${result.created} created, ${result.skipped} skipped, ${result.failed} failed`)
+
+        for (const item of result.items) {
+            const suffix = item.path ? ` ${item.path}` : ''
+            console.log(`[GeoComposer] ${item.status} layer=${item.layer} source=${item.source}${suffix}: ${item.message}`)
+        }
+    }
+
 
     private async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const url = new URL(req.url ?? '/', 'http://localhost')
@@ -245,6 +314,21 @@ export class GeoComposer {
     }
 
 
+}
+
+export type BuildIndexItem = {
+    status: 'created' | 'skipped' | 'failed'
+    layer: string
+    source: string
+    path?: string
+    message: string
+}
+
+export type BuildIndexResult = {
+    created: number
+    skipped: number
+    failed: number
+    items: BuildIndexItem[]
 }
 
 /* v8 ignore next 3 -- CLI entrypoint is exercised by running the built command, not by importing this module in unit tests. */

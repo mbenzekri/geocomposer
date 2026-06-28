@@ -8,7 +8,7 @@ import { Gt } from '../core/geotools.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
 import { PageFilter } from '../stream/page-filter.js'
 import type { Layer } from '../layer/layer.js'
-import { Registry } from '../core/tools.js'
+import { isPlainObject, Registry } from '../core/tools.js'
 
 export type SourceStorage = 'mem' | 'file' | 'database'
 
@@ -18,6 +18,8 @@ export type SourceFile = {
   role: SourceFileRole | string
   path: PathLike
 }
+
+export type SourceIndexConfig = true | Record<string, unknown>
 
 export type StreamOptions = {
   signal?: AbortSignal
@@ -38,9 +40,12 @@ export abstract class Source extends RegistryEntry {
 
   abstract readonly type: string
   abstract readonly storage: SourceStorage
+  readonly indexes?: SourceIndexConfig
 
   protected constructor(id: string, info: DescInfo = {}) {
     super(id, info)
+    const indexes = (info as DescInfo & { indexes?: unknown }).indexes
+    if (indexes === true || isPlainObject(indexes)) this.indexes = indexes
   }
 
   static build(_sourceEntries: Record<string, unknown>): Registry<Source>{
