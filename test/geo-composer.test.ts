@@ -62,6 +62,8 @@ describe('GeoComposer', () => {
             ]
         }))
 
+        const indexPath = `${dataPath}.idx`
+        fs.rmSync(indexPath, { force: true })
         config_min.sources.world = {
             type: 'geojson',
             path: dataPath,
@@ -69,10 +71,11 @@ describe('GeoComposer', () => {
         }
         const configPath = writeConf('config_build_index.json', config_min)
         const app = await GeoComposer.from({ configPath })
-        const result = await app.buildIndexes()
+        const result = await app.buildIndexes(['world'])
 
         expect(result).toMatchObject({
             created: 1,
+            rebuilt: 0,
             skipped: 0,
             failed: 0
         })
@@ -80,11 +83,68 @@ describe('GeoComposer', () => {
             status: 'created',
             layer: 'world',
             source: 'world',
-            path: `${dataPath}.idx`,
+            path: indexPath,
             message: '1 records'
         })
-        expect(fs.existsSync(`${dataPath}.idx`)).toBe(true)
+        expect(fs.existsSync(indexPath)).toBe(true)
         expect(Source.registry.all).toHaveLength(0)
+
+        init()
+        const upToDateApp = await GeoComposer.from({ configPath })
+        const upToDateResult = await upToDateApp.buildIndexes(['world'])
+
+        expect(upToDateResult).toMatchObject({
+            created: 0,
+            rebuilt: 0,
+            skipped: 1,
+            failed: 0
+        })
+        expect(upToDateResult.items[0]).toMatchObject({
+            status: 'skipped',
+            layer: 'world',
+            source: 'world',
+            path: indexPath,
+            message: 'index is up-to-date'
+        })
+
+        const staleTime = new Date(Date.now() + 10_000)
+        fs.utimesSync(dataPath, staleTime, staleTime)
+
+        init()
+        const staleApp = await GeoComposer.from({ configPath })
+        const staleResult = await staleApp.buildIndexes(['world'])
+
+        expect(staleResult).toMatchObject({
+            created: 0,
+            rebuilt: 1,
+            skipped: 0,
+            failed: 0
+        })
+        expect(staleResult.items[0]).toMatchObject({
+            status: 'rebuilt',
+            layer: 'world',
+            source: 'world',
+            path: indexPath,
+            message: '1 records'
+        })
+
+        init()
+        const forceApp = await GeoComposer.from({ configPath })
+        const forceResult = await forceApp.buildIndexes(['world'], true)
+
+        expect(forceResult).toMatchObject({
+            created: 0,
+            rebuilt: 1,
+            skipped: 0,
+            failed: 0
+        })
+        expect(forceResult.items[0]).toMatchObject({
+            status: 'rebuilt',
+            layer: 'world',
+            source: 'world',
+            path: indexPath,
+            message: '1 records'
+        })
     })
 
     test('loads the default config path and applies PORT from the environment', async () => {
@@ -99,6 +159,13 @@ describe('GeoComposer', () => {
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
         const run = vi.fn().mockResolvedValue(undefined)
         const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+
+        const from = vi.spyOn(GeoComposer, 'from')
+
+        await GeoComposer.launch({ configPath: 'config.json', clearTileCache: false, help: true })
+
+        expect(consoleLog).toHaveBeenCalledWith(expect.stringContaining('Usage: geocomposer [options]'))
+        expect(from).not.toHaveBeenCalled()
 
         vi.spyOn(GeoComposer, 'from').mockResolvedValueOnce({
             run
@@ -122,6 +189,7 @@ describe('GeoComposer', () => {
             run,
             buildIndexes: vi.fn().mockResolvedValue({
                 created: 1,
+                rebuilt: 0,
                 skipped: 0,
                 failed: 0,
                 items: [{
@@ -134,9 +202,9 @@ describe('GeoComposer', () => {
             })
         } as unknown as GeoComposer)
 
-        await GeoComposer.launch({ configPath: 'config.json', clearTileCache: false, buildIndex: true })
+        await GeoComposer.launch({ configPath: 'config.json', clearTileCache: false, buildIndexAll: true })
 
-        expect(consoleLog).toHaveBeenCalledWith('[GeoComposer] Build index: 1 created, 0 skipped, 0 failed')
+        expect(consoleLog).toHaveBeenCalledWith('[GeoComposer] Build index: 1 created, 0 rebuilt, 0 skipped, 0 failed')
         expect(process.exitCode).toBe(0)
 
         vi.spyOn(GeoComposer, 'from').mockRejectedValueOnce(new Error('init failed'))

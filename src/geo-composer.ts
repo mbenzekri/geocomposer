@@ -1,7 +1,7 @@
 import './core/log-level.js'
 import path from 'node:path'
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
-import { Args, DEFAULT_CONFIG_PATH, isMain, parseArgs, parsePort } from './core/tools.js'
+import { ARGS_HELP, Args, DEFAULT_CONFIG_PATH, isMain, parseArgs, parsePort } from './core/tools.js'
 import { Config } from './config/config.js'
 import { Service } from './service/service-build.js'
 import { FileSource, LayerFileIndexer, Source } from './source/source-build.js'
@@ -48,12 +48,18 @@ export class GeoComposer {
     }
 
     static async launch(args = parseArgs()) {
+        if (args.help) {
+            console.log(ARGS_HELP)
+            process.exitCode = 0
+            return
+        }
+
         try {
             // Init GeoComposer from Conf
             const geoc = await GeoComposer.from(args)
 
-            if (args.buildIndex) {
-                const result = await geoc.buildIndexes()
+            if (args.buildIndexAll || args.buildIndexForce || args.buildIndexSources?.length) {
+                const result = await geoc.buildIndexes(args.buildIndexAll || !args.buildIndexSources?.length ? undefined : args.buildIndexSources, args.buildIndexForce)
                 GeoComposer.logBuildIndexResult(result)
                 process.exitCode = result.failed === 0 ? 0 : 1
                 return
@@ -195,9 +201,10 @@ export class GeoComposer {
         if (firstError) throw firstError
     }
 
-    async buildIndexes(): Promise<BuildIndexResult> {
+    async buildIndexes(sourceIds?: readonly string[], force = false): Promise<BuildIndexResult> {
         const result: BuildIndexResult = {
             created: 0,
+            rebuilt: 0,
             skipped: 0,
             failed: 0,
             items: []
@@ -206,27 +213,85 @@ export class GeoComposer {
         await this.open()
 
         try {
+            const layerBySource = new Map<string, Layer>()
             for (const layer of Layer.registry.all) {
-                if (!layer.source.indexes) continue
+                if (!layerBySource.has(layer.source.id)) layerBySource.set(layer.source.id, layer)
+            }
 
-                if (!(layer.source instanceof FileSource)) {
+            const sources = sourceIds
+                ? [...new Set(sourceIds)].map((sourceId) => {
+                    try {
+                        return Source.registry.get(sourceId)
+                    } catch (error) {
+                        result.failed += 1
+                        result.items.push({
+                            status: 'failed',
+                            layer: '-',
+                            source: sourceId,
+                            message: error instanceof Error ? error.message : String(error)
+                        })
+                        return null
+                    }
+                }).filter((source): source is Source => source !== null)
+                : Source.registry.all.filter((source) => source.indexes)
+
+            for (const source of sources) {
+                const layer = layerBySource.get(source.id)
+
+                if (!source.indexes) {
+                    result.skipped += 1
+                    result.items.push({
+                        status: 'skipped',
+                        layer: layer?.id ?? '-',
+                        source: source.id,
+                        message: 'source has no indexes configured'
+                    })
+                    continue
+                }
+
+                if (!layer) {
+                    result.failed += 1
+                    result.items.push({
+                        status: 'failed',
+                        layer: '-',
+                        source: source.id,
+                        message: 'source has no layer'
+                    })
+                    continue
+                }
+
+                if (!(source instanceof FileSource)) {
                     result.skipped += 1
                     result.items.push({
                         status: 'skipped',
                         layer: layer.id,
-                        source: layer.source.id,
+                        source: source.id,
                         message: 'source is not a FileSource'
                     })
                     continue
                 }
 
                 try {
+                    const buildState = await LayerFileIndexer.needsBuild(layer)
+                    if (!force && buildState === 'up-to-date') {
+                        result.skipped += 1
+                        result.items.push({
+                            status: 'skipped',
+                            layer: layer.id,
+                            source: source.id,
+                            path: LayerFileIndexer.resolveIndexPath(layer),
+                            message: 'index is up-to-date'
+                        })
+                        continue
+                    }
+
                     const index = await new LayerFileIndexer(layer).build()
-                    result.created += 1
+                    const status = buildState === 'missing' ? 'created' : 'rebuilt'
+                    result[status] += 1
                     result.items.push({
-                        status: 'created',
+                        status,
                         layer: layer.id,
-                        source: layer.source.id,
+                        source: source.id,
                         path: index.path,
                         message: `${index.recordCount} records`
                     })
@@ -235,7 +300,7 @@ export class GeoComposer {
                     result.items.push({
                         status: 'failed',
                         layer: layer.id,
-                        source: layer.source.id,
+                        source: source.id,
                         message: error instanceof Error ? error.message : String(error)
                     })
                 }
@@ -248,7 +313,7 @@ export class GeoComposer {
     }
 
     private static logBuildIndexResult(result: BuildIndexResult): void {
-        console.log(`[GeoComposer] Build index: ${result.created} created, ${result.skipped} skipped, ${result.failed} failed`)
+        console.log(`[GeoComposer] Build index: ${result.created} created, ${result.rebuilt} rebuilt, ${result.skipped} skipped, ${result.failed} failed`)
 
         for (const item of result.items) {
             const suffix = item.path ? ` ${item.path}` : ''
@@ -317,7 +382,7 @@ export class GeoComposer {
 }
 
 export type BuildIndexItem = {
-    status: 'created' | 'skipped' | 'failed'
+    status: 'created' | 'rebuilt' | 'skipped' | 'failed'
     layer: string
     source: string
     path?: string
@@ -326,6 +391,7 @@ export type BuildIndexItem = {
 
 export type BuildIndexResult = {
     created: number
+    rebuilt: number
     skipped: number
     failed: number
     items: BuildIndexItem[]

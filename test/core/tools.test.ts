@@ -65,12 +65,40 @@ describe('tools', () => {
             expect(parseArgs().clearTileCache).toBe(true)
         })
 
+        it('parses help option', () => {
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '--help'])
+            expect(parseArgs().help).toBe(true)
+
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '-h'])
+            expect(parseArgs().help).toBe(true)
+        })
+
         it('parses build index options', () => {
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '--build-index-all'])
+            expect(parseArgs().buildIndexAll).toBe(true)
+
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '-bia'])
+            expect(parseArgs().buildIndexAll).toBe(true)
+
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '--build-index', 'world', '-bi', 'roads'])
+            expect(parseArgs().buildIndexSources).toEqual(['world', 'roads'])
+
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '--build-index-force'])
+            expect(parseArgs().buildIndexForce).toBe(true)
+
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '-bif'])
+            expect(parseArgs().buildIndexForce).toBe(true)
+        })
+
+        it('rejects invalid build index options', () => {
             vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '--build-index'])
-            expect(parseArgs().buildIndex).toBe(true)
+            expect(() => parseArgs()).toThrow('--build-index requires a source id')
 
             vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '-bi'])
-            expect(parseArgs().buildIndex).toBe(true)
+            expect(() => parseArgs()).toThrow('-bi requires a source id')
+
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '--build-index-all', '--build-index', 'world'])
+            expect(() => parseArgs()).toThrow('--build-index-all cannot be used with --build-index')
         })
 
         it('parses port option', () => {

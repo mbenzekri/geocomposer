@@ -12,13 +12,27 @@ export function isMain(metaurl: string): boolean {
 }
 
 export type Args = {
+    help?: boolean
     configPath: string
     clearTileCache?: boolean
-    buildIndex?: boolean
+    buildIndexAll?: boolean
+    buildIndexForce?: boolean
+    buildIndexSources?: string[]
     port?: number
 }
 
 export const DEFAULT_CONFIG_PATH = 'config/config.json'
+export const ARGS_HELP = `Usage: geocomposer [options]
+
+Options:
+  -h, --help                      Show this help and exit.
+  -c, --config <path>             Load a config file. Default: ${DEFAULT_CONFIG_PATH}
+  -p, --port <port>               Override the configured server port.
+  -cc, --clear-cache              Clear declared service tile caches before start.
+  -bi, --build-index <source>     Build or rebuild indexes for one source. Repeat for multiple sources.
+  -bia, --build-index-all         Build or rebuild indexes for every configured source.
+  -bif, --build-index-force       Force rebuild for the selected index scope. Alone, selects every configured source.
+`
 
 export function parseArgs(): Args {
     const args = process.argv.slice(2)
@@ -31,13 +45,35 @@ export function parseArgs(): Args {
     for (let index = 0; index < args.length; index += 1) {
         const arg = args[index]
 
+        if (arg === '--help' || arg === '-h') {
+            options.help = true
+            continue
+        }
+
         if (arg === '--clear-cache' || arg === '-cc') {
             options.clearTileCache = true
             continue
         }
 
+        if (arg === '--build-index-all' || arg === '-bia') {
+            options.buildIndexAll = true
+            continue
+        }
+
+        if (arg === '--build-index-force' || arg === '-bif') {
+            options.buildIndexForce = true
+            continue
+        }
+
         if (arg === '--build-index' || arg === '-bi') {
-            options.buildIndex = true
+            const value = args[index + 1]
+            if (!value || value.startsWith('-')) {
+                throw new Error(`${arg} requires a source id`)
+            }
+
+            options.buildIndexSources ??= []
+            options.buildIndexSources.push(value)
+            index += 1
             continue
         }
 
@@ -74,6 +110,10 @@ export function parseArgs(): Args {
         }
 
         throw new Error(`Unknown argument: ${arg}`)
+    }
+
+    if (options.buildIndexAll && options.buildIndexSources?.length) {
+        throw new Error('--build-index-all cannot be used with --build-index')
     }
 
     return options

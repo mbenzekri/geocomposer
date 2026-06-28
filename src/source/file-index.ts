@@ -1,4 +1,4 @@
-import { open, readFile } from 'node:fs/promises'
+import { open, stat } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import RBush from 'rbush'
 import type { Feature, SourceRef } from '../core/feature.js'
@@ -15,9 +15,6 @@ export const RTREE_INDEX_NAME = 'rtree'
 export const RECORD_INDEX_ENTRY_SIZE = 12
 export const RTREE_INDEX_ENTRY_SIZE = 36
 const RTREE_CHUNK_SIZE = 100
-const HEADER_LENGTH = 16
-  + descriptorHeaderLength(RECORD_INDEX_NAME)
-  + descriptorHeaderLength(RTREE_INDEX_NAME)
 const RTREE_LEAF_FLAG = 1
 
 export type FileIndexDescriptor = {
@@ -30,6 +27,28 @@ export type FileIndexDescriptor = {
 
 export class LayerFileIndexer {
   constructor(private readonly layer: Layer) {}
+
+  static async needsBuild(layer: Layer): Promise<'missing' | 'stale' | 'up-to-date'> {
+    if (!(layer.source instanceof FileSource)) {
+      throw new Error(`Layer "${layer.id}" source "${layer.source.id}" is not a FileSource`)
+    }
+
+    const indexPath = LayerFileIndexer.resolveIndexPath(layer)
+    const files = layer.source.getFiles()
+    const indexStat = await stat(indexPath).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') return null
+      throw error
+    })
+
+    if (!indexStat) return 'missing'
+
+    let sourceMtime = 0
+    for (const file of files) {
+      sourceMtime = Math.max(sourceMtime, (await stat(LayerFileIndexer.pathToString(file.path))).mtimeMs)
+    }
+
+    return indexStat.mtimeMs < sourceMtime ? 'stale' : 'up-to-date'
+  }
 
   static resolveIndexPath(layer: Layer): string {
     if (!(layer.source instanceof FileSource)) {
@@ -46,73 +65,53 @@ export class LayerFileIndexer {
     }
 
     const outputPath = LayerFileIndexer.resolveIndexPath(this.layer)
+    const recordIndex = IndexRecord.init(this.layer)
+    const rtreeIndex = IndexRtree.init(this.layer, recordIndex)
+    const indexes = [recordIndex, rtreeIndex]
+
+    await this.streamFeatures(indexes, signal)
+    const buffer = createIndexBuffer(indexes.map((index) => index.finalize()))
+
     const handle = await open(outputPath, 'w')
-    let recordCount = 0
-    let sourceId: string | undefined
-    let position = HEADER_LENGTH
-    let chunk = new RtreeChunk(0)
-    const chunks: RtreeItem[] = []
-
     try {
-      await handle.write(createHeader(0, 0, 0), 0, HEADER_LENGTH, 0)
-      const reader = this.layer.stream({ signal }).getReader()
-      let completed = false
-
-      try {
-        for (;;) {
-          const result = await reader.read()
-          if (result.done) {
-            completed = true
-            break
-          }
-
-          const sourceRef = LayerFileIndexer.toRecordRef(result.value.sourceRef, this.layer)
-          sourceId ??= sourceRef.sourceId
-          if (sourceRef.sourceId !== sourceId) {
-            throw new Error(`Layer "${this.layer.id}" streamed features from multiple file sources`)
-          }
-          const record = Buffer.alloc(RECORD_INDEX_ENTRY_SIZE)
-          record.writeBigUInt64LE(BigInt(sourceRef.offset), 0)
-          record.writeUInt32LE(sourceRef.byteLength, 8)
-          await handle.write(record, 0, record.length, position)
-          position += record.length
-          chunk.add(result.value, recordCount)
-          recordCount += 1
-
-          if (chunk.count === RTREE_CHUNK_SIZE) {
-            if (chunk.hasBbox) chunks.push(chunk.toItem())
-            chunk = new RtreeChunk(recordCount)
-          }
-        }
-      } finally {
-        if (!completed) {
-          try {
-            await reader.cancel()
-          } catch {
-            // Preserve the original indexing error when stream cleanup also fails.
-          }
-        }
-        reader.releaseLock()
-      }
-
-      if (chunk.hasBbox) chunks.push(chunk.toItem())
-
-      const rtreeBuffer = createRtreeBuffer(chunks)
-      await handle.write(rtreeBuffer, 0, rtreeBuffer.length, position)
-      await handle.write(createHeader(recordCount, rtreeBuffer.length / RTREE_INDEX_ENTRY_SIZE, rtreeBuffer.length), 0, HEADER_LENGTH, 0)
+      await handle.write(buffer, 0, buffer.length, 0)
     } finally {
       await handle.close()
     }
 
-    const index = IndexRecord.fromBuffer(
-      this.layer,
-      outputPath,
-      sourceId ?? this.layer.source.id,
-      await readFile(outputPath)
-    )
+    const index = IndexRecord.fromBuffer(this.layer, outputPath, recordIndex.sourceId, buffer)
+    const rtree = new IndexRtree(this.layer, index)
     this.layer.indexes.set(index.id, index)
-    this.layer.indexes.set(RTREE_INDEX_NAME, new IndexRtree(this.layer, index))
+    this.layer.indexes.set(rtree.id, rtree)
     return index
+  }
+
+  private async streamFeatures(indexes: Array<IndexRecord | IndexRtree>, signal?: AbortSignal): Promise<void> {
+    const reader = this.layer.stream({ signal }).getReader()
+    let completed = false
+    let record = 0
+
+    try {
+      for (;;) {
+        const result = await reader.read()
+        if (result.done) {
+          completed = true
+          break
+        }
+
+        for (const index of indexes) index.add(result.value, record)
+        record += 1
+      }
+    } finally {
+      if (!completed) {
+        try {
+          await reader.cancel()
+        } catch {
+          // Preserve the original indexing error when stream cleanup also fails.
+        }
+      }
+      reader.releaseLock()
+    }
   }
 
   private static resolvePrimaryFile(files: readonly SourceFile[], layer: Layer): SourceFile {
@@ -131,33 +130,28 @@ export class LayerFileIndexer {
     if (path instanceof URL) return fileURLToPath(path)
     return path.toString()
   }
-
-  private static toRecordRef(sourceRef: SourceRef | undefined, layer: Layer): SourceRef & {
-    offset: number
-    byteLength: number
-  } {
-    if (!sourceRef) {
-      throw new Error(`Layer "${layer.id}" streamed a feature without sourceRef`)
-    }
-
-    if (sourceRef.storage !== 'file') {
-      throw new Error(`Layer "${layer.id}" streamed a feature with non-file sourceRef storage "${sourceRef.storage}"`)
-    }
-
-    if (!Number.isSafeInteger(sourceRef.offset) || sourceRef.offset < 0) {
-      throw new Error(`Layer "${layer.id}" streamed a feature with invalid sourceRef offset`)
-    }
-
-    if (!Number.isSafeInteger(sourceRef.byteLength) || sourceRef.byteLength < 0 || sourceRef.byteLength > 0xffffffff) {
-      throw new Error(`Layer "${layer.id}" streamed a feature with invalid sourceRef byteLength`)
-    }
-
-    return sourceRef as SourceRef & { offset: number, byteLength: number }
-  }
 }
 
-function createHeader(recordCount: number, rtreeNodeCount: number, rtreeByteLength: number): Buffer {
-  const header = Buffer.alloc(HEADER_LENGTH)
+function createIndexBuffer(contents: Array<{ name: string, buffer: Buffer, recordCount: number, entrySize: number }>): Buffer {
+  const headerLength = 16 + contents.reduce((length, index) => length + descriptorHeaderLength(index.name), 0)
+  let offset = headerLength
+  const descriptors = contents.map((index): FileIndexDescriptor => {
+    const descriptor = {
+      name: index.name,
+      offset,
+      byteLength: index.buffer.length,
+      recordCount: index.recordCount,
+      entrySize: index.entrySize
+    }
+    offset += index.buffer.length
+    return descriptor
+  })
+
+  return Buffer.concat([createHeader(descriptors), ...contents.map((index) => index.buffer)])
+}
+
+function createHeader(indexes: readonly FileIndexDescriptor[]): Buffer {
+  const header = Buffer.alloc(16 + indexes.reduce((length, index) => length + descriptorHeaderLength(index.name), 0))
   let position = 0
   header.write(FILE_INDEX_MAGIC, position, 'ascii')
   position += 8
@@ -165,27 +159,18 @@ function createHeader(recordCount: number, rtreeNodeCount: number, rtreeByteLeng
   position += 2
   header.writeUInt32LE(header.length, position)
   position += 4
-  header.writeUInt16LE(2, position)
+  header.writeUInt16LE(indexes.length, position)
   position += 2
-  position = writeDescriptor(header, position, {
-    name: RECORD_INDEX_NAME,
-    offset: HEADER_LENGTH,
-    byteLength: recordCount * RECORD_INDEX_ENTRY_SIZE,
-    recordCount,
-    entrySize: RECORD_INDEX_ENTRY_SIZE
-  })
-  writeDescriptor(header, position, {
-    name: RTREE_INDEX_NAME,
-    offset: HEADER_LENGTH + recordCount * RECORD_INDEX_ENTRY_SIZE,
-    byteLength: rtreeByteLength,
-    recordCount: rtreeNodeCount,
-    entrySize: RTREE_INDEX_ENTRY_SIZE
-  })
+  for (const index of indexes) position = writeDescriptor(header, position, index)
   return header
 }
 
 function descriptorHeaderLength(name: string): number {
   return 1 + name.length + 8 + 8 + 4 + 2
+}
+
+function emptyIndexDescriptor(name: string, entrySize: number): FileIndexDescriptor {
+  return { name, offset: 0, byteLength: 0, recordCount: 0, entrySize }
 }
 
 function writeDescriptor(buffer: Buffer, position: number, descriptor: FileIndexDescriptor): number {
@@ -303,11 +288,13 @@ function isRtreeNode(item: RtreeNode | RtreeItem): item is RtreeNode {
 
 export class IndexRecord extends Index<number | readonly number[]> {
   readonly recordIndex: FileIndexDescriptor
+  private buildRecords: Buffer[] | null = null
+  private buildSourceId: string | null = null
 
   constructor(
     layer: Layer,
     readonly path: string,
-    readonly sourceId: string,
+    private readonly sourceIdValue: string,
     readonly buffer: Buffer,
     readonly indexes: FileIndexDescriptor[]
   ) {
@@ -323,6 +310,16 @@ export class IndexRecord extends Index<number | readonly number[]> {
 
   get recordCount(): number {
     return this.recordIndex.recordCount
+  }
+
+  get sourceId(): string {
+    return this.buildSourceId ?? this.sourceIdValue
+  }
+
+  static init(layer: Layer): IndexRecord {
+    const index = new IndexRecord(layer, '', layer.source.id, Buffer.alloc(0), [emptyIndexDescriptor(RECORD_INDEX_NAME, RECORD_INDEX_ENTRY_SIZE)])
+    index.init()
+    return index
   }
 
   static fromBuffer(layer: Layer, path: string, sourceId: string, buffer: Buffer): IndexRecord {
@@ -385,6 +382,39 @@ export class IndexRecord extends Index<number | readonly number[]> {
     return indexes
   }
 
+  init(): void {
+    this.buildRecords = []
+    this.buildSourceId = null
+  }
+
+  add(feature: Feature, _record: number): void {
+    const records = this.buildRecords
+    if (!records) throw new Error('IndexRecord has not been initialized for build')
+
+    const sourceRef = IndexRecord.toRecordRef(feature.sourceRef, this.layer)
+    this.buildSourceId ??= sourceRef.sourceId
+    if (sourceRef.sourceId !== this.buildSourceId) {
+      throw new Error(`Layer "${this.layer.id}" streamed features from multiple file sources`)
+    }
+
+    const record = Buffer.alloc(RECORD_INDEX_ENTRY_SIZE)
+    record.writeBigUInt64LE(BigInt(sourceRef.offset), 0)
+    record.writeUInt32LE(sourceRef.byteLength, 8)
+    records.push(record)
+  }
+
+  finalize() {
+    const records = this.buildRecords
+    if (!records) throw new Error('IndexRecord has not been initialized for build')
+
+    return {
+      name: RECORD_INDEX_NAME,
+      buffer: Buffer.concat(records),
+      recordCount: records.length,
+      entrySize: RECORD_INDEX_ENTRY_SIZE
+    }
+  }
+
   stream(criteria?: number | readonly number[]): ReadableStream<Feature> {
     const records = this.records(criteria)
     let position = 0
@@ -431,23 +461,84 @@ export class IndexRecord extends Index<number | readonly number[]> {
 
     return typeof criteria === 'number' ? [criteria] : [...criteria]
   }
+
+  private static toRecordRef(sourceRef: SourceRef | undefined, layer: Layer): SourceRef & {
+    offset: number
+    byteLength: number
+  } {
+    if (!sourceRef) {
+      throw new Error(`Layer "${layer.id}" streamed a feature without sourceRef`)
+    }
+
+    if (sourceRef.storage !== 'file') {
+      throw new Error(`Layer "${layer.id}" streamed a feature with non-file sourceRef storage "${sourceRef.storage}"`)
+    }
+
+    if (!Number.isSafeInteger(sourceRef.offset) || sourceRef.offset < 0) {
+      throw new Error(`Layer "${layer.id}" streamed a feature with invalid sourceRef offset`)
+    }
+
+    if (!Number.isSafeInteger(sourceRef.byteLength) || sourceRef.byteLength < 0 || sourceRef.byteLength > 0xffffffff) {
+      throw new Error(`Layer "${layer.id}" streamed a feature with invalid sourceRef byteLength`)
+    }
+
+    return sourceRef as SourceRef & { offset: number, byteLength: number }
+  }
 }
 
 export class IndexRtree extends Index<BBox> {
   readonly rtreeIndex: FileIndexDescriptor
+  private buildChunk: RtreeChunk | null = null
+  private buildChunks: RtreeItem[] | null = null
 
   constructor(
     layer: Layer,
-    private readonly recordIndex: IndexRecord
+    private readonly recordIndex: IndexRecord,
+    building = false
   ) {
     super(RTREE_INDEX_NAME, layer)
 
     const rtreeIndex = recordIndex.indexes.find((index) => index.name === RTREE_INDEX_NAME)
-    if (!rtreeIndex) {
+    if (!rtreeIndex && !building) {
       throw new Error('File index does not contain an rtree index')
     }
 
-    this.rtreeIndex = rtreeIndex
+    this.rtreeIndex = rtreeIndex ?? emptyIndexDescriptor(RTREE_INDEX_NAME, RTREE_INDEX_ENTRY_SIZE)
+  }
+
+  static init(layer: Layer, recordIndex: IndexRecord): IndexRtree {
+    const index = new IndexRtree(layer, recordIndex, true)
+    index.init()
+    return index
+  }
+
+  init(): void {
+    this.buildChunk = new RtreeChunk(0)
+    this.buildChunks = []
+  }
+
+  add(feature: Feature, record: number): void {
+    if (!this.buildChunk || !this.buildChunks) throw new Error('IndexRtree has not been initialized for build')
+
+    this.buildChunk.add(feature, record)
+    if (this.buildChunk.count === RTREE_CHUNK_SIZE) {
+      if (this.buildChunk.hasBbox) this.buildChunks.push(this.buildChunk.toItem())
+      this.buildChunk = new RtreeChunk(record + 1)
+    }
+  }
+
+  finalize() {
+    if (!this.buildChunk || !this.buildChunks) throw new Error('IndexRtree has not been initialized for build')
+
+    if (this.buildChunk.hasBbox) this.buildChunks.push(this.buildChunk.toItem())
+    const buffer = createRtreeBuffer(this.buildChunks)
+
+    return {
+      name: RTREE_INDEX_NAME,
+      buffer,
+      recordCount: buffer.length / RTREE_INDEX_ENTRY_SIZE,
+      entrySize: RTREE_INDEX_ENTRY_SIZE
+    }
   }
 
   stream(bbox?: BBox): ReadableStream<Feature> {
