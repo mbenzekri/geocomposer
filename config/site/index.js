@@ -37,6 +37,7 @@ const serviceLabels = {
 const sourceLabels = {
     world: 'GeoJSON',
     'world-mem': 'MEM',
+    'world-csv': 'CSV',
     'world-gml': 'GML',
     'world-shp': 'SHP',
     'world-gpkg': 'GPKG',

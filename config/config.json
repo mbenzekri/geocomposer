@@ -46,6 +46,8 @@
                 "world-capitals",
                 "world-mem",
                 "world-mem-capitals",
+                "world-csv",
+                "world-csv-capitals",
                 "world-gml",
                 "world-gml-capitals",
                 "world-shp",
@@ -145,6 +147,32 @@
             "layers": [
                 {
                     "layer": "world-mem",
+                    "style": "world"
+                },
+                {
+                    "layer": "capitals",
+                    "style": "capitals"
+                }
+            ]
+        },
+        "world-csv": {
+            "$ref": "#/$defs/defaultTileset",
+            "title": "World CSV",
+            "abstract": "Tiles for world country boundaries from the CSV source.",
+            "layers": [
+                {
+                    "layer": "world-csv",
+                    "style": "world"
+                }
+            ]
+        },
+        "world-csv-capitals": {
+            "$ref": "#/$defs/defaultTileset",
+            "title": "World CSV and Capitals",
+            "abstract": "Tiles combining CSV country boundaries and capital city labels.",
+            "layers": [
+                {
+                    "layer": "world-csv",
                     "style": "world"
                 },
                 {
@@ -336,6 +364,15 @@
             "abstract": "World capitals GeoJSON demo source.",
             "path": "../data/capitals.geojson"
         },
+        "world-csv": {
+            "type": "csv",
+            "title": "World CSV",
+            "abstract": "World country boundaries CSV demo source.",
+            "path": "../data/world.csv",
+            "geometryColumn": "WKT",
+            "primaryKey": "adm0_a3",
+            "indexes": true
+        },
         "world-gml": {
             "type": "gml",
             "title": "World GML",
@@ -459,6 +496,12 @@
             "title": "World Memory",
             "abstract": "World country boundaries loaded in memory from the GeoJSON demo dataset.",
             "layer": "world"
+        },
+        "world-csv": {
+            "$ref": "#/$defs/defaultLayer",
+            "title": "World CSV",
+            "abstract": "World country boundaries from the CSV demo dataset.",
+            "source": "world-csv"
         },
         "world-gml": {
             "$ref": "#/$defs/defaultLayer",
