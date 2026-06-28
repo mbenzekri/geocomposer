@@ -4,7 +4,7 @@ import type { BBox } from '../core/geometry.js'
 import { Gt } from '../core/geotools.js'
 import type { Layer } from '../layer/layer.js'
 import { Index } from './index.js'
-import type { HeaderEntry } from './file-indexer.js'
+import type { HeaderEntry } from './indexer.js'
 import { IndexRecord } from './index-record.js'
 
 const RTREE_CHUNK_SIZE = 100

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Registry } from '../../src/core/tools.js'
 import type { Layer } from '../../src/layer/layer.js'
 import type { Index } from '../../src/index/index.js'
-import { Indexer } from '../../src/index/file-indexer.js'
+import { Indexer } from '../../src/index/indexer.js'
 import { IndexRtree } from '../../src/index/index-rtree.js'
 import { CsvSource } from '../../src/source/csv-source.js'
 
