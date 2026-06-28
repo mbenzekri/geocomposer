@@ -1,4 +1,5 @@
 import type { Props, Registry } from '../core/tools.js'
+import { CsvSource, type CsvSourceJson } from './csv-source.js'
 import { GeoJsonSource, type GeoJsonSourceJson } from './geojson-source.js'
 import { GmlSource, type GmlSourceJson } from './gml-source.js'
 import { GpkgSource, type GpkgSourceJson } from './gpkg-source.js'
@@ -8,6 +9,9 @@ import { PostgisSource, type PostgisSourceJson } from './postgis-source.js'
 import { ShpSource, type ShpSourceJson } from './shp-source.js'
 import { Source } from './source.js'
 
+export {
+    CsvSource
+} from './csv-source.js'
 export {
     DbSource,
     FeatureSource,
@@ -44,6 +48,7 @@ export type {
 } from './source.js'
 
 export type {
+    CsvSourceJson,
     GeoJsonSourceJson,
     GmlSourceJson,
     GpkgSourceJson,
@@ -54,6 +59,7 @@ export type {
 }
 
 export type SourceJson =
+    | CsvSourceJson
     | GeoJsonSourceJson
     | GmlSourceJson
     | ShpSourceJson
@@ -80,6 +86,7 @@ Source.create = function create(
     name: string,
     entry: unknown
 ): Source {
+    if (CsvSource.acceptsConfig(entry)) return CsvSource.fromConfig(name, entry)
     if (GeoJsonSource.acceptsConfig(entry)) return GeoJsonSource.fromConfig(name, entry)
     if (GmlSource.acceptsConfig(entry)) return GmlSource.fromConfig(name, entry)
     if (ShpSource.acceptsConfig(entry)) return ShpSource.fromConfig(name, entry)

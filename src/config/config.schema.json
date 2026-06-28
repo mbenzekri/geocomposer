@@ -607,6 +607,10 @@
     "source": {
       "oneOf": [
         {
+          "$ref": "#/$defs/csvSource",
+          "description": "CSV source variant."
+        },
+        {
           "$ref": "#/$defs/geojsonSource",
           "description": "First allowed object shape for this union."
         },
@@ -635,7 +639,7 @@
           "description": "Oracle source variant."
         }
       ],
-      "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
+      "description": "Data source definition. Choose exactly one supported source type: CSV, GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
     },
     "sourceIndexes": {
       "description": "Source index configuration. Use `true` to build the minimal file indexes (`record` and `rtree`). Object form is reserved for explicit index families such as property indexes.",
@@ -650,6 +654,58 @@
           "description": "Future explicit index configuration."
         }
       ]
+    },
+    "csvSource": {
+      "title": "CSV source",
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/describedEntry",
+          "description": "Includes common descriptive fields: `title` and `abstract`."
+        }
+      ],
+      "required": [
+        "type",
+        "path"
+      ],
+      "properties": {
+        "type": {
+          "const": "csv",
+          "description": "Source discriminator. Must be `csv`."
+        },
+        "path": {
+          "type": "string",
+          "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`."
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Text encoding used to read the file, for example `utf8`, `latin1` or `windows-1252`."
+        },
+        "highWaterMark": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Stream buffer size. Minimum: 1."
+        },
+        "delimiter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1,
+          "description": "Single-character CSV field delimiter. Defaults to `,`."
+        },
+        "geometryColumn": {
+          "type": "string",
+          "description": "CSV column containing WKT geometry. Defaults to `geometry`."
+        },
+        "primaryKey": {
+          "type": "string",
+          "description": "CSV column used as feature id. Defaults to `id`."
+        },
+        "indexes": {
+          "$ref": "#/$defs/sourceIndexes"
+        }
+      },
+      "unevaluatedProperties": false,
+      "description": "CSV file source with WKT geometry. Requires `type: \"csv\"` and `path`."
     },
     "geojsonSource": {
       "title": "GeoJSON source",

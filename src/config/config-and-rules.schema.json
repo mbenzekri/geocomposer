@@ -8727,6 +8727,235 @@
             {
               "anyOf": [
                 {
+                  "$ref": "#/$defs/csvSource",
+                  "description": "CSV source variant. (object or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "$ref"
+                  ],
+                  "properties": {
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "abstract": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "type": {
+                      "anyOf": [
+                        {
+                          "const": "csv",
+                          "description": "Source discriminator. Must be `csv`. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Source discriminator. Must be `csv`. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "path": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "encoding": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Text encoding used to read the file, for example `utf8`, `latin1` or `windows-1252`. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Text encoding used to read the file, for example `utf8`, `latin1` or `windows-1252`. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "highWaterMark": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                    },
+                    "delimiter": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1,
+                          "description": "Single-character CSV field delimiter. Defaults to `,`. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Single-character CSV field delimiter. Defaults to `,`. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "geometryColumn": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "primaryKey": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "CSV column used as feature id. Defaults to `id`. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "CSV column used as feature id. Defaults to `id`. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "indexes": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/sourceIndexes"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ]
+                    },
+                    "$ref": {
+                      "type": "string",
+                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                    }
+                  },
+                  "description": "CSV source variant. (object or \"#/$defs/nom\")"
+                }
+              ],
+              "description": "CSV source variant. (object or \"#/$defs/nom\")"
+            },
+            {
+              "anyOf": [
+                {
                   "$ref": "#/$defs/geojsonSource",
                   "description": "First allowed object shape for this union. (object or \"#/$defs/nom\")"
                 },
@@ -10129,14 +10358,14 @@
               "description": "Oracle source variant. (object or \"#/$defs/nom\")"
             }
           ],
-          "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
+          "description": "Data source definition. Choose exactly one supported source type: CSV, GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
         },
         {
           "type": "string",
           "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
         }
       ],
-      "description": "Data source definition. Choose exactly one supported source type: GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
+      "description": "Data source definition. Choose exactly one supported source type: CSV, GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
     },
     "sourceIndexes": {
       "anyOf": [
@@ -10199,6 +10428,475 @@
         }
       ],
       "description": "Source index configuration. Use `true` to build the minimal file indexes (`record` and `rtree`). Object form is reserved for explicit index families such as property indexes. (boolean or \"$b{ENV_VAR|default}\")"
+    },
+    "csvSource": {
+      "anyOf": [
+        {
+          "title": "CSV source",
+          "type": "object",
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/describedEntry",
+                  "description": "Includes common descriptive fields: `title` and `abstract`. (object or \"#/$defs/nom\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "$ref"
+                  ],
+                  "properties": {
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "abstract": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "$ref": {
+                      "type": "string",
+                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                    }
+                  },
+                  "description": "Includes common descriptive fields: `title` and `abstract`. (object or \"#/$defs/nom\")"
+                }
+              ],
+              "description": "Includes common descriptive fields: `title` and `abstract`. (object or \"#/$defs/nom\")"
+            }
+          ],
+          "required": [
+            "type",
+            "path"
+          ],
+          "properties": {
+            "type": {
+              "anyOf": [
+                {
+                  "const": "csv",
+                  "description": "Source discriminator. Must be `csv`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Source discriminator. Must be `csv`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "encoding": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Text encoding used to read the file, for example `utf8`, `latin1` or `windows-1252`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Text encoding used to read the file, for example `utf8`, `latin1` or `windows-1252`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "highWaterMark": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "delimiter": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1,
+                  "description": "Single-character CSV field delimiter. Defaults to `,`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Single-character CSV field delimiter. Defaults to `,`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "geometryColumn": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "primaryKey": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "CSV column used as feature id. Defaults to `id`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "CSV column used as feature id. Defaults to `id`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
+            }
+          },
+          "unevaluatedProperties": false,
+          "description": "CSV file source with WKT geometry. Requires `type: \"csv\"` and `path`. (object or \"#/$defs/nom\")"
+        },
+        {
+          "type": "string",
+          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+        },
+        {
+          "type": "object",
+          "required": [
+            "$ref"
+          ],
+          "properties": {
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "abstract": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "type": {
+              "anyOf": [
+                {
+                  "const": "csv",
+                  "description": "Source discriminator. Must be `csv`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Source discriminator. Must be `csv`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "path": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "encoding": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Text encoding used to read the file, for example `utf8`, `latin1` or `windows-1252`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Text encoding used to read the file, for example `utf8`, `latin1` or `windows-1252`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "highWaterMark": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Stream buffer size. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "delimiter": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1,
+                  "description": "Single-character CSV field delimiter. Defaults to `,`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Single-character CSV field delimiter. Defaults to `,`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "geometryColumn": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "primaryKey": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "CSV column used as feature id. Defaults to `id`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "CSV column used as feature id. Defaults to `id`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "indexes": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/sourceIndexes"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ]
+            },
+            "$ref": {
+              "type": "string",
+              "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+            }
+          },
+          "description": "CSV file source with WKT geometry. Requires `type: \"csv\"` and `path`. (object or \"#/$defs/nom\")",
+          "unevaluatedProperties": false
+        }
+      ],
+      "description": "CSV file source with WKT geometry. Requires `type: \"csv\"` and `path`. (object or \"#/$defs/nom\")"
     },
     "geojsonSource": {
       "anyOf": [
