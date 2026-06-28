@@ -1,6 +1,6 @@
 import type { BBox, CrsCode } from '../core/geometry.js'
 import { RegistryEntry, type DescInfo, type Feature } from '../core/feature.js'
-import { Source, type QueryOptions, type StreamOptions } from '../source/source-build.js'
+import { IndexRtree, Source, type QueryOptions, type StreamOptions } from '../source/source-build.js'
 import { Style } from '../style/style.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
@@ -206,7 +206,7 @@ export class Layer extends RegistryEntry {
         const crs = options.crs ?? this.crs
 
         if (crs === this.crs) {
-            return this.source.query({
+            return this.querySource({
                 bbox: options.bbox,
                 signal: options.signal,
                 properties: options.properties,
@@ -219,7 +219,7 @@ export class Layer extends RegistryEntry {
         const sourceBbox = options.bbox
             ? Gt.transformBBox(options.bbox, crs, this.crs)
             : undefined
-        const input = this.source.query({
+        const input = this.querySource({
             bbox: sourceBbox,
             signal: options.signal,
             properties: options.properties,
@@ -231,6 +231,23 @@ export class Layer extends RegistryEntry {
             ? reprojected.pipeThrough(new BboxFilter(options.bbox))
             : reprojected
 
+        if (options.offset !== undefined || options.limit !== undefined) {
+            output = output.pipeThrough(new PageFilter({
+                offset: options.offset,
+                limit: options.limit
+            }))
+        }
+
+        return output
+    }
+
+    private querySource(options: QueryOptions): ReadableStream<Feature> {
+        if (!options.bbox) return this.source.query(options)
+
+        if (!this.indexes.has(IndexRtree.NAME)) return this.source.query(options)
+
+        const rtree = this.indexes.get(IndexRtree.NAME) as Index<BBox>
+        let output = rtree.stream(options.bbox)
         if (options.offset !== undefined || options.limit !== undefined) {
             output = output.pipeThrough(new PageFilter({
                 offset: options.offset,

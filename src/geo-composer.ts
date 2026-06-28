@@ -100,6 +100,7 @@ export class GeoComposer {
                 openedSources.push(source)
             }
 
+            await this.loadIndexes()
             this.opened = true
         } catch (error) {
             try {
@@ -199,6 +200,24 @@ export class GeoComposer {
         }
 
         if (firstError) throw firstError
+    }
+
+    private async loadIndexes(): Promise<void> {
+        const layerBySource = new Map<string, Layer>()
+        for (const layer of Layer.registry.all) {
+            if (!layerBySource.has(layer.source.id)) layerBySource.set(layer.source.id, layer)
+        }
+
+        for (const source of Source.registry.all) {
+            if (!source.indexes || !(source instanceof FileSource)) continue
+
+            const layer = layerBySource.get(source.id)
+            if (!layer) {
+                throw new Error(`Source "${source.id}" expects indexes but has no layer`)
+            }
+
+            await new LayerFileIndexer(layer).load()
+        }
     }
 
     async buildIndexes(sourceIds?: readonly string[], force = false): Promise<BuildIndexResult> {

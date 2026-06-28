@@ -4,9 +4,10 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import type { Feature, SourceRef } from '../src/core/feature.js'
 import type { BBox } from '../src/core/geometry.js'
-import type { Layer } from '../src/layer/layer.js'
+import { Layer } from '../src/layer/layer.js'
 import { GeoComposer } from '../src/geo-composer.js'
 import { Source, type StreamOptions } from '../src/source/source.js'
+import { IndexRtree } from '../src/source/source-build.js'
 import { Service } from '../src/service/service.js'
 import { testTempPath } from './test-temp.js'
 import { config_base, config_full_path, config_min, init, writeConf } from './test-tools.js'
@@ -145,6 +146,55 @@ describe('GeoComposer', () => {
             path: indexPath,
             message: '1 records'
         })
+    })
+
+    test('loads configured file indexes during open and fails when they are missing', async () => {
+        const dataPath = testTempPath('open-indexed.geojson')
+        fs.writeFileSync(dataPath, JSON.stringify({
+            type: 'FeatureCollection',
+            features: [
+                {
+                    type: 'Feature',
+                    id: 'a',
+                    properties: { name: 'A' },
+                    geometry: { type: 'Point', coordinates: [1, 2] }
+                }
+            ]
+        }))
+
+        config_min.sources.world = {
+            type: 'geojson',
+            path: dataPath,
+            indexes: true
+        }
+        const configPath = writeConf('config_open_index.json', config_min)
+
+        const missingApp = await GeoComposer.from({ configPath })
+        await expect(missingApp.open()).rejects.toThrow(`Layer "world" expects index file "${dataPath}.idx" but it does not exist`)
+
+        init()
+        config_min.sources.world = {
+            type: 'geojson',
+            path: dataPath,
+            indexes: true
+        }
+        const buildConfigPath = writeConf('config_open_index_build.json', config_min)
+        const buildApp = await GeoComposer.from({ configPath: buildConfigPath })
+        await buildApp.buildIndexes(['world'])
+
+        init()
+        config_min.sources.world = {
+            type: 'geojson',
+            path: dataPath,
+            indexes: true
+        }
+        const openConfigPath = writeConf('config_open_index_loaded.json', config_min)
+        const app = await GeoComposer.from({ configPath: openConfigPath })
+        await app.open()
+
+        expect(Layer.registry.get('world').indexes.get(IndexRtree.NAME)).toBeInstanceOf(IndexRtree)
+
+        await app.close()
     })
 
     test('loads the default config path and applies PORT from the environment', async () => {
