@@ -2,9 +2,9 @@ import { resolve } from 'node:path'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { describe, expect, test } from 'vitest'
 import { GeoComposer } from '../../src/geo-composer.js'
-import { Service } from '../../src/service/service-build.js'
+import { Service } from '../../src/service/service.js'
 import { CatalogPage } from '../../src/service/catalog-page.js'
-import { Source } from '../../src/source/source-build.js'
+import { Source } from '../../src/source/source.js'
 
 describe('configuration and startup', () => {
   test('config_red validates and opens/closes sources without external services', async () => {

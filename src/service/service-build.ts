@@ -1,18 +1,9 @@
 import type { Registry } from '../core/tools.js'
-import { OgcFeatures, type OgcFeaturesJson } from './ogc-features.js'
-import { Service } from './service.js'
-import { Wms, type WmsJson } from './wms.js'
-import { Wmts, type WmtsJson } from './wmts.js'
-import { Xyz, type XyzJson } from './xyz.js'
-
-export { Service } from './service.js'
-
-export type ServicesJson = {
-    wms?: WmsJson
-    api?: OgcFeaturesJson
-    xyz?: XyzJson
-    wmts?: WmtsJson
-}
+import { OgcFeatures } from './ogc-features.js'
+import { Service, type ServicesJson } from './service.js'
+import { Wms } from './wms.js'
+import { Wmts } from './wmts.js'
+import { Xyz } from './xyz.js'
 
 Service.build = function build(services: ServicesJson): Registry<Service> {
     if (services.wms) {

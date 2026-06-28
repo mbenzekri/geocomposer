@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest'
 import { OgcFeatures } from '../../src/service/ogc-features.js'
-import { Service } from '../../src/service/service-build.js'
+import '../../src/service/service-build.js'
+import { Service } from '../../src/service/service.js'
 import { Wms } from '../../src/service/wms.js'
 import { Wmts } from '../../src/service/wmts.js'
 import { Xyz } from '../../src/service/xyz.js'

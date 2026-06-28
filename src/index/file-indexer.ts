@@ -5,8 +5,8 @@ import { FileSource, type SourceFile } from '../source/source.js'
 import { IndexRecord, IndexRecordBuilder } from './index-record.js'
 import { IndexRtree, IndexRtreeBuilder } from './index-rtree.js'
 
-export const FILE_INDEX_MAGIC = 'GEOC-IDX'
-export const FILE_INDEX_VERSION = 1
+const FILE_INDEX_MAGIC = 'GEOC-IDX'
+const FILE_INDEX_VERSION = 1
 
 export type HeaderEntry = {
   name: string
@@ -23,7 +23,7 @@ type BuiltIndex = {
   entrySize: number
 }
 
-export class LayerFileIndexer {
+export class Indexer {
   constructor(private readonly layer: Layer) {}
 
   static async needsBuild(layer: Layer): Promise<'missing' | 'stale' | 'up-to-date'> {
@@ -31,7 +31,7 @@ export class LayerFileIndexer {
       throw new Error(`Layer "${layer.id}" source "${layer.source.id}" is not a FileSource`)
     }
 
-    const indexPath = LayerFileIndexer.resolveIndexPath(layer)
+    const indexPath = Indexer.resolveIndexPath(layer)
     const files = layer.source.getFiles()
     const indexStat = await stat(indexPath).catch((error: NodeJS.ErrnoException) => {
       if (error.code === 'ENOENT') return null
@@ -42,7 +42,7 @@ export class LayerFileIndexer {
 
     let sourceMtime = 0
     for (const file of files) {
-      sourceMtime = Math.max(sourceMtime, (await stat(LayerFileIndexer.pathToString(file.path))).mtimeMs)
+      sourceMtime = Math.max(sourceMtime, (await stat(Indexer.pathToString(file.path))).mtimeMs)
     }
 
     return indexStat.mtimeMs < sourceMtime ? 'stale' : 'up-to-date'
@@ -53,8 +53,8 @@ export class LayerFileIndexer {
       throw new Error(`Layer "${layer.id}" source "${layer.source.id}" is not a FileSource`)
     }
 
-    const sourceFile = LayerFileIndexer.resolvePrimaryFile(layer.source.getFiles(), layer)
-    return `${LayerFileIndexer.pathToString(sourceFile.path)}.idx`
+    const sourceFile = Indexer.resolvePrimaryFile(layer.source.getFiles(), layer)
+    return `${Indexer.pathToString(sourceFile.path)}.idx`
   }
 
   async build(signal?: AbortSignal): Promise<IndexRecord> {
@@ -62,7 +62,7 @@ export class LayerFileIndexer {
       throw new Error(`Layer "${this.layer.id}" source "${this.layer.source.id}" is not a FileSource`)
     }
 
-    const outputPath = LayerFileIndexer.resolveIndexPath(this.layer)
+    const outputPath = Indexer.resolveIndexPath(this.layer)
     const record = new IndexRecordBuilder(this.layer)
     const rtree = new IndexRtreeBuilder()
     const builders = [record, rtree]
@@ -80,7 +80,7 @@ export class LayerFileIndexer {
       throw new Error(`Layer "${this.layer.id}" source "${this.layer.source.id}" is not a FileSource`)
     }
 
-    const path = LayerFileIndexer.resolveIndexPath(this.layer)
+    const path = Indexer.resolveIndexPath(this.layer)
     let buffer: Buffer
     try {
       buffer = await readFile(path)

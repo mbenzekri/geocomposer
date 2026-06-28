@@ -3,6 +3,17 @@ import { TLSSocket } from 'node:tls'
 import { TileCache } from '../tileset/tile-cache.js'
 import { Registry } from '../core/tools.js'
 import { RegistryEntry } from '../core/feature.js'
+import type { OgcFeaturesJson } from './ogc-features.js'
+import type { WmsJson } from './wms.js'
+import type { WmtsJson } from './wmts.js'
+import type { XyzJson } from './xyz.js'
+
+export type ServicesJson = {
+    wms?: WmsJson
+    api?: OgcFeaturesJson
+    xyz?: XyzJson
+    wmts?: WmtsJson
+}
 
 export abstract class Service extends RegistryEntry {
     static readonly registry = new Registry<Service>('SERVICES')

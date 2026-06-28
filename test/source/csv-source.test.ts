@@ -4,9 +4,10 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Registry } from '../../src/core/tools.js'
 import type { Layer } from '../../src/layer/layer.js'
-import type { Index } from '../../src/layer/layer-index.js'
+import type { Index } from '../../src/index/index.js'
+import { Indexer } from '../../src/index/file-indexer.js'
+import { IndexRtree } from '../../src/index/index-rtree.js'
 import { CsvSource } from '../../src/source/csv-source.js'
-import { IndexRtree, LayerFileIndexer } from '../../src/source/source-build.js'
 
 const layer = {
   id: 'csv-layer',
@@ -148,7 +149,7 @@ describe('CsvSource', () => {
         return source.stream({ ...options, layer: this as unknown as Layer })
       }
     } as unknown as Layer
-    const index = await new LayerFileIndexer(csvLayer).build()
+    const index = await new Indexer(csvLayer).build()
     const rtree = csvLayer.indexes.get('rtree') as IndexRtree
 
     expect(index.path).toBe(`${file}.idx`)

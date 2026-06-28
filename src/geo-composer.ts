@@ -3,8 +3,9 @@ import path from 'node:path'
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http'
 import { ARGS_HELP, Args, DEFAULT_CONFIG_PATH, isMain, parseArgs, parsePort } from './core/tools.js'
 import { Config } from './config/config.js'
-import { Service } from './service/service-build.js'
-import { FileSource, LayerFileIndexer, Source } from './source/source-build.js'
+import { Indexer } from './index/file-indexer.js'
+import { Service } from './service/service.js'
+import { FileSource, Source } from './source/source.js'
 import { Layer } from './layer/layer.js'
 import { Crs } from './core/crs.js'
 import { Style } from './style/style.js'
@@ -216,7 +217,7 @@ export class GeoComposer {
                 throw new Error(`Source "${source.id}" expects indexes but has no layer`)
             }
 
-            await new LayerFileIndexer(layer).load()
+            await new Indexer(layer).load()
         }
     }
 
@@ -289,14 +290,14 @@ export class GeoComposer {
                 }
 
                 try {
-                    const buildState = await LayerFileIndexer.needsBuild(layer)
+                    const buildState = await Indexer.needsBuild(layer)
                     if (!force && buildState === 'up-to-date') {
                         result.skipped += 1
                         result.items.push({
                             status: 'skipped',
                             layer: layer.id,
                             source: source.id,
-                            path: LayerFileIndexer.resolveIndexPath(layer),
+                            path: Indexer.resolveIndexPath(layer),
                             message: 'index is up-to-date'
                         })
                         continue
@@ -304,7 +305,7 @@ export class GeoComposer {
 
                     await source.open()
                     try {
-                        const index = await new LayerFileIndexer(layer).build()
+                        const index = await new Indexer(layer).build()
                         const status = buildState === 'missing' ? 'created' : 'rebuilt'
                         result[status] += 1
                         result.items.push({

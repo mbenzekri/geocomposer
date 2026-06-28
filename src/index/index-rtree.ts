@@ -3,8 +3,8 @@ import type { Feature } from '../core/feature.js'
 import type { BBox } from '../core/geometry.js'
 import { Gt } from '../core/geotools.js'
 import type { Layer } from '../layer/layer.js'
-import { Index } from '../layer/layer-index.js'
-import type { HeaderEntry } from './index-file.js'
+import { Index } from './index.js'
+import type { HeaderEntry } from './file-indexer.js'
 import { IndexRecord } from './index-record.js'
 
 const RTREE_CHUNK_SIZE = 100

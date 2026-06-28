@@ -1,7 +1,7 @@
 import type { Feature, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
-import { Index } from '../layer/layer-index.js'
-import type { HeaderEntry } from './index-file.js'
+import { Index } from './index.js'
+import type { HeaderEntry } from './file-indexer.js'
 
 const MAX_INDEX_BUFFER_SIZE = 0x7fffffff
 

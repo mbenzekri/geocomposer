@@ -5,11 +5,11 @@ import { Crs } from '../../src/core/crs.js'
 import { defaultStyleFn } from '../../src/style/default-style.js'
 import { Style } from '../../src/style/style.js'
 import { Layer } from '../../src/layer/layer.js'
-import { Source } from '../../src/source/source-build.js'
+import { Source } from '../../src/source/source.js'
 import { MemSource } from '../../src/source/mem-source.js'
 import { Tileset } from '../../src/tileset/tileset.js'
 import { TileMatrixSet } from '../../src/tileset/tile-matrix-set.js'
-import { Service } from '../../src/service/service-build.js'
+import { Service } from '../../src/service/service.js'
 
 export type TestResponse = ServerResponse & {
   body?: Buffer

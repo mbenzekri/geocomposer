@@ -1,5 +1,5 @@
 import type { Feature } from '../core/feature.js'
-import type { Layer } from './layer.js'
+import type { Layer } from '../layer/layer.js'
 
 export abstract class Index<C = unknown> {
   protected constructor(

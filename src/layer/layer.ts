@@ -1,6 +1,7 @@
 import type { BBox, CrsCode } from '../core/geometry.js'
 import { RegistryEntry, type DescInfo, type Feature } from '../core/feature.js'
-import { IndexRtree, Source, type QueryOptions, type StreamOptions } from '../source/source-build.js'
+import { IndexRtree } from '../index/index-rtree.js'
+import { Source, type QueryOptions, type StreamOptions } from '../source/source.js'
 import { Style } from '../style/style.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
@@ -11,7 +12,7 @@ import { Gt } from '../core/geotools.js'
 import { Dict, Registry } from '../core/tools.js'
 import { Crs } from '../core/crs.js'
 import { MemSource } from '../source/mem-source.js'
-import type { Index } from './layer-index.js'
+import type { Index } from '../index/index.js'
 
 export type PointProperties = {
     x: string

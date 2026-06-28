@@ -1,74 +1,13 @@
 import type { Props, Registry } from '../core/tools.js'
-import { CsvSource, type CsvSourceJson } from './csv-source.js'
-import { GeoJsonSource, type GeoJsonSourceJson } from './geojson-source.js'
-import { GmlSource, type GmlSourceJson } from './gml-source.js'
-import { GpkgSource, type GpkgSourceJson } from './gpkg-source.js'
-import { MssqlSource, type MssqlSourceJson } from './mssql-source.js'
-import { OracleSource, type OracleSourceJson } from './oracle-source.js'
-import { PostgisSource, type PostgisSourceJson } from './postgis-source.js'
-import { ShpSource, type ShpSourceJson } from './shp-source.js'
+import { CsvSource } from './csv-source.js'
+import { GeoJsonSource } from './geojson-source.js'
+import { GmlSource } from './gml-source.js'
+import { GpkgSource } from './gpkg-source.js'
+import { MssqlSource } from './mssql-source.js'
+import { OracleSource } from './oracle-source.js'
+import { PostgisSource } from './postgis-source.js'
+import { ShpSource } from './shp-source.js'
 import { Source } from './source.js'
-
-export {
-    CsvSource
-} from './csv-source.js'
-export {
-    DbSource,
-    FeatureSource,
-    FileSource,
-    Source,
-    hasSourceConfigType,
-    toStream
-} from './source.js'
-export {
-    DbDataset
-} from './db-dataset.js'
-export {
-    FILE_INDEX_MAGIC,
-    FILE_INDEX_VERSION,
-    LayerFileIndexer
-} from '../index/index-file.js'
-export {
-    IndexRecord,
-    IndexRecordBuilder
-} from '../index/index-record.js'
-export {
-    IndexRtree,
-    IndexRtreeBuilder
-} from '../index/index-rtree.js'
-export type {
-    DbDatasetJson,
-    DbDatasetOptions
-} from './db-dataset.js'
-export type {
-    FeatureTransform,
-    QueryOptions,
-    SourceFile,
-    SourceFileRole,
-    SourceStorage,
-    StreamOptions
-} from './source.js'
-
-export type {
-    CsvSourceJson,
-    GeoJsonSourceJson,
-    GmlSourceJson,
-    GpkgSourceJson,
-    MssqlSourceJson,
-    OracleSourceJson,
-    PostgisSourceJson,
-    ShpSourceJson
-}
-
-export type SourceJson =
-    | CsvSourceJson
-    | GeoJsonSourceJson
-    | GmlSourceJson
-    | ShpSourceJson
-    | GpkgSourceJson
-    | PostgisSourceJson
-    | MssqlSourceJson
-    | OracleSourceJson
 
 Source.build = function createAll(
     sourceEntries: Record<string, unknown>

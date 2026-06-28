@@ -6,25 +6,26 @@ import type { Feature, SourceRef } from '../../src/core/feature.js'
 import type { BBox } from '../../src/core/geometry.js'
 import { Crs } from '../../src/core/crs.js'
 import { Config } from '../../src/config/config.js'
-import { Index } from '../../src/layer/layer-index.js'
+import { Index } from '../../src/index/index.js'
+import { Indexer } from '../../src/index/file-indexer.js'
+import { IndexRecord } from '../../src/index/index-record.js'
+import { IndexRtree } from '../../src/index/index-rtree.js'
 import { Layer } from '../../src/layer/layer.js'
 import {
-  FILE_INDEX_MAGIC,
-  FILE_INDEX_VERSION,
-  IndexRecord,
-  IndexRtree,
   FileSource,
-  LayerFileIndexer,
   Source,
   type SourceFile,
   type StreamOptions
-} from '../../src/source/source-build.js'
+} from '../../src/source/source.js'
 import { GeoJsonSource } from '../../src/source/geojson-source.js'
 import { MemSource } from '../../src/source/mem-source.js'
 import { Style } from '../../src/style/style.js'
 import type { StyleFn } from '../../src/style/style-fn.js'
-import { findHeaderEntry, parseFileIndexHeader } from '../../src/index/index-file.js'
+import { findHeaderEntry, parseFileIndexHeader } from '../../src/index/file-indexer.js'
 import { init } from '../test-tools.js'
+
+const FILE_INDEX_MAGIC = 'GEOC-IDX'
+const FILE_INDEX_VERSION = 1
 
 let tmpDir: string
 let createdIndexPaths: string[] = []
@@ -47,12 +48,12 @@ afterEach(() => {
   })
 })
 
-describe('LayerFileIndexer', () => {
+describe('Indexer', () => {
   it('derives an .idx path from the primary source file while preserving the extension', () => {
     const geojson = registerSource(new GeoJsonSource('cities', path.join(tmpDir, 'cities.geojson')))
     const geojsonLayer = new Layer('cities', { source: geojson.id, crs: 'EPSG:4326' })
 
-    expect(LayerFileIndexer.resolveIndexPath(geojsonLayer))
+    expect(Indexer.resolveIndexPath(geojsonLayer))
       .toBe(path.join(tmpDir, 'cities.geojson.idx'))
 
     const shp = registerSource(new TestFileSource('roads', [
@@ -61,7 +62,7 @@ describe('LayerFileIndexer', () => {
     ]))
     const shpLayer = new Layer('roads', { source: shp.id, crs: 'EPSG:4326' })
 
-    expect(LayerFileIndexer.resolveIndexPath(shpLayer))
+    expect(Indexer.resolveIndexPath(shpLayer))
       .toBe(path.join(tmpDir, 'roads.shp.idx'))
 
     const metadata = registerSource(new TestFileSource('metadata', [
@@ -69,7 +70,7 @@ describe('LayerFileIndexer', () => {
     ]))
     const metadataLayer = new Layer('metadata', { source: metadata.id, crs: 'EPSG:4326' })
 
-    expect(LayerFileIndexer.resolveIndexPath(metadataLayer))
+    expect(Indexer.resolveIndexPath(metadataLayer))
       .toBe(path.join(tmpDir, 'metadata.json.idx'))
 
     const urlPath = path.join(tmpDir, 'url.geojson')
@@ -78,7 +79,7 @@ describe('LayerFileIndexer', () => {
     ]))
     const urlLayer = new Layer('url-layer', { source: urlSource.id, crs: 'EPSG:4326' })
 
-    expect(LayerFileIndexer.resolveIndexPath(urlLayer))
+    expect(Indexer.resolveIndexPath(urlLayer))
       .toBe(`${urlPath}.idx`)
   })
 
@@ -92,7 +93,7 @@ describe('LayerFileIndexer', () => {
     const layer = new Layer('cities', { source: source.id, crs: 'EPSG:4326' })
     const streamed = await collect(layer.stream())
 
-    const index = await new LayerFileIndexer(layer).build()
+    const index = await new Indexer(layer).build()
     const indexBuffer = fs.readFileSync(index.path)
     const header = parseFileIndexHeader(indexBuffer)
     const recordEntry = index.entry
@@ -145,10 +146,10 @@ describe('LayerFileIndexer', () => {
     const source = registerSource(new GeoJsonSource('indexed', geojsonPath, 'utf8', 16))
     const layer = new Layer('indexed', { source: source.id, crs: 'EPSG:4326' })
 
-    await new LayerFileIndexer(layer).build()
+    await new Indexer(layer).build()
     layer.indexes.clear()
 
-    const loaded = await new LayerFileIndexer(layer).load()
+    const loaded = await new Indexer(layer).load()
     expect(loaded.recordCount).toBe(2)
     expect(layer.indexes.get(IndexRecord.NAME)).toBe(loaded)
     expect(layer.indexes.get(IndexRtree.NAME)).toBeInstanceOf(IndexRtree)
@@ -171,7 +172,7 @@ describe('LayerFileIndexer', () => {
     const source = registerSource(new GeoJsonSource('missing-index', geojsonPath, 'utf8', 16))
     const layer = new Layer('missing-index', { source: source.id, crs: 'EPSG:4326' })
 
-    await expect(new LayerFileIndexer(layer).load())
+    await expect(new Indexer(layer).load())
       .rejects.toThrow(`Layer "missing-index" expects index file "${geojsonPath}.idx" but it does not exist`)
   })
 
@@ -179,9 +180,9 @@ describe('LayerFileIndexer', () => {
     const source = registerSource(new MemSource('mem', [feature('a')]))
     const layer = new Layer('mem-layer', { source: source.id, crs: 'EPSG:4326' })
 
-    expect(() => LayerFileIndexer.resolveIndexPath(layer))
+    expect(() => Indexer.resolveIndexPath(layer))
       .toThrow('Layer "mem-layer" source "mem" is not a FileSource')
-    await expect(new LayerFileIndexer(layer).build())
+    await expect(new Indexer(layer).build())
       .rejects.toThrow('Layer "mem-layer" source "mem" is not a FileSource')
   })
 
@@ -189,7 +190,7 @@ describe('LayerFileIndexer', () => {
     const source = registerSource(new TestFileSource('empty', []))
     const layer = new Layer('empty-layer', { source: source.id, crs: 'EPSG:4326' })
 
-    expect(() => LayerFileIndexer.resolveIndexPath(layer))
+    expect(() => Indexer.resolveIndexPath(layer))
       .toThrow('FileSource "empty" for layer "empty-layer" has no source files')
   })
 
@@ -199,7 +200,7 @@ describe('LayerFileIndexer', () => {
     ], [feature('a')]))
     const noRefLayer = new Layer('missing-ref', { source: noRef.id, crs: 'EPSG:4326' })
 
-    await expect(new LayerFileIndexer(noRefLayer).build())
+    await expect(new Indexer(noRefLayer).build())
       .rejects.toThrow('Layer "missing-ref" streamed a feature without sourceRef')
 
     const memRef = registerSource(new TestFileSource('mem-ref', [
@@ -207,7 +208,7 @@ describe('LayerFileIndexer', () => {
     ], [feature('a', { storage: 'mem', sourceId: 'mem-ref', featureIndex: 0 })]))
     const memRefLayer = new Layer('mem-ref', { source: memRef.id, crs: 'EPSG:4326' })
 
-    await expect(new LayerFileIndexer(memRefLayer).build())
+    await expect(new Indexer(memRefLayer).build())
       .rejects.toThrow('Layer "mem-ref" streamed a feature with non-file sourceRef storage "mem"')
 
     const invalidOffset = registerSource(new TestFileSource('invalid-offset', [
@@ -215,7 +216,7 @@ describe('LayerFileIndexer', () => {
     ], [feature('a', { storage: 'file', sourceId: 'invalid-offset', offset: -1, byteLength: 4 })]))
     const invalidOffsetLayer = new Layer('invalid-offset', { source: invalidOffset.id, crs: 'EPSG:4326' })
 
-    await expect(new LayerFileIndexer(invalidOffsetLayer).build())
+    await expect(new Indexer(invalidOffsetLayer).build())
       .rejects.toThrow('Layer "invalid-offset" streamed a feature with invalid sourceRef offset')
 
     const invalidLength = registerSource(new TestFileSource('invalid-length', [
@@ -223,7 +224,7 @@ describe('LayerFileIndexer', () => {
     ], [feature('a', { storage: 'file', sourceId: 'invalid-length', offset: 0, byteLength: 0x1_0000_0000 })]))
     const invalidLengthLayer = new Layer('invalid-length', { source: invalidLength.id, crs: 'EPSG:4326' })
 
-    await expect(new LayerFileIndexer(invalidLengthLayer).build())
+    await expect(new Indexer(invalidLengthLayer).build())
       .rejects.toThrow('Layer "invalid-length" streamed a feature with invalid sourceRef byteLength')
 
     const multipleSources = registerSource(new TestFileSource('multiple-sources', [
@@ -234,7 +235,7 @@ describe('LayerFileIndexer', () => {
     ]))
     const multipleSourcesLayer = new Layer('multiple-sources', { source: multipleSources.id, crs: 'EPSG:4326' })
 
-    await expect(new LayerFileIndexer(multipleSourcesLayer).build())
+    await expect(new Indexer(multipleSourcesLayer).build())
       .rejects.toThrow('Layer "multiple-sources" streamed features from multiple file sources')
   })
 
@@ -247,13 +248,13 @@ describe('LayerFileIndexer', () => {
       expect(layer.source).toBeInstanceOf(FileSource)
       expect(layer.source.indexes).toBe(true)
 
-      const indexPath = LayerFileIndexer.resolveIndexPath(layer)
+      const indexPath = Indexer.resolveIndexPath(layer)
       const existingIndex = fs.existsSync(indexPath) ? fs.readFileSync(indexPath) : null
       fs.rmSync(indexPath, { force: true })
 
       try {
         const streamed = await collect(layer.stream())
-        const index = await new LayerFileIndexer(layer).build()
+        const index = await new Indexer(layer).build()
 
         expect(index.path).toBe(indexPath)
         expect(index.recordCount).toBe(streamed.length)

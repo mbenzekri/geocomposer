@@ -5,7 +5,7 @@ import { Crs } from '../../src/core/crs.js'
 import { getMap } from '../../src/ogc/get-map.js'
 import { Layer } from '../../src/layer/layer.js'
 import { MemSource } from '../../src/source/mem-source.js'
-import { Source } from '../../src/source/source-build.js'
+import { Source } from '../../src/source/source.js'
 import { createDynamicStyleFn, type DynamicStyleJson } from '../../src/style/dynamic-style.js'
 import { Style } from '../../src/style/style.js'
 
