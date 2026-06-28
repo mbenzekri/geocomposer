@@ -210,8 +210,6 @@ export class GeoComposer {
             items: []
         }
 
-        await this.open()
-
         try {
             const layerBySource = new Map<string, Layer>()
             for (const layer of Layer.registry.all) {
@@ -285,16 +283,21 @@ export class GeoComposer {
                         continue
                     }
 
-                    const index = await new LayerFileIndexer(layer).build()
-                    const status = buildState === 'missing' ? 'created' : 'rebuilt'
-                    result[status] += 1
-                    result.items.push({
-                        status,
-                        layer: layer.id,
-                        source: source.id,
-                        path: index.path,
-                        message: `${index.recordCount} records`
-                    })
+                    await source.open()
+                    try {
+                        const index = await new LayerFileIndexer(layer).build()
+                        const status = buildState === 'missing' ? 'created' : 'rebuilt'
+                        result[status] += 1
+                        result.items.push({
+                            status,
+                            layer: layer.id,
+                            source: source.id,
+                            path: index.path,
+                            message: `${index.recordCount} records`
+                        })
+                    } finally {
+                        await source.close()
+                    }
                 } catch (error) {
                     result.failed += 1
                     result.items.push({
@@ -306,7 +309,7 @@ export class GeoComposer {
                 }
             }
         } finally {
-            await this.close()
+            GeoComposer.clear()
         }
 
         return result

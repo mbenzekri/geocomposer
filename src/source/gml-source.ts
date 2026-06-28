@@ -3,7 +3,7 @@ import { open } from 'node:fs/promises'
 import type { DescInfo, Feature, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
-import { FileSource, hasSourceConfigType, type FeatureTransform } from './source.js'
+import { FileSource, hasSourceConfigType, type FeatureTransform, type SourceIndexConfig } from './source.js'
 import type { StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 import { Props } from '../core/tools.js'
@@ -16,6 +16,7 @@ export type GmlSourceOptions = DescInfo & {
   featureElementNames?: string[]
   geometryPropertyNames?: string[]
   axisOrder?: GmlAxisOrder
+  indexes?: SourceIndexConfig
   transformFeature?: FeatureTransform
 }
 
@@ -27,6 +28,7 @@ export type GmlSourceJson = DescInfo & {
   featureElementNames?: string[]
   geometryPropertyNames?: string[]
   axisOrder?: GmlAxisOrder
+  indexes?: SourceIndexConfig
 }
 
 type ParsedXmlFeature = {
@@ -92,7 +94,8 @@ export class GmlSource extends FileSource {
       highWaterMark: entry.highWaterMark,
       featureElementNames: entry.featureElementNames,
       geometryPropertyNames: entry.geometryPropertyNames,
-      axisOrder: entry.axisOrder
+      axisOrder: entry.axisOrder,
+      indexes: entry.indexes
     })
   }
 

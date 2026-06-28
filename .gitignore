@@ -6,3 +6,4 @@ node_modules/
 style-smoke/
 map.png
 test/temp/
+data/**/*.idx

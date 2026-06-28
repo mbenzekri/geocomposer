@@ -209,31 +209,37 @@ describe('LayerFileIndexer', () => {
     for (const layerId of ['world', 'world-gml', 'world-shp']) {
       const layer = Layer.registry.get(layerId)
       expect(layer.source).toBeInstanceOf(FileSource)
+      expect(layer.source.indexes).toBe(true)
 
       const indexPath = LayerFileIndexer.resolveIndexPath(layer)
-      createdIndexPaths.push(indexPath)
+      const existingIndex = fs.existsSync(indexPath) ? fs.readFileSync(indexPath) : null
       fs.rmSync(indexPath, { force: true })
 
-      const streamed = await collect(layer.stream())
-      const index = await new LayerFileIndexer(layer).build()
+      try {
+        const streamed = await collect(layer.stream())
+        const index = await new LayerFileIndexer(layer).build()
 
-      expect(index.path).toBe(indexPath)
-      expect(index.recordCount).toBe(streamed.length)
-      expect(index.recordIndex.name).toBe(RECORD_INDEX_NAME)
-      expect(index.recordIndex.recordCount).toBe(streamed.length)
-      expect(streamed.length).toBeGreaterThan(0)
-      expect(materializeBbox(await collect(index.stream()))).toEqual(materializeBbox(streamed))
-      const rtree = layer.indexes.get('rtree') as IndexRtree
-      const worldBbox: BBox = [-180, -90, 180, 90]
-      expect(materializeBbox(await collect(rtree.stream(worldBbox)))).toEqual(materializeBbox(streamed))
-      await expect(rtree.get(streamed[0].bbox!)).resolves.toEqual(streamed[0])
+        expect(index.path).toBe(indexPath)
+        expect(index.recordCount).toBe(streamed.length)
+        expect(index.recordIndex.name).toBe(RECORD_INDEX_NAME)
+        expect(index.recordIndex.recordCount).toBe(streamed.length)
+        expect(streamed.length).toBeGreaterThan(0)
+        expect(materializeBbox(await collect(index.stream()))).toEqual(materializeBbox(streamed))
+        const rtree = layer.indexes.get('rtree') as IndexRtree
+        const worldBbox: BBox = [-180, -90, 180, 90]
+        expect(materializeBbox(await collect(rtree.stream(worldBbox)))).toEqual(materializeBbox(streamed))
+        await expect(rtree.get(streamed[0].bbox!)).resolves.toEqual(streamed[0])
 
-      for (let record = 0; record < streamed.length; record += 1) {
-        const streamedRef = assertFileRef(streamed[record].sourceRef)
-        expect(index.sourceRef(record).sourceId).toBe(streamedRef.sourceId)
-        const read = await index.get(record)
-        if (read) void read.bbox
-        expect(read).toEqual(streamed[record])
+        for (let record = 0; record < streamed.length; record += 1) {
+          const streamedRef = assertFileRef(streamed[record].sourceRef)
+          expect(index.sourceRef(record).sourceId).toBe(streamedRef.sourceId)
+          const read = await index.get(record)
+          if (read) void read.bbox
+          expect(read).toEqual(streamed[record])
+        }
+      } finally {
+        if (existingIndex) fs.writeFileSync(indexPath, existingIndex)
+        else fs.rmSync(indexPath, { force: true })
       }
     }
   })
