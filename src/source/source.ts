@@ -7,6 +7,7 @@ import { withLazyBbox } from '../core/feature.js'
 import { Gt } from '../core/geotools.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
 import { PageFilter } from '../stream/page-filter.js'
+import { PropertyFilter, type PropertyFilterCriteria } from '../stream/property-filter.js'
 import type { Layer } from '../layer/layer.js'
 import { isPlainObject, Registry } from '../core/tools.js'
 
@@ -28,6 +29,7 @@ export type StreamOptions = {
 
 export type QueryOptions = StreamOptions & {
   bbox?: BBox
+  propertyFilter?: PropertyFilterCriteria
   properties?: string[]
   limit?: number
   offset?: number
@@ -87,6 +89,10 @@ export abstract class Source extends RegistryEntry {
 
     if (options.bbox) {
       input = input.pipeThrough(new BboxFilter(options.bbox))
+    }
+
+    if (options.propertyFilter) {
+      input = input.pipeThrough(new PropertyFilter(options.propertyFilter))
     }
 
     if (options.offset !== undefined || options.limit !== undefined) {

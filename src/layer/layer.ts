@@ -1,12 +1,14 @@
 import type { BBox, CrsCode } from '../core/geometry.js'
 import { RegistryEntry, type DescInfo, type Feature } from '../core/feature.js'
 import { IndexRtree } from '../index/index-rtree.js'
+import { IndexProperty } from '../index/index-property.js'
 import { Source, type QueryOptions, type StreamOptions } from '../source/source.js'
 import { Style } from '../style/style.js'
 import type { StyleFn } from '../style/style-fn.js'
 import { BboxFilter } from '../stream/bbox-filter.js'
 import { GeometryBboxFilter } from '../stream/geometry-bbox-filter.js'
 import { PageFilter } from '../stream/page-filter.js'
+import { PropertyFilter } from '../stream/property-filter.js'
 import { Reproject } from '../stream/reproject.js'
 import { Gt } from '../core/geotools.js'
 import { Dict, Registry } from '../core/tools.js'
@@ -209,6 +211,7 @@ export class Layer extends RegistryEntry {
         if (crs === this.crs) {
             return this.querySource({
                 bbox: options.bbox,
+                propertyFilter: options.propertyFilter,
                 signal: options.signal,
                 properties: options.properties,
                 limit: options.limit,
@@ -222,6 +225,7 @@ export class Layer extends RegistryEntry {
             : undefined
         const input = this.querySource({
             bbox: sourceBbox,
+            propertyFilter: options.propertyFilter,
             signal: options.signal,
             properties: options.properties,
             layer: this
@@ -243,12 +247,32 @@ export class Layer extends RegistryEntry {
     }
 
     private querySource(options: QueryOptions): ReadableStream<Feature> {
+        if (options.propertyFilter) {
+            const indexName = IndexProperty.indexName(options.propertyFilter.property)
+            const propertyIndex = this.indexes.has(indexName)
+                ? this.indexes.get(indexName) as Index<typeof options.propertyFilter>
+                : undefined
+            if (propertyIndex) {
+                let output = propertyIndex.stream(options.propertyFilter)
+                if (options.bbox) output = output.pipeThrough(new BboxFilter(options.bbox))
+                if (options.offset !== undefined || options.limit !== undefined) {
+                    output = output.pipeThrough(new PageFilter({
+                        offset: options.offset,
+                        limit: options.limit
+                    }))
+                }
+
+                return output
+            }
+        }
+
         if (!options.bbox) return this.source.query(options)
 
         if (!this.indexes.has(IndexRtree.NAME)) return this.source.query(options)
 
         const rtree = this.indexes.get(IndexRtree.NAME) as Index<BBox>
         let output = rtree.stream(options.bbox)
+        if (options.propertyFilter) output = output.pipeThrough(new PropertyFilter(options.propertyFilter))
         if (options.offset !== undefined || options.limit !== undefined) {
             output = output.pipeThrough(new PageFilter({
                 offset: options.offset,

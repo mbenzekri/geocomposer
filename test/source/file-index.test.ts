@@ -10,6 +10,7 @@ import { Index } from '../../src/index/index.js'
 import { Indexer, findHeaderEntry, parseFileIndexHeader } from '../../src/index/indexer.js'
 import { IndexRecord } from '../../src/index/index-record.js'
 import { IndexRtree } from '../../src/index/index-rtree.js'
+import { IndexProperty } from '../../src/index/index-property.js'
 import { Layer } from '../../src/layer/layer.js'
 import {
   FileSource,
@@ -161,7 +162,85 @@ describe('Indexer', () => {
 
     expect(features).toHaveLength(1)
     expect(features[0].id).toBe('a')
+    await expect(collect(layer.query({
+      bbox: [0, 0, 20, 20],
+      propertyFilter: { property: 'id', op: '==', value: 'b' }
+    }))).resolves.toMatchObject([{ id: 'b' }])
     expect(source.stream).not.toHaveBeenCalled()
+  })
+
+  it('builds property indexes as uint32 record order and uses binary-search criteria', async () => {
+    const geojsonPath = writeGeoJson('property-indexed.geojson', [
+      featureJson('low', [0, 0], { rank: 1, name: 'A' }),
+      featureJson('high', [1, 1], { rank: 9, name: 'C' }),
+      featureJson('mid-a', [2, 2], { rank: 5, name: 'B' }),
+      featureJson('missing', [3, 3], { name: 'D' }),
+      featureJson('mid-b', [4, 4], { rank: 5, name: 'E' })
+    ])
+    const source = registerSource(new GeoJsonSource('property-indexed', geojsonPath, 'utf8', 16, undefined, {
+      indexes: { properties: ['rank'] }
+    }))
+    const layer = new Layer('property-indexed', { source: source.id, crs: 'EPSG:4326' })
+
+    const index = await new Indexer(layer).build()
+    const indexBuffer = fs.readFileSync(index.path)
+    const header = parseFileIndexHeader(indexBuffer)
+    const propertyEntry = findHeaderEntry(
+      header,
+      IndexProperty.indexName('rank'),
+      'File index does not contain rank index'
+    )
+
+    expect(propertyEntry).toEqual({
+      name: IndexProperty.indexName('rank'),
+      offset: expect.any(Number),
+      byteLength: 4 * IndexProperty.ENTRY_SIZE,
+      recordCount: 4,
+      entrySize: IndexProperty.ENTRY_SIZE
+    })
+    expect([
+      indexBuffer.readUInt32LE(propertyEntry.offset),
+      indexBuffer.readUInt32LE(propertyEntry.offset + 4),
+      indexBuffer.readUInt32LE(propertyEntry.offset + 8),
+      indexBuffer.readUInt32LE(propertyEntry.offset + 12)
+    ]).toEqual([0, 2, 4, 1])
+
+    const propertyIndex = layer.indexes.get(IndexProperty.indexName('rank')) as IndexProperty
+    expect(propertyIndex).toBeInstanceOf(IndexProperty)
+    await expect(collect(propertyIndex.stream({ property: 'rank', op: '==', value: 5 })))
+      .resolves.toMatchObject([{ id: 'mid-a' }, { id: 'mid-b' }])
+
+    layer.indexes.clear()
+    await new Indexer(layer).load()
+    source.stream = vi.fn(() => {
+      throw new Error('full stream should not be used')
+    })
+
+    await expect(collect(layer.query({ propertyFilter: { property: 'rank', op: '<', value: 6 } })))
+      .resolves.toMatchObject([{ id: 'low' }, { id: 'mid-a' }, { id: 'mid-b' }])
+    await expect(collect(layer.query({ propertyFilter: { property: 'rank', op: '>', value: 5 } })))
+      .resolves.toMatchObject([{ id: 'high' }])
+    await expect(collect(layer.query({
+      bbox: [1.5, 1.5, 5, 5],
+      propertyFilter: { property: 'rank', op: '==', value: 5 },
+      limit: 1
+    }))).resolves.toMatchObject([{ id: 'mid-a' }])
+    expect(source.stream).not.toHaveBeenCalled()
+  })
+
+  it('falls back to property filtering when no property index is loaded', async () => {
+    const geojsonPath = writeGeoJson('property-scan.geojson', [
+      featureJson('low', [0, 0], { rank: 1 }),
+      featureJson('mid', [1, 1], { rank: 5 }),
+      featureJson('high', [2, 2], { rank: 9 })
+    ])
+    const source = registerSource(new GeoJsonSource('property-scan', geojsonPath, 'utf8', 16))
+    const layer = new Layer('property-scan', { source: source.id, crs: 'EPSG:4326' })
+
+    await expect(collect(layer.query({
+      propertyFilter: { property: 'rank', op: '>', value: 1 },
+      limit: 1
+    }))).resolves.toMatchObject([{ id: 'mid' }])
   })
 
   it('fails clearly when an expected index file is missing', async () => {
@@ -399,11 +478,11 @@ function writeGeoJson(name: string, features: Record<string, unknown>[]): string
   return filePath
 }
 
-function featureJson(id: string, coordinates: [number, number]): Record<string, unknown> {
+function featureJson(id: string, coordinates: [number, number], properties: Record<string, unknown> = { id }): Record<string, unknown> {
   return {
     type: 'Feature',
     id,
-    properties: { id },
+    properties,
     geometry: {
       type: 'Point',
       coordinates

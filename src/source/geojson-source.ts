@@ -3,7 +3,7 @@ import { open } from 'node:fs/promises'
 import type { DescInfo, Feature, FileRef, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
 import { FileSource, hasSourceConfigType, type FeatureTransform } from './source.js'
-import type { StreamOptions } from './source.js'
+import type { SourceIndexConfig, StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 
 export type GeoJsonSourceJson = DescInfo & {
@@ -11,6 +11,7 @@ export type GeoJsonSourceJson = DescInfo & {
   path: string
   encoding?: BufferEncoding
   highWaterMark?: number
+  indexes?: SourceIndexConfig
 }
 
 export class GeoJsonSource extends FileSource {
@@ -35,7 +36,7 @@ export class GeoJsonSource extends FileSource {
     encoding: BufferEncoding = 'utf8',
     highWaterMark?: number,
     transformFeature?: FeatureTransform,
-    info: DescInfo = {}
+    info: DescInfo & { indexes?: SourceIndexConfig } = {}
   ) {
     super(id, info, transformFeature)
 

@@ -4,6 +4,7 @@ import type { Layer } from '../layer/layer.js'
 import { FileSource, type SourceFile } from '../source/source.js'
 import { IndexRecord, IndexRecordBuilder } from './index-record.js'
 import { IndexRtree, IndexRtreeBuilder } from './index-rtree.js'
+import { IndexProperty, IndexPropertyBuilder } from './index-property.js'
 
 const FILE_INDEX_MAGIC = 'GEOC-IDX'
 const FILE_INDEX_VERSION = 1
@@ -65,7 +66,8 @@ export class Indexer {
     const outputPath = Indexer.resolveIndexPath(this.layer)
     const record = new IndexRecordBuilder(this.layer)
     const rtree = new IndexRtreeBuilder()
-    const builders = [record, rtree]
+    const propertyBuilders = this.propertyIndexNames().map((property) => new IndexPropertyBuilder(property))
+    const builders = [record, rtree, ...propertyBuilders]
 
     await this.streamFeatures(builders, signal)
     const contents = builders.map((builder) => builder.finalize())
@@ -102,6 +104,10 @@ export class Indexer {
     const rtree = IndexRtree.fromBuffer(this.layer, record, buffer, rtreeEntry)
     this.layer.indexes.set(record.id, record)
     this.layer.indexes.set(rtree.id, rtree)
+    for (const entry of header.filter((item) => IndexProperty.isIndexName(item.name))) {
+      const property = IndexProperty.fromBuffer(this.layer, record, buffer, entry)
+      this.layer.indexes.set(property.id, property)
+    }
     return record
   }
 
@@ -114,6 +120,11 @@ export class Indexer {
     const rtree = IndexRtree.fromSegment(this.layer, record, rtreeContent.buffer, rtreeEntry)
     this.layer.indexes.set(record.id, record)
     this.layer.indexes.set(rtree.id, rtree)
+    for (const entry of header.filter((item) => IndexProperty.isIndexName(item.name))) {
+      const content = findBuiltIndex(contents, entry.name)
+      const property = IndexProperty.fromSegment(this.layer, record, content.buffer, entry)
+      this.layer.indexes.set(property.id, property)
+    }
     return record
   }
 
@@ -135,7 +146,10 @@ export class Indexer {
     }
   }
 
-  private async streamFeatures(builders: Array<IndexRecordBuilder | IndexRtreeBuilder>, signal?: AbortSignal): Promise<void> {
+  private async streamFeatures(
+    builders: Array<IndexRecordBuilder | IndexRtreeBuilder | IndexPropertyBuilder>,
+    signal?: AbortSignal
+  ): Promise<void> {
     const reader = this.layer.stream({ signal }).getReader()
     let completed = false
     let record = 0
@@ -178,6 +192,19 @@ export class Indexer {
   private static pathToString(path: SourceFile['path']): string {
     if (path instanceof URL) return fileURLToPath(path)
     return path.toString()
+  }
+
+  private propertyIndexNames(): string[] {
+    const indexes = this.layer.source.indexes
+    if (!indexes || indexes === true) return []
+
+    const properties = indexes.properties
+    if (properties === undefined) return []
+    if (!Array.isArray(properties) || !properties.every((property) => typeof property === 'string' && property.length > 0)) {
+      throw new Error(`Source "${this.layer.source.id}" property indexes must be a non-empty string array`)
+    }
+
+    return [...new Set(properties)]
   }
 }
 
