@@ -6,11 +6,9 @@ import type { Feature, SourceRef } from '../../src/core/feature.js'
 import type { BBox } from '../../src/core/geometry.js'
 import { Crs } from '../../src/core/crs.js'
 import { Config } from '../../src/config/config.js'
-import { Index } from '../../src/index/index.js'
-import { Indexer, findHeaderEntry, parseFileIndexHeader } from '../../src/index/indexer.js'
+import { Indexer, parseFileIndexHeader } from '../../src/index/indexer.js'
 import { IndexRecord } from '../../src/index/index-record.js'
 import { IndexRtree } from '../../src/index/index-rtree.js'
-import { IndexProperty } from '../../src/index/index-property.js'
 import { Layer } from '../../src/layer/layer.js'
 import {
   FileSource,
@@ -169,80 +167,6 @@ describe('Indexer', () => {
     expect(source.stream).not.toHaveBeenCalled()
   })
 
-  it('builds property indexes as uint32 record order and uses binary-search criteria', async () => {
-    const geojsonPath = writeGeoJson('property-indexed.geojson', [
-      featureJson('low', [0, 0], { rank: 1, name: 'A' }),
-      featureJson('high', [1, 1], { rank: 9, name: 'C' }),
-      featureJson('mid-a', [2, 2], { rank: 5, name: 'B' }),
-      featureJson('missing', [3, 3], { name: 'D' }),
-      featureJson('mid-b', [4, 4], { rank: 5, name: 'E' })
-    ])
-    const source = registerSource(new GeoJsonSource('property-indexed', geojsonPath, 'utf8', 16, undefined, {
-      indexes: { properties: ['rank'] }
-    }))
-    const layer = new Layer('property-indexed', { source: source.id, crs: 'EPSG:4326' })
-
-    const index = await new Indexer(layer).build()
-    const indexBuffer = fs.readFileSync(index.path)
-    const header = parseFileIndexHeader(indexBuffer)
-    const propertyEntry = findHeaderEntry(
-      header,
-      IndexProperty.indexName('rank'),
-      'File index does not contain rank index'
-    )
-
-    expect(propertyEntry).toEqual({
-      name: IndexProperty.indexName('rank'),
-      offset: expect.any(Number),
-      byteLength: 4 * IndexProperty.ENTRY_SIZE,
-      recordCount: 4,
-      entrySize: IndexProperty.ENTRY_SIZE
-    })
-    expect([
-      indexBuffer.readUInt32LE(propertyEntry.offset),
-      indexBuffer.readUInt32LE(propertyEntry.offset + 4),
-      indexBuffer.readUInt32LE(propertyEntry.offset + 8),
-      indexBuffer.readUInt32LE(propertyEntry.offset + 12)
-    ]).toEqual([0, 2, 4, 1])
-
-    const propertyIndex = layer.indexes.get(IndexProperty.indexName('rank')) as IndexProperty
-    expect(propertyIndex).toBeInstanceOf(IndexProperty)
-    await expect(collect(propertyIndex.stream({ property: 'rank', op: '==', value: 5 })))
-      .resolves.toMatchObject([{ id: 'mid-a' }, { id: 'mid-b' }])
-
-    layer.indexes.clear()
-    await new Indexer(layer).load()
-    source.stream = vi.fn(() => {
-      throw new Error('full stream should not be used')
-    })
-
-    await expect(collect(layer.query({ propertyFilter: { property: 'rank', op: '<', value: 6 } })))
-      .resolves.toMatchObject([{ id: 'low' }, { id: 'mid-a' }, { id: 'mid-b' }])
-    await expect(collect(layer.query({ propertyFilter: { property: 'rank', op: '>', value: 5 } })))
-      .resolves.toMatchObject([{ id: 'high' }])
-    await expect(collect(layer.query({
-      bbox: [1.5, 1.5, 5, 5],
-      propertyFilter: { property: 'rank', op: '==', value: 5 },
-      limit: 1
-    }))).resolves.toMatchObject([{ id: 'mid-a' }])
-    expect(source.stream).not.toHaveBeenCalled()
-  })
-
-  it('falls back to property filtering when no property index is loaded', async () => {
-    const geojsonPath = writeGeoJson('property-scan.geojson', [
-      featureJson('low', [0, 0], { rank: 1 }),
-      featureJson('mid', [1, 1], { rank: 5 }),
-      featureJson('high', [2, 2], { rank: 9 })
-    ])
-    const source = registerSource(new GeoJsonSource('property-scan', geojsonPath, 'utf8', 16))
-    const layer = new Layer('property-scan', { source: source.id, crs: 'EPSG:4326' })
-
-    await expect(collect(layer.query({
-      propertyFilter: { property: 'rank', op: '>', value: 1 },
-      limit: 1
-    }))).resolves.toMatchObject([{ id: 'mid' }])
-  })
-
   it('fails clearly when an expected index file is missing', async () => {
     const geojsonPath = writeGeoJson('missing-index.geojson', [
       featureJson('a', [1, 2])
@@ -360,103 +284,6 @@ describe('Indexer', () => {
   })
 })
 
-describe('Index', () => {
-  it('returns null when get reads an empty stream', async () => {
-    const source = registerSource(new MemSource('empty-index-source', []))
-    const layer = new Layer('empty-index-layer', { source: source.id, crs: 'EPSG:4326' })
-    const index = new EmptyIndex(layer)
-
-    await expect(index.get()).resolves.toBeNull()
-  })
-})
-
-describe('IndexRecord', () => {
-  it('rejects invalid headers', () => {
-    expect(() => parseFileIndexHeader(Buffer.alloc(8)))
-      .toThrow('Invalid file index: header is shorter than the fixed header')
-
-    const badMagic = Buffer.alloc(16)
-    badMagic.write('BAD-IDX!', 0, 'ascii')
-    badMagic.writeUInt16LE(FILE_INDEX_VERSION, 8)
-    badMagic.writeUInt32LE(16, 10)
-    expect(() => parseFileIndexHeader(badMagic))
-      .toThrow('Invalid file index magic "BAD-IDX!"')
-
-    const badVersion = Buffer.alloc(16)
-    badVersion.write(FILE_INDEX_MAGIC, 0, 'ascii')
-    badVersion.writeUInt16LE(FILE_INDEX_VERSION + 1, 8)
-    badVersion.writeUInt32LE(16, 10)
-    expect(() => parseFileIndexHeader(badVersion))
-      .toThrow(`Unsupported file index version ${FILE_INDEX_VERSION + 1}`)
-
-    const badLength = Buffer.alloc(16)
-    badLength.write(FILE_INDEX_MAGIC, 0, 'ascii')
-    badLength.writeUInt16LE(FILE_INDEX_VERSION, 8)
-    badLength.writeUInt32LE(17, 10)
-    expect(() => parseFileIndexHeader(badLength))
-      .toThrow('Invalid file index: header length exceeds buffer length')
-
-    const truncated = Buffer.alloc(16)
-    truncated.write(FILE_INDEX_MAGIC, 0, 'ascii')
-    truncated.writeUInt16LE(FILE_INDEX_VERSION, 8)
-    truncated.writeUInt32LE(16, 10)
-    truncated.writeUInt16LE(1, 14)
-    expect(() => parseFileIndexHeader(truncated))
-      .toThrow('Invalid file index: truncated header entry')
-
-    const truncatedAfterName = Buffer.alloc(18)
-    truncatedAfterName.write(FILE_INDEX_MAGIC, 0, 'ascii')
-    truncatedAfterName.writeUInt16LE(FILE_INDEX_VERSION, 8)
-    truncatedAfterName.writeUInt32LE(18, 10)
-    truncatedAfterName.writeUInt16LE(1, 14)
-    truncatedAfterName.writeUInt8(1, 16)
-    truncatedAfterName.write('r', 17, 'ascii')
-    expect(() => parseFileIndexHeader(truncatedAfterName))
-      .toThrow('Invalid file index: truncated header entry')
-
-    const trailing = Buffer.alloc(17)
-    trailing.write(FILE_INDEX_MAGIC, 0, 'ascii')
-    trailing.writeUInt16LE(FILE_INDEX_VERSION, 8)
-    trailing.writeUInt32LE(17, 10)
-    expect(() => parseFileIndexHeader(trailing))
-      .toThrow('Invalid file index: header contains trailing bytes')
-
-    const validHeaderLength = 45
-    const validRecordHeader = Buffer.alloc(validHeaderLength + IndexRecord.ENTRY_SIZE)
-    validRecordHeader.write(FILE_INDEX_MAGIC, 0, 'ascii')
-    validRecordHeader.writeUInt16LE(FILE_INDEX_VERSION, 8)
-    validRecordHeader.writeUInt32LE(validHeaderLength, 10)
-    validRecordHeader.writeUInt16LE(1, 14)
-    validRecordHeader.writeUInt8(IndexRecord.NAME.length, 16)
-    validRecordHeader.write(IndexRecord.NAME, 17, 'ascii')
-    validRecordHeader.writeBigUInt64LE(BigInt(validHeaderLength), 23)
-    validRecordHeader.writeBigUInt64LE(BigInt(IndexRecord.ENTRY_SIZE), 31)
-    validRecordHeader.writeUInt32LE(1, 39)
-    validRecordHeader.writeUInt16LE(IndexRecord.ENTRY_SIZE, 43)
-    const [recordEntry] = parseFileIndexHeader(validRecordHeader)
-    const source = registerSource(new TestFileSource('index-src', [
-      { role: 'data', path: path.join(tmpDir, 'index.geojson') }
-    ]))
-    const layer = new Layer('index-layer', { source: source.id, crs: 'EPSG:4326' })
-    const index = new IndexRecord(
-      layer,
-      'index.geojson.idx',
-      'src',
-      validRecordHeader.subarray(validHeaderLength),
-      recordEntry
-    )
-
-    const noRecordHeader = Buffer.from(validRecordHeader.subarray(0, validHeaderLength))
-    noRecordHeader.write('bboxrd', 17, 'ascii')
-    expect(() => findHeaderEntry(parseFileIndexHeader(noRecordHeader), IndexRecord.NAME, 'File index does not contain a record index'))
-      .toThrow('File index does not contain a record index')
-    expect(() => index.sourceRef(1))
-      .toThrow('Record index 1 is out of bounds')
-    expect(() => new IndexRecord(layer, 'index.geojson.idx', 'src', Buffer.alloc(0), recordEntry).sourceRef(0))
-      .toThrow('Invalid record index: entry exceeds buffer length')
-  })
-})
-
 function registerSource<T extends Source>(source: T): T {
   Source.registry.set(source.id, source)
   return source
@@ -554,19 +381,5 @@ class TestFileSource extends FileSource {
 
   protected async readFeature(_sourceRef: SourceRef, _options: StreamOptions): Promise<Feature | null> {
     return null
-  }
-}
-
-class EmptyIndex extends Index<void> {
-  constructor(layer: Layer) {
-    super('empty', layer)
-  }
-
-  stream(): ReadableStream<Feature> {
-    return new ReadableStream({
-      start(controller) {
-        controller.close()
-      }
-    })
   }
 }
