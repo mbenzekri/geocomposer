@@ -47,7 +47,7 @@ export async function getMap(options: GetMapOptions): Promise<Buffer> {
 
         await features.pipeTo(new RenderWritable(renderer))
         await renderer.drawLayerText()
-        console.log(`[GetMap] layer=${layer.id} source=${layer.source.id} layerCrs=${layer.crs} requestCrs=${options.crs} features=${featureCount}`)
+        console.debug(`[GetMap] layer=${layer.id} source=${layer.source.id} layerCrs=${layer.crs} requestCrs=${options.crs} features=${featureCount}`)
     }
 
     await renderer.drawDeferredText('map')

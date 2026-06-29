@@ -67,8 +67,8 @@ describe('file sourceRef contracts', () => {
     await source.open()
     try {
       const feature = await readFirst(source.stream({ layer }))
-      const sourceRef = assertFileRef(feature, 'world-shp:shp')
-      const dbfRef = assertRelatedFileRef(sourceRef, 'dbf', 'world-shp:dbf')
+      const sourceRef = assertFileRef(feature, 'world-shp')
+      const dbfRef = assertRelatedFileRef(sourceRef, 'dbf', 'world-shp')
       const shpSlice = await readSlice(shpPath, sourceRef)
       const dbfSlice = await readSlice(dbfPath, dbfRef)
 

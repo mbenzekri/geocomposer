@@ -226,12 +226,12 @@ describe('ShpSource', () => {
             },
             sourceRef: {
                 storage: 'file',
-                sourceId: 'cities:shp',
+                sourceId: 'cities',
                 recordIndex: 0,
                 related: {
                     dbf: {
                         storage: 'file',
-                        sourceId: 'cities:dbf'
+                        sourceId: 'cities'
                     }
                 }
             }
@@ -677,11 +677,11 @@ describe('ShpSource', () => {
 
         await expect(source.read({
             storage: 'file',
-            sourceId: 'other:shp',
+            sourceId: 'other',
             offset: 100,
             byteLength: 28
         }, { layer })).rejects.toThrow(
-            'Shapefile sourceRef belongs to "other:shp", expected "cities:shp"'
+            'Shapefile sourceRef belongs to "other", expected "cities"'
         )
     })
 
@@ -703,7 +703,7 @@ describe('ShpSource', () => {
 
         await expect(source.read({
             storage: 'file',
-            sourceId: 'cities:shp',
+            sourceId: 'cities',
             byteLength: 28
         } as any, { layer })).rejects.toThrow(
             'Shapefile sourceRef must include offset and byteLength'
@@ -728,7 +728,7 @@ describe('ShpSource', () => {
 
         await expect(source.read({
             storage: 'file',
-            sourceId: 'cities:shp',
+            sourceId: 'cities',
             offset: 100
         } as any, { layer })).rejects.toThrow(
             'Shapefile sourceRef must include offset and byteLength'
@@ -753,7 +753,7 @@ describe('ShpSource', () => {
 
         await expect(source.read({
             storage: 'file',
-            sourceId: 'cities:shp',
+            sourceId: 'cities',
             offset: 100,
             byteLength: 9999
         }, { layer })).rejects.toThrow(
@@ -779,7 +779,7 @@ describe('ShpSource', () => {
 
         await expect(source.read({
             storage: 'file',
-            sourceId: 'cities:shp',
+            sourceId: 'cities',
             offset: 100,
             byteLength: 4
         }, { layer })).rejects.toThrow(

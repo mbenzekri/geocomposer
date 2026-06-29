@@ -197,7 +197,7 @@ class ShpReader {
 
   private async openDbfReader(): Promise<DbfReader> {
     const encoding = this.options.dbfEncoding ?? await DbfEncodingResolver.read(this.dbfPath)
-    return DbfReader.open(`${this.sourceId}:dbf`, this.dbfPath, encoding)
+    return DbfReader.open(this.sourceId, this.dbfPath, encoding)
   }
 
   private toFeature(
@@ -208,7 +208,7 @@ class ShpReader {
   ): Feature {
     const sourceRef: SourceRef = {
       storage: 'file',
-      sourceId: `${this.sourceId}:shp`,
+      sourceId: this.sourceId,
       offset: record.offset,
       byteLength: record.byteLength,
       recordIndex,
@@ -228,8 +228,8 @@ class ShpReader {
   }
 
   private toShpRef(sourceRef: SourceRef): FileRef & Pick<SourceRef, 'recordIndex' | 'related'> {
-    if (sourceRef.sourceId !== `${this.sourceId}:shp`) {
-      throw new Error(`Shapefile sourceRef belongs to "${sourceRef.sourceId}", expected "${this.sourceId}:shp"`)
+    if (sourceRef.sourceId !== this.sourceId) {
+      throw new Error(`Shapefile sourceRef belongs to "${sourceRef.sourceId}", expected "${this.sourceId}"`)
     }
 
     if (typeof (sourceRef as Partial<FileRef>).offset !== 'number' || typeof (sourceRef as Partial<FileRef>).byteLength !== 'number') {
