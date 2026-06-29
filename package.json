@@ -25,7 +25,8 @@
         "docker:rm:all": "docker rm -f $(docker ps -aq)",
         "docker:db:up": "cd db/postgis && npm run up && cd ../mssql && npm run up && cd ../oracle && npm run up",
         "docker:db:down": "cd db/postgis && npm run down && cd ../mssql && npm run down && cd ../oracle && npm run down",
-        "tag-release": "git tag v$npm_package_version && git push && git push origin v$npm_package_version"
+        "tag:release": "git tag v$npm_package_version && git push && git push origin v$npm_package_version",
+        "tag:remove": "git tag -d v$npm_package_version &&  git push origin --delete v$npm_package_version"
     },
     "dependencies": {
         "@turf/bbox-polygon": "^7.3.5",

@@ -590,6 +590,69 @@
                       ],
                       "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
                     },
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "abstract": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "onlineResource": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Public service URL advertised in service capabilities metadata. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Public service URL advertised in service capabilities metadata. (string or \"$s{ENV_VAR|default}\")"
+                    },
                     "maxScaleFactor": {
                       "anyOf": [
                         {
@@ -1992,6 +2055,69 @@
                       ],
                       "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
                     },
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "abstract": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "onlineResource": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Public service URL advertised in service capabilities metadata. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Public service URL advertised in service capabilities metadata. (string or \"$s{ENV_VAR|default}\")"
+                    },
                     "maxScaleFactor": {
                       "anyOf": [
                         {
@@ -2679,6 +2805,69 @@
                         }
                       ],
                       "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "abstract": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "onlineResource": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Public service URL advertised in service capabilities metadata. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Public service URL advertised in service capabilities metadata. (string or \"$s{ENV_VAR|default}\")"
                     },
                     "maxScaleFactor": {
                       "anyOf": [
@@ -3784,30 +3973,121 @@
     "xyzService": {
       "anyOf": [
         {
+          "title": "XYZ service",
           "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "path": {
+          "allOf": [
+            {
               "anyOf": [
                 {
-                  "$ref": "#/$defs/httpPath",
-                  "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+                  "$ref": "#/$defs/serviceInfo",
+                  "description": "Includes common service fields: `path`, `title`, `abstract`, and `onlineResource`. (object or \"#/$defs/nom\")"
                 },
                 {
                   "type": "string",
                   "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
                 },
                 {
-                  "type": "string",
-                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
-                },
-                {
-                  "type": "string",
-                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                  "type": "object",
+                  "required": [
+                    "$ref"
+                  ],
+                  "properties": {
+                    "path": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/httpPath",
+                          "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "abstract": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "onlineResource": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Public service URL advertised in service capabilities metadata. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "Public service URL advertised in service capabilities metadata. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "$ref": {
+                      "type": "string",
+                      "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                    }
+                  },
+                  "description": "Includes common service fields: `path`, `title`, `abstract`, and `onlineResource`. (object or \"#/$defs/nom\")"
                 }
               ],
-              "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
-            },
+              "description": "Includes common service fields: `path`, `title`, `abstract`, and `onlineResource`. (object or \"#/$defs/nom\")"
+            }
+          ],
+          "properties": {
             "maxScaleFactor": {
               "anyOf": [
                 {
@@ -3861,6 +4141,7 @@
               "description": "Unique list of tileset names. Values must reference keys from the top-level `tilesets` registry. (array or \"#/$defs/nom\")"
             }
           },
+          "unevaluatedProperties": false,
           "description": "XYZ tile service configuration. (object or \"#/$defs/nom\")"
         },
         {
@@ -3893,6 +4174,69 @@
                 }
               ],
               "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Human-readable title shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "abstract": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Human-readable description shown in service metadata and clients. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "onlineResource": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "description": "Public service URL advertised in service capabilities metadata. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "Public service URL advertised in service capabilities metadata. (string or \"$s{ENV_VAR|default}\")"
             },
             "maxScaleFactor": {
               "anyOf": [
@@ -3952,7 +4296,7 @@
             }
           },
           "description": "XYZ tile service configuration. (object or \"#/$defs/nom\")",
-          "additionalProperties": false
+          "unevaluatedProperties": false
         }
       ],
       "description": "XYZ tile service configuration. (object or \"#/$defs/nom\")"

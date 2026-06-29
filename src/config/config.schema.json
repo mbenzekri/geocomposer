@@ -259,13 +259,15 @@
       "description": "OGC API Features service configuration. Requires `title`. Use `defaultLimit` and `maxLimit` to control pagination."
     },
     "xyzService": {
+      "title": "XYZ service",
       "type": "object",
-      "additionalProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/$defs/serviceInfo",
+          "description": "Includes common service fields: `path`, `title`, `abstract`, and `onlineResource`."
+        }
+      ],
       "properties": {
-        "path": {
-          "$ref": "#/$defs/httpPath",
-          "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`."
-        },
         "maxScaleFactor": {
           "type": "number",
           "exclusiveMinimum": 0,
@@ -280,6 +282,7 @@
           "description": "Unique list of tileset names. Values must reference keys from the top-level `tilesets` registry."
         }
       },
+      "unevaluatedProperties": false,
       "description": "XYZ tile service configuration."
     },
     "wmtsService": {

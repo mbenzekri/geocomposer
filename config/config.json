@@ -89,6 +89,9 @@
         },
         "xyz": {
             "path": "/tiles",
+            "title": "GeoComposer XYZ",
+            "abstract": "XYZ tile service backed by GeoComposer tilesets.",
+            "onlineResource": "http://localhost:3000/tiles",
             "maxScaleFactor": 4,
             "cache": "../cache/xyz",
             "tilesets": "#/$defs/tilesetList" 
