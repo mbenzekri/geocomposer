@@ -324,6 +324,150 @@ describe('MssqlSource', () => {
     await source.close()
   })
 
+  it('covers direct stream, empty result sets, dataset errors and idempotent close', async () => {
+    vi.doMock('mssql', () => ({
+      default: fakeMssql
+    }))
+
+    const { MssqlSource } = await import('../../src/source/mssql-source.js')
+    const source = new MssqlSource('mssql-direct-test', {
+      connection: 'mssql://geocuser:secret@localhost:1433/geocdb',
+      schema: 'geoc',
+      datasets: {
+        cities: {
+          tableName: 'cities',
+          geometryColumn: 'geom',
+          primaryKey: 'id',
+          properties: ['name']
+        }
+      },
+      batchSize: 2
+    })
+
+    await expect(source.close()).resolves.toBeUndefined()
+    await source.open()
+    await source.open()
+
+    mssqlState.streamRows = []
+    await expect(readAll(source.stream({ layer }))).resolves.toEqual([])
+    await expect(source.getExtent({ ...layer, dataset: 'missing' } as Layer))
+      .rejects.toThrow('Item missing not found')
+
+    mssqlState.readRows = []
+    await expect(source.readById('7', { layer })).resolves.toBeNull()
+    await expect(source.read({
+      storage: 'database',
+      sourceId: 'mssql-direct-test',
+      schemaName: 'geoc',
+      tableName: 'cities',
+      rowId: 7,
+      primaryKey: 'id',
+      geometryColumn: 'geom'
+    }, { layer })).resolves.toBeNull()
+
+    await source.close()
+    await source.close()
+  })
+
+  it('normalizes row ids, binary values and geometry inputs from MSSQL rows', async () => {
+    vi.doMock('mssql', () => ({
+      default: fakeMssql
+    }))
+
+    const { MssqlSource } = await import('../../src/source/mssql-source.js')
+    const source = new MssqlSource('mssql-normalize-test', {
+      connection: 'mssql://geocuser:secret@localhost:1433/geocdb',
+      schema: 'geoc',
+      datasets: {
+        cities: {
+          tableName: 'cities',
+          geometryColumn: 'geom',
+          primaryKey: 'id',
+          properties: ['name', 'payload']
+        }
+      },
+      batchSize: 5
+    })
+
+    await source.open()
+
+    mssqlState.streamRows = [
+      { __id__: 'row-a', __geom__: pointWkb(1, 2).buffer, p_0: BigInt(Number.MAX_SAFE_INTEGER) + 2n, p_1: new ArrayBuffer(2) },
+      { __id__: 12n, __geom__: new DataView(pointWkb(3, 4).buffer), p_0: 3n, p_1: new DataView(Uint8Array.from([3, 4]).buffer) },
+      { __id__: undefined, __geom__: Buffer.concat([Buffer.from(pointWkb(5, 6)), Buffer.from([0])]), p_0: 'bad', p_1: null }
+    ]
+
+    const reader = source.query({ layer, offset: 1 }).getReader()
+    try {
+      const first = await reader.read()
+      expect(first.value).toMatchObject({
+        id: 'row-a',
+        properties: {
+          name: String(BigInt(Number.MAX_SAFE_INTEGER) + 2n),
+          payload: 'AAA='
+        },
+        geometry: { type: 'Point', coordinates: [1, 2] }
+      })
+
+      const second = await reader.read()
+      expect(second.value).toMatchObject({
+        id: 12,
+        properties: {
+          name: 3,
+          payload: 'AwQ='
+        },
+        geometry: { type: 'Point', coordinates: [3, 4] }
+      })
+
+      await expect(reader.read()).rejects.toThrow('Invalid MSSQL geometry: trailing bytes after WKB body')
+    } finally {
+      await reader.cancel().catch(() => undefined)
+    }
+
+    await source.close()
+  })
+
+  it('rejects invalid connection string variants and configured metadata names', async () => {
+    vi.doMock('mssql', () => ({
+      default: fakeMssql
+    }))
+
+    const { MssqlSource } = await import('../../src/source/mssql-source.js')
+    const invalidConnections = [
+      'http://geocuser:secret@localhost:1433/geocdb',
+      'mssql://geocuser:secret@localhost:99999/geocdb',
+      'mssql://geo%ZZ:secret@localhost:1433/geocdb'
+    ]
+
+    for (const connection of invalidConnections) {
+      await expect(new MssqlSource(`invalid-${connection.length}`, {
+        connection,
+        datasets: { cities: 'cities' }
+      }).open()).rejects.toThrow('Invalid MSSQL GeoComposer connection string')
+    }
+
+    await expect(new MssqlSource('empty-schema', {
+      connection: 'mssql://geocuser:secret@localhost:1433/geocdb',
+      schema: ' ',
+      datasets: { cities: 'cities' }
+    }).open()).rejects.toThrow('MSSQL schema must not be empty')
+
+    mssqlState.columns = [
+      { columnName: 'id', dataType: 'int' },
+      { columnName: 'geom', dataType: 'geometry' }
+    ]
+    await expect(new MssqlSource('bad-primary', {
+      connection: 'mssql://geocuser:secret@localhost:1433/geocdb',
+      datasets: {
+        cities: {
+          tableName: 'cities',
+          geometryColumn: 'geom',
+          primaryKey: 'missing'
+        }
+      }
+    }).open()).rejects.toThrow('primary key "missing" was not found')
+  })
+
   it('cleans up when open fails and reports metadata errors', async () => {
     vi.doMock('mssql', () => ({
       default: fakeMssql

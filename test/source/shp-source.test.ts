@@ -94,6 +94,47 @@ function dataViewToBuffer(view: DataView): Buffer {
     return Buffer.from(view.buffer, view.byteOffset, view.byteLength)
 }
 
+async function replaceFirstShpRecord(shpPath: string, record: Buffer): Promise<void> {
+    const header = (await fs.readFile(shpPath)).subarray(0, 100)
+    await fs.writeFile(shpPath, Buffer.concat([header, record]))
+}
+
+function multiPointRecord(points: Array<[number, number]>): Buffer {
+    const contentLength = 4 + 32 + 4 + points.length * 16
+    const record = Buffer.alloc(8 + contentLength)
+    record.writeInt32BE(1, 0)
+    record.writeInt32BE(contentLength / 2, 4)
+    record.writeInt32LE(8, 8)
+    record.writeDoubleLE(Math.min(...points.map(([x]) => x)), 12)
+    record.writeDoubleLE(Math.min(...points.map(([, y]) => y)), 20)
+    record.writeDoubleLE(Math.max(...points.map(([x]) => x)), 28)
+    record.writeDoubleLE(Math.max(...points.map(([, y]) => y)), 36)
+    record.writeInt32LE(points.length, 44)
+
+    let offset = 48
+    for (const [x, y] of points) {
+        record.writeDoubleLE(x, offset)
+        record.writeDoubleLE(y, offset + 8)
+        offset += 16
+    }
+
+    return record
+}
+
+function shapeTypeRecord(shapeType: number): Buffer {
+    const content = Buffer.alloc(4)
+    content.writeInt32LE(shapeType, 0)
+    return shpRecord(content)
+}
+
+function shpRecord(content: Buffer): Buffer {
+    const record = Buffer.alloc(8 + content.length)
+    record.writeInt32BE(1, 0)
+    record.writeInt32BE(content.length / 2, 4)
+    content.copy(record, 8)
+    return record
+}
+
 async function readAll<T>(stream: ReadableStream<T>): Promise<T[]> {
     const reader = stream.getReader()
     const values: T[] = []
@@ -477,6 +518,126 @@ describe('ShpSource', () => {
         }
     })
 
+    it('streams multipoint features', async () => {
+        const fixture = await createShapefileFixture(
+            'multipoints',
+            'POINT',
+            [
+                [2, 48]
+            ],
+            [
+                {
+                    name: 'cities'
+                }
+            ]
+        )
+        await replaceFirstShpRecord(fixture.shpPath, multiPointRecord([
+            [2, 48],
+            [4, 45]
+        ]))
+
+        const source = new ShpSource('multipoints', fixture.shpPath, fixture.dbfPath)
+        const [feature] = await readAll(source.stream({ layer }))
+
+        expect(feature.geometry).toEqual({
+            type: 'MultiPoint',
+            coordinates: [
+                [2, 48],
+                [4, 45]
+            ]
+        })
+    })
+
+    it('uses cpg sidecar encoding when dbfEncoding is not configured', async () => {
+        const fixture = await createShapefileFixture(
+            'encoded',
+            'POINT',
+            [
+                [2, 48]
+            ],
+            [
+                {
+                    name: 'Paris'
+                }
+            ]
+        )
+        await fs.writeFile(path.join(fixture.dir, 'encoded.cpg'), 'latin1')
+
+        const source = new ShpSource('encoded', fixture.shpPath, fixture.dbfPath)
+        const [feature] = await readAll(source.stream({ layer }))
+
+        expect(feature.properties).toMatchObject({
+            name: 'Paris'
+        })
+    })
+
+    it('uses ascii cpg sidecar encoding', async () => {
+        const fixture = await createShapefileFixture(
+            'ascii',
+            'POINT',
+            [
+                [2, 48]
+            ],
+            [
+                {
+                    name: 'Paris'
+                }
+            ]
+        )
+        await fs.writeFile(path.join(fixture.dir, 'ascii.cpg'), 'us-ascii')
+
+        const source = new ShpSource('ascii', fixture.shpPath, fixture.dbfPath)
+        const [feature] = await readAll(source.stream({ layer }))
+
+        expect(feature.properties).toMatchObject({
+            name: 'Paris'
+        })
+    })
+
+    it('returns null geometry for empty and null SHP records', async () => {
+        const fixture = await createShapefileFixture(
+            'null-shape',
+            'POINT',
+            [
+                [2, 48]
+            ],
+            [
+                {
+                    name: 'Paris'
+                }
+            ]
+        )
+        const source = new ShpSource('null-shape', fixture.shpPath, fixture.dbfPath)
+
+        await replaceFirstShpRecord(fixture.shpPath, shpRecord(Buffer.alloc(0)))
+        await expect(readAll(source.stream({ layer }))).resolves.toMatchObject([{ geometry: null }])
+
+        await replaceFirstShpRecord(fixture.shpPath, shapeTypeRecord(0))
+        await expect(readAll(source.stream({ layer }))).resolves.toMatchObject([{ geometry: null }])
+    })
+
+    it('throws for unsupported and truncated SHP record geometries', async () => {
+        const fixture = await createShapefileFixture(
+            'bad-shape',
+            'POINT',
+            [
+                [2, 48]
+            ],
+            [
+                {
+                    name: 'Paris'
+                }
+            ]
+        )
+        const source = new ShpSource('bad-shape', fixture.shpPath, fixture.dbfPath)
+
+        await replaceFirstShpRecord(fixture.shpPath, shapeTypeRecord(31))
+        await expect(readAll(source.stream({ layer }))).rejects.toThrow('Unsupported shapefile shape type: 31')
+
+        await replaceFirstShpRecord(fixture.shpPath, shapeTypeRecord(1))
+        await expect(readAll(source.stream({ layer }))).resolves.toMatchObject([{ geometry: null }])
+    })
+
     it('opens and closes source explicitly', async () => {
         const fixture = await createShapefileFixture(
             'points',
@@ -598,6 +759,84 @@ describe('ShpSource', () => {
         }, { layer })).rejects.toThrow(
             'Invalid shapefile sourceRef: byte range exceeds file length'
         )
+    })
+
+    it('throws when sourceRef record is shorter than the SHP record header', async () => {
+        const fixture = await createShapefileFixture(
+            'points',
+            'POINT',
+            [
+                [2, 48]
+            ],
+            [
+                {
+                    name: 'Paris'
+                }
+            ]
+        )
+
+        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+
+        await expect(source.read({
+            storage: 'file',
+            sourceId: 'cities:shp',
+            offset: 100,
+            byteLength: 4
+        }, { layer })).rejects.toThrow(
+            'Invalid shapefile sourceRef: record is shorter than the SHP header'
+        )
+    })
+
+    it('throws when sourceRef recordIndex is outside the DBF table', async () => {
+        const fixture = await createShapefileFixture(
+            'points',
+            'POINT',
+            [
+                [2, 48]
+            ],
+            [
+                {
+                    name: 'Paris'
+                }
+            ]
+        )
+
+        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const [feature] = await readAll(source.stream({ layer }))
+
+        await expect(source.read({
+            ...feature.sourceRef!,
+            recordIndex: 99
+        }, { layer })).rejects.toThrow(
+            'Invalid DBF: record index 99 is out of range'
+        )
+    })
+
+    it('throws for truncated DBF headers and field descriptors', async () => {
+        const fixture = await createShapefileFixture(
+            'bad-dbf',
+            'POINT',
+            [
+                [2, 48]
+            ],
+            [
+                {
+                    name: 'Paris'
+                }
+            ]
+        )
+
+        await fs.writeFile(fixture.dbfPath, Buffer.alloc(8))
+        await expect(readAll(new ShpSource('bad-dbf', fixture.shpPath, fixture.dbfPath).stream({ layer })))
+            .rejects.toThrow('Invalid DBF: header is too short')
+
+        const header = Buffer.alloc(32)
+        header.writeUInt32LE(1, 4)
+        header.writeUInt16LE(64, 8)
+        header.writeUInt16LE(1, 10)
+        await fs.writeFile(fixture.dbfPath, header)
+        await expect(readAll(new ShpSource('bad-dbf', fixture.shpPath, fixture.dbfPath).stream({ layer })))
+            .rejects.toThrow('Invalid DBF: field descriptors are incomplete')
     })
 
     it('uses Shapefile stream aborted as abort reason', async () => {

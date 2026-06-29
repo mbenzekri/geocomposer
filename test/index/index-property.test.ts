@@ -71,6 +71,11 @@ describe('IndexProperty', () => {
       .resolves.toMatchObject([{ id: 'low' }, { id: 'mid-a' }, { id: 'mid-b' }])
     await expect(collect(propertyIndex.stream({ property: 'rank', op: '>', value: 5 })))
       .resolves.toMatchObject([{ id: 'high' }])
+    await expect(collect(propertyIndex.stream({ property: 'rank', op: '==', value: {} })))
+      .resolves.toEqual([])
+    expect(() => propertyIndex.stream()).toThrow('IndexProperty.stream requires property criteria')
+    expect(() => propertyIndex.stream({ property: 'other', op: '==', value: 5 }))
+      .toThrow('IndexProperty "rank" cannot query property "other"')
   })
 
   it('loads from the file index and is selected by Layer.query without scanning the source', async () => {
@@ -127,6 +132,39 @@ describe('IndexProperty', () => {
 
     await expect(new Indexer(layer).build())
       .rejects.toThrow('Property index "rank" cannot mix number and string values')
+  })
+
+  it('rejects invalid property index names and corrupt buffers', async () => {
+    const geojsonPath = writeGeoJson('property-corrupt.geojson', [
+      featureJson('one', [0, 0], { rank: 1 })
+    ])
+    const source = registerSource(new GeoJsonSource('property-corrupt', geojsonPath, 'utf8', 16, undefined, {
+      indexes: { properties: ['rank'] }
+    }))
+    const layer = new Layer('property-corrupt', { source: source.id, crs: 'EPSG:4326' })
+    const record = await new Indexer(layer).build()
+
+    expect(() => IndexProperty.propertyFromIndexName('rank'))
+      .toThrow('Invalid property index name "rank"')
+
+    const entry = {
+      name: IndexProperty.indexName('rank'),
+      offset: 0,
+      byteLength: 4,
+      recordCount: 1,
+      entrySize: IndexProperty.ENTRY_SIZE
+    }
+    const emptyBuffer = new IndexProperty(layer, record, 'rank', Buffer.alloc(0), entry)
+    await expect(collect(emptyBuffer.stream({ property: 'rank', op: '==', value: 1 })))
+      .rejects.toThrow('Invalid property index "rank": entry exceeds buffer length')
+
+    const invalidEntrySize = new IndexProperty(layer, record, 'rank', Buffer.alloc(4), {
+      ...entry,
+      byteLength: 4,
+      entrySize: 2
+    })
+    await expect(collect(invalidEntrySize.stream({ property: 'rank', op: '==', value: 1 })))
+      .rejects.toThrow('Invalid property index "rank": entry exceeds buffer length')
   })
 })
 

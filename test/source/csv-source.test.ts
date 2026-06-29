@@ -101,6 +101,20 @@ describe('CsvSource', () => {
     })
   })
 
+  it('parses escaped quotes, CRLF records and missing trailing newline', async () => {
+    const file = writeFile('quoted.csv', [
+      'id,name,geometry\r',
+      'a,"A ""quoted"" city",POINT (1 2)\r',
+      'b,last,POINT (3 4)'
+    ].join('\n'))
+    const source = new CsvSource('quoted', file, { highWaterMark: 5 })
+    const result = await readAll(source.stream({ layer }))
+
+    expect(result).toHaveLength(2)
+    expect(result[0].properties?.name).toBe('A "quoted" city')
+    expect(result[1].id).toBe('b')
+  })
+
   it('reads features by sourceRef and supports custom columns', async () => {
     const file = writeFile('custom.csv', [
       'code;label;geom',
@@ -167,6 +181,35 @@ describe('CsvSource', () => {
 
     await expect(readAll(source.stream({ layer })))
       .rejects.toThrow('CSV source "invalid" missing geometryColumn "geometry"')
+  })
+
+  it('validates delimiter, headers and sourceRefs', async () => {
+    expect(() => new CsvSource('bad-delimiter', 'bad.csv', { delimiter: '::' }))
+      .toThrow('CSV delimiter must be a single character')
+
+    const empty = new CsvSource('empty', writeFile('empty.csv', ''))
+    await expect(readAll(empty.stream({ layer }))).resolves.toEqual([])
+    await expect(empty.read({ storage: 'file', sourceId: 'empty', offset: 0, byteLength: 1 }, { layer }))
+      .rejects.toThrow('CSV source "empty" is empty')
+
+    const emptyHeader = new CsvSource('empty-header', writeFile('empty-header.csv', ',,\n'))
+    await expect(readAll(emptyHeader.stream({ layer })))
+      .rejects.toThrow('CSV source "empty-header" header is empty')
+
+    const file = writeFile('refs.csv', [
+      'id,geometry',
+      'a,POINT (1 2)'
+    ].join('\n'))
+    const source = new CsvSource('refs', file)
+
+    await expect(source.read({ storage: 'file', sourceId: 'other', offset: 0, byteLength: 1 }, { layer }))
+      .rejects.toThrow('Invalid CSV sourceRef for source "refs"')
+    await expect(source.read({ storage: 'file', sourceId: 'refs', offset: -1, byteLength: 1 }, { layer }))
+      .rejects.toThrow('Invalid CSV sourceRef: offset must be a non-negative integer')
+    await expect(source.read({ storage: 'file', sourceId: 'refs', offset: 0, byteLength: -1 }, { layer }))
+      .rejects.toThrow('Invalid CSV sourceRef: byteLength must be a non-negative integer')
+    await expect(source.read({ storage: 'file', sourceId: 'refs', offset: 1000, byteLength: 10 }, { layer }))
+      .rejects.toThrow('Invalid CSV sourceRef: byte range exceeds file length')
   })
 })
 
