@@ -277,7 +277,7 @@ export abstract class FileSource extends FeatureSource {
     return this.clusteredFile !== null
   }
 
-  async prepareClusteredIndexSource(layer: Layer): Promise<void> {
+  async prepareClusteredIndexSource(layer: Layer, force = false): Promise<void> {
     const originalFiles = this.getFiles()
     const primaryFile = FileSource.resolvePrimaryFile(originalFiles, this.id)
     const clusteredFile = new ClusteredGeoJsonFile(this.id, clusteredGeoJsonPath(primaryFile))
@@ -288,7 +288,7 @@ export abstract class FileSource extends FeatureSource {
 
     try {
       await this.open()
-      await clusteredFile.prepare(layer, originalFiles, () => super.stream({ layer }))
+      await clusteredFile.prepare(layer, originalFiles, () => super.stream({ layer }), force)
     } finally {
       await this.close()
     }

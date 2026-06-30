@@ -305,7 +305,7 @@ export class GeoComposer {
 
                     await source.open()
                     try {
-                        const index = await new Indexer(layer).build()
+                        const index = await new Indexer(layer).build(undefined, force)
                         const status = buildState === 'missing' ? 'created' : 'rebuilt'
                         result[status] += 1
                         result.items.push({

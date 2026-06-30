@@ -134,9 +134,10 @@ export class ClusteredGeoJsonFile {
   async prepare(
     layer: Layer,
     originalFiles: readonly SourceFile[],
-    streamOriginal: () => ReadableStream<Feature>
+    streamOriginal: () => ReadableStream<Feature>,
+    force = false
   ): Promise<void> {
-    if (!await this.needsBuild(originalFiles)) return
+    if (!force && !await this.needsBuild(originalFiles)) return
 
     const features: ClusterFeature[] = []
     const precision = clusteredCoordinatePrecision(layer)

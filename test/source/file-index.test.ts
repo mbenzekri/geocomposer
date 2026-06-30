@@ -237,6 +237,32 @@ describe('Indexer', () => {
     expect(mirrored.features[0].geometry.coordinates).toEqual([123.12, 45.99])
   })
 
+  it('force rebuild rewrites clustered GeoJSON mirrors', async () => {
+    Crs.registry.set('EPSG:3857', new Crs('EPSG:3857', 'Web Mercator', 'Web Mercator'))
+    const geojsonPath = writeGeoJson('force-cluster.geojson', [
+      featureJson('precise', [123.123456789, 45.987654321], { id: 'precise' })
+    ])
+    const clusteredPath = `${geojsonPath}.clustered.geojson`
+    fs.writeFileSync(clusteredPath, '{"type":"FeatureCollection","features":[]}')
+    const future = new Date(Date.now() + 60_000)
+    fs.utimesSync(clusteredPath, future, future)
+    const source = registerSource(await openSource(new GeoJsonSource('force-cluster', geojsonPath, 'utf8', 16, undefined, {
+      indexes: {
+        rtree: {
+          clustered: true
+        }
+      }
+    })))
+    const layer = new Layer('force-cluster', { source: source.id, crs: 'EPSG:3857' })
+
+    await new Indexer(layer).build(undefined, true)
+
+    const mirrored = JSON.parse(fs.readFileSync(clusteredPath, 'utf8')) as {
+      features: Array<{ geometry: { coordinates: [number, number] } }>
+    }
+    expect(mirrored.features[0].geometry.coordinates).toEqual([123.12, 45.99])
+  })
+
   it('uses the clustered GeoJSON mirror as the active file for every FileSource', async () => {
     const originalPath = path.join(tmpDir, 'generic-source.dat')
     fs.writeFileSync(originalPath, 'original')
