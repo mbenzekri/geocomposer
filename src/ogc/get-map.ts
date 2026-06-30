@@ -23,7 +23,9 @@ export async function getMap(options: GetMapOptions): Promise<Buffer> {
     const mapStartedAt = performance.now()
     const timings: RequestTimings = {
         accessMs: 0,
-        renderingMs: 0
+        renderingMs: 0,
+        readFeatures: 0,
+        renderedFeatures: 0
     }
     const resolution = (options.bbox[2] - options.bbox[0]) / options.width
     const styleContext = createStyleContext(options.crs, options.bbox, resolution, options.pixelRatio ?? 1)
@@ -36,8 +38,6 @@ export async function getMap(options: GetMapOptions): Promise<Buffer> {
         deferredText,
         styleContext
     )
-    let totalFeatureCount = 0
-
     for (let index = 0; index < options.layers.length; index += 1) {
         const layer = options.layers[index]
         const style = options.styles[index] ?? layer.style
@@ -52,7 +52,6 @@ export async function getMap(options: GetMapOptions): Promise<Buffer> {
         }).pipeThrough(new TransformStream<Feature, Feature>({
             transform(feature, controller) {
                 featureCount += 1
-                totalFeatureCount += 1
                 controller.enqueue(feature)
             }
         }))
@@ -70,9 +69,10 @@ export async function getMap(options: GetMapOptions): Promise<Buffer> {
         ? performance.now() - mapStartedAt
         : Date.now() - options.requestStartedAt
     const transformMs = Math.max(0, totalMs - timings.accessMs - timings.renderingMs)
-    const featuresPerSecond = totalMs > 0 ? totalFeatureCount / (totalMs / 1000) : 0
+    const usefulRatio = timings.readFeatures > 0 ? timings.renderedFeatures / timings.readFeatures : 0
+    const featuresPerSecond = totalMs > 0 ? timings.renderedFeatures / (totalMs / 1000) : 0
     const prefix = options.traceId === undefined ? '[GetMap]' : `[GetMap ${options.traceId}]`
-    console.debug(`${prefix} timing total=${formatMs(totalMs)} access=${formatMs(timings.accessMs)} transform=${formatMs(transformMs)} rendering=${formatMs(timings.renderingMs)} features=${totalFeatureCount} throughput=${formatRate(featuresPerSecond)}f/s`)
+    console.debug(`${prefix} timing total=${formatMs(totalMs)} access=${formatMs(timings.accessMs)} transform=${formatMs(transformMs)} rendering=${formatMs(timings.renderingMs)} read=${timings.readFeatures} rendered=${timings.renderedFeatures} useful=${formatPercent(usefulRatio)} throughput=${formatRate(featuresPerSecond)}f/s`)
 
     return image
 }
@@ -92,4 +92,8 @@ function formatMs(value: number): string {
 
 function formatRate(value: number): string {
     return value.toFixed(1)
+}
+
+function formatPercent(value: number): string {
+    return `${(value * 100).toFixed(1)}%`
 }

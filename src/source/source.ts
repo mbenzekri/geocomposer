@@ -26,6 +26,8 @@ export type SourceIndexConfig = true | Record<string, unknown>
 export type RequestTimings = {
   accessMs: number
   renderingMs: number
+  readFeatures: number
+  renderedFeatures: number
 }
 
 export type StreamOptions = {
@@ -77,10 +79,10 @@ export abstract class Source extends RegistryEntry {
   bulk(minRecord: number, maxRecord: number, options: StreamOptions): ReadableStream<Feature> {
     if (options.layer.indexes.has('record')) {
       const recordIndex = options.layer.indexes.get('record') as unknown as {
-        streamRange(minRecord: number, maxRecord: number): ReadableStream<Feature>
+        streamRange(minRecord: number, maxRecord: number, timings?: RequestTimings): ReadableStream<Feature>
       }
 
-      return recordIndex.streamRange(minRecord, maxRecord)
+      return recordIndex.streamRange(minRecord, maxRecord, options.timings)
     }
 
     return this.query({
@@ -154,6 +156,7 @@ export abstract class FeatureSource extends Source {
     const feature = await this.readFeature(sourceRef, options)
     if (options.timings) options.timings.accessMs += performance.now() - startedAt
     if (!feature) return null
+    if (options.timings) options.timings.readFeatures += 1
     return this.mapFeature(feature, sourceRef.recordIndex ?? 0, options.layer)
   }
 
@@ -174,6 +177,7 @@ export abstract class FeatureSource extends Source {
         const result = await iterator.next()
         if (options.timings) options.timings.accessMs += performance.now() - startedAt
         if (result.done) return
+        if (options.timings) options.timings.readFeatures += 1
 
         yield await this.mapFeature(result.value, index, options.layer)
         index += 1
