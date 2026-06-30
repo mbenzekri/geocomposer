@@ -645,7 +645,7 @@
       "description": "Data source definition. Choose exactly one supported source type: CSV, GeoJSON, GML, Shapefile, GeoPackage, PostGIS, SQL Server or Oracle."
     },
     "sourceIndexes": {
-      "description": "Source index configuration. Use `true` to build the minimal file indexes (`record` and `rtree`). Object form is reserved for explicit index families such as property indexes.",
+      "description": "Source index configuration. Use `true` to build the minimal file indexes (`record` and `rtree`). Object form can configure explicit index families such as `rtree` and property indexes.",
       "oneOf": [
         {
           "const": true,
@@ -654,7 +654,36 @@
         {
           "type": "object",
           "additionalProperties": true,
-          "description": "Future explicit index configuration."
+          "properties": {
+            "rtree": {
+              "description": "R-tree spatial index configuration. `true` uses defaults.",
+              "oneOf": [
+                {
+                  "const": true
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "chunkSize": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10."
+                    }
+                  }
+                }
+              ]
+            },
+            "properties": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": "Property names to index."
+            }
+          },
+          "description": "Explicit index configuration."
         }
       ]
     },

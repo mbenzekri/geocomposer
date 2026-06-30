@@ -21,7 +21,13 @@ export type SourceFile = {
   path: PathLike
 }
 
-export type SourceIndexConfig = true | Record<string, unknown>
+export type SourceIndexConfig = true | {
+  rtree?: true | {
+    chunkSize?: number
+  }
+  properties?: string[]
+  [key: string]: unknown
+}
 
 export type RequestTimings = {
   accessMs: number

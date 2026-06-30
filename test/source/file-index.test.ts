@@ -283,8 +283,10 @@ describe('Indexer', () => {
         expect(materializeBbox(await collect(index.stream()))).toEqual(materializeBbox(streamed))
         const rtree = layer.indexes.get('rtree') as IndexRtree
         const worldBbox: BBox = [-180, -90, 180, 90]
-        expect(materializeBbox(await collect(rtree.stream(worldBbox)))).toEqual(materializeBbox(streamed))
-        await expect(rtree.get(streamed[0].bbox!)).resolves.toEqual(streamed[0])
+        expect(sortByRecordIndex(materializeBbox(await collect(rtree.stream(worldBbox)))))
+          .toEqual(sortByRecordIndex(materializeBbox(streamed)))
+        expect(materializeBbox(await collect(rtree.stream(streamed[0].bbox!))))
+          .toContainEqual(streamed[0])
 
         for (let record = 0; record < streamed.length; record += 1) {
           const streamedRef = assertFileRef(streamed[record].sourceRef)
@@ -372,6 +374,19 @@ async function collect<T>(stream: ReadableStream<T>): Promise<T[]> {
 function materializeBbox(features: Feature[]): Feature[] {
   for (const feature of features) void feature.bbox
   return features
+}
+
+function sortByRecordIndex(features: Feature[]): Feature[] {
+  return [...features].sort((left, right) => recordIndex(left) - recordIndex(right))
+}
+
+function recordIndex(feature: Feature): number {
+  const index = feature.sourceRef?.recordIndex
+  if (typeof index !== 'number') {
+    throw new Error(`Expected feature "${feature.id ?? '?'}" to have a recordIndex`)
+  }
+
+  return index
 }
 
 class TestFileSource extends FileSource {

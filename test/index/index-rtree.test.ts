@@ -70,14 +70,33 @@ describe('IndexRtree', () => {
     const ranges = rtree.ranges([1050, -1, 1050, 1])
     const allRanges = rtree.ranges([-1, -1, 2000, 1])
     const expectedRanges = Array.from(
-      { length: 20 },
-      (_value, index) => [index * 100, index * 100 + 99]
+      { length: 200 },
+      (_value, index) => [index * 10, index * 10 + 9]
     ).flat()
 
     expect(rtree.entry.recordCount).toBeGreaterThan(20)
     expect(sortRanges(allRanges)).toEqual(expectedRanges)
-    expect(ranges).toEqual([1000, 1099])
+    expect(ranges).toEqual([1050, 1059])
     expect((await collect(rtree.stream([1050, -1, 1050, 1]))).map((feature) => feature.id)).toEqual(['p1050'])
+  })
+
+  it('uses configured rtree chunk size when building ranges', async () => {
+    const features = Array.from({ length: 30 }, (_value, index) => featureJson(`p${index}`, [index, 0]))
+    const geojsonPath = writeGeoJson('rtree-chunk-size.geojson', features)
+    const source = registerSource(await openSource(new GeoJsonSource(
+      'rtree-chunk-size',
+      geojsonPath,
+      'utf8',
+      64,
+      undefined,
+      { indexes: { rtree: { chunkSize: 5 } } }
+    )))
+    const layer = new Layer('rtree-chunk-size', { source: source.id, crs: 'EPSG:4326' })
+
+    await new Indexer(layer).build()
+    const rtree = layer.indexes.get(IndexRtree.NAME) as IndexRtree
+
+    expect(rtree.ranges([12, -1, 12, 1])).toEqual([10, 14])
   })
 })
 

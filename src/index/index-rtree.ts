@@ -8,7 +8,7 @@ import { Index } from './index.js'
 import type { HeaderEntry } from './indexer.js'
 import { IndexRecord } from './index-record.js'
 
-const RTREE_CHUNK_SIZE = 100
+export const DEFAULT_RTREE_CHUNK_SIZE = 10
 const RTREE_LEAF_FLAG = 1
 const MAX_INDEX_BUFFER_SIZE = 0x7fffffff
 
@@ -194,6 +194,8 @@ export class IndexRtreeBuilder {
   private chunkCount = 0
   private chunkBbox: BBox | null = null
 
+  constructor(private readonly chunkSize = DEFAULT_RTREE_CHUNK_SIZE) {}
+
   add(feature: Feature, record: number): void {
     if (this.chunkCount === 0) this.chunkStart = record
 
@@ -201,7 +203,7 @@ export class IndexRtreeBuilder {
     this.chunkCount = record - this.chunkStart + 1
     if (bbox) this.chunkBbox = this.chunkBbox ? Gt.expand(this.chunkBbox, bbox) : bbox
 
-    if (this.chunkCount === RTREE_CHUNK_SIZE) this.flushChunk()
+    if (this.chunkCount === this.chunkSize) this.flushChunk()
   }
 
   finalize() {

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import type { Layer } from '../layer/layer.js'
 import { FileSource, type SourceFile } from '../source/source.js'
 import { IndexRecord, IndexRecordBuilder } from './index-record.js'
-import { IndexRtree, IndexRtreeBuilder } from './index-rtree.js'
+import { DEFAULT_RTREE_CHUNK_SIZE, IndexRtree, IndexRtreeBuilder } from './index-rtree.js'
 import { IndexProperty, IndexPropertyBuilder } from './index-property.js'
 
 const FILE_INDEX_MAGIC = 'GEOC-IDX'
@@ -65,7 +65,7 @@ export class Indexer {
 
     const outputPath = Indexer.resolveIndexPath(this.layer)
     const record = new IndexRecordBuilder(this.layer)
-    const rtree = new IndexRtreeBuilder()
+    const rtree = new IndexRtreeBuilder(this.rtreeChunkSize())
     const propertyBuilders = this.propertyIndexNames().map((property) => new IndexPropertyBuilder(property))
     const builders = [record, rtree, ...propertyBuilders]
 
@@ -205,6 +205,25 @@ export class Indexer {
     }
 
     return [...new Set(properties)]
+  }
+
+  private rtreeChunkSize(): number {
+    const indexes = this.layer.source.indexes
+    if (!indexes || indexes === true) return DEFAULT_RTREE_CHUNK_SIZE
+
+    const rtree = indexes.rtree
+    if (rtree === undefined || rtree === true) return DEFAULT_RTREE_CHUNK_SIZE
+    if (!rtree || typeof rtree !== 'object' || Array.isArray(rtree)) {
+      throw new Error(`Source "${this.layer.source.id}" rtree index configuration must be an object`)
+    }
+
+    const chunkSize = rtree.chunkSize
+    if (chunkSize === undefined) return DEFAULT_RTREE_CHUNK_SIZE
+    if (!Number.isInteger(chunkSize) || chunkSize < 1) {
+      throw new Error(`Source "${this.layer.source.id}" rtree chunkSize must be a positive integer`)
+    }
+
+    return chunkSize
   }
 }
 
