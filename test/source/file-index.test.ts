@@ -215,6 +215,28 @@ describe('Indexer', () => {
     }
   })
 
+  it('rounds clustered GeoJSON coordinates from CRS precision', async () => {
+    Crs.registry.set('EPSG:3857', new Crs('EPSG:3857', 'Web Mercator', 'Web Mercator', undefined, 2))
+    const geojsonPath = writeGeoJson('precise.geojson', [
+      featureJson('precise', [123.123456789, 45.987654321], { id: 'precise' })
+    ])
+    const source = registerSource(await openSource(new GeoJsonSource('precise', geojsonPath, 'utf8', 16, undefined, {
+      indexes: {
+        rtree: {
+          clustered: true
+        }
+      }
+    })))
+    const layer = new Layer('precise', { source: source.id, crs: 'EPSG:3857' })
+
+    await new Indexer(layer).build()
+
+    const mirrored = JSON.parse(fs.readFileSync(`${geojsonPath}.clustered.geojson`, 'utf8')) as {
+      features: Array<{ geometry: { coordinates: [number, number] } }>
+    }
+    expect(mirrored.features[0].geometry.coordinates).toEqual([123.12, 45.99])
+  })
+
   it('uses the clustered GeoJSON mirror as the active file for every FileSource', async () => {
     const originalPath = path.join(tmpDir, 'generic-source.dat')
     fs.writeFileSync(originalPath, 'original')

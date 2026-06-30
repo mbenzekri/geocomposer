@@ -594,6 +594,11 @@
         "proj4": {
           "type": "string",
           "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io."
+        },
+        "precision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Optional coordinate decimal precision override. When omitted, GeoComposer derives a centimeter-oriented precision from the CRS unit."
         }
       },
       "description": "crs metadata. Requires a human-readable `title`."

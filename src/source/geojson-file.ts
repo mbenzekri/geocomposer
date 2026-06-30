@@ -4,10 +4,11 @@ import type { FileHandle } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { DescInfo, Feature, FileRef, SourceRef } from '../core/feature.js'
 import { Gt } from '../core/geotools.js'
-import type { BBox } from '../core/geometry.js'
+import type { BBox, Geometry, Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
 import type { SourceFile, StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
+import { Crs } from '../core/crs.js'
 
 const HILBERT_LEVEL = 20
 const HILBERT_GRID_SIZE = 2 ** HILBERT_LEVEL
@@ -138,6 +139,7 @@ export class ClusteredGeoJsonFile {
     if (!await this.needsBuild(originalFiles)) return
 
     const features: ClusterFeature[] = []
+    const precision = clusteredCoordinatePrecision(layer)
     const reader = streamOriginal().getReader()
     let index = 0
 
@@ -146,7 +148,7 @@ export class ClusteredGeoJsonFile {
         const result = await reader.read()
         if (result.done) break
         features.push({
-          feature: toWritableFeature(result.value),
+          feature: toWritableFeature(result.value, precision),
           hilbert: hilbertKey(result.value, layer),
           index
         })
@@ -243,14 +245,79 @@ async function writeString(handle: FileHandle, value: string, position: number, 
   return buffer.length
 }
 
-function toWritableFeature(feature: Feature): Record<string, unknown> {
+function toWritableFeature(feature: Feature, precision: number | undefined): Record<string, unknown> {
   return {
     type: 'Feature',
     ...(feature.id === undefined ? {} : { id: feature.id }),
-    ...(feature.bbox === undefined ? {} : { bbox: feature.bbox }),
+    ...(feature.bbox === undefined ? {} : { bbox: roundBbox(feature.bbox, precision) }),
     properties: feature.properties ?? null,
-    geometry: feature.geometry ?? null
+    geometry: roundGeometry(feature.geometry, precision)
   }
+}
+
+function clusteredCoordinatePrecision(layer: Layer): number | undefined {
+  return Crs.registry.has(layer.crs)
+    ? Crs.registry.get(layer.crs).coordinatePrecision
+    : new Crs(layer.crs).coordinatePrecision
+}
+
+function roundBbox(bbox: BBox, precision: number | undefined): BBox {
+  return precision === undefined
+    ? bbox
+    : [
+      roundNumber(bbox[0], precision),
+      roundNumber(bbox[1], precision),
+      roundNumber(bbox[2], precision),
+      roundNumber(bbox[3], precision)
+    ]
+}
+
+function roundGeometry(geometry: Geometry | null, precision: number | undefined): Geometry | null {
+  if (!geometry || precision === undefined) return geometry
+
+  switch (geometry.type) {
+    case 'Point':
+      return {
+        type: 'Point',
+        coordinates: roundPosition(geometry.coordinates, precision)
+      }
+    case 'LineString':
+      return {
+        type: 'LineString',
+        coordinates: geometry.coordinates.map((position) => roundPosition(position, precision))
+      }
+    case 'Polygon':
+      return {
+        type: 'Polygon',
+        coordinates: geometry.coordinates.map((ring) => ring.map((position) => roundPosition(position, precision)))
+      }
+    case 'MultiPoint':
+      return {
+        type: 'MultiPoint',
+        coordinates: geometry.coordinates.map((position) => roundPosition(position, precision))
+      }
+    case 'MultiLineString':
+      return {
+        type: 'MultiLineString',
+        coordinates: geometry.coordinates.map((line) => line.map((position) => roundPosition(position, precision)))
+      }
+    case 'MultiPolygon':
+      return {
+        type: 'MultiPolygon',
+        coordinates: geometry.coordinates.map((polygon) =>
+          polygon.map((ring) => ring.map((position) => roundPosition(position, precision)))
+        )
+      }
+  }
+}
+
+function roundPosition(position: Position, precision: number): Position {
+  const rounded = position.map((value) => roundNumber(value, precision)) as Position
+  return rounded
+}
+
+function roundNumber(value: number, precision: number): number {
+  return Number(value.toFixed(precision))
 }
 
 function hilbertKey(feature: Feature, layer: Layer): number {

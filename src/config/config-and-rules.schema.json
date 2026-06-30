@@ -8731,6 +8731,24 @@
                     ],
                     "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
                   },
+                  "precision": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Optional coordinate decimal precision override. When omitted, GeoComposer derives a centimeter-oriented precision from the CRS unit. (integer or \"$i{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      }
+                    ],
+                    "description": "Optional coordinate decimal precision override. When omitted, GeoComposer derives a centimeter-oriented precision from the CRS unit. (integer or \"$i{ENV_VAR|default}\")"
+                  },
                   "$ref": {
                     "type": "string",
                     "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -8838,6 +8856,24 @@
                     ],
                     "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
                   },
+                  "precision": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Optional coordinate decimal precision override. When omitted, GeoComposer derives a centimeter-oriented precision from the CRS unit. (integer or \"$i{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      }
+                    ],
+                    "description": "Optional coordinate decimal precision override. When omitted, GeoComposer derives a centimeter-oriented precision from the CRS unit. (integer or \"$i{ENV_VAR|default}\")"
+                  },
                   "$ref": {
                     "type": "string",
                     "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -8923,6 +8959,24 @@
                 }
               ],
               "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "precision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Optional coordinate decimal precision override. When omitted, GeoComposer derives a centimeter-oriented precision from the CRS unit. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Optional coordinate decimal precision override. When omitted, GeoComposer derives a centimeter-oriented precision from the CRS unit. (integer or \"$i{ENV_VAR|default}\")"
             }
           },
           "description": "crs metadata. Requires a human-readable `title`. (object or \"#/$defs/nom\")"
@@ -8999,6 +9053,24 @@
                 }
               ],
               "description": "Proj4 definition used to register a CRS that is not known by the projection library, for example definitions from epsg.io. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "precision": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Optional coordinate decimal precision override. When omitted, GeoComposer derives a centimeter-oriented precision from the CRS unit. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Optional coordinate decimal precision override. When omitted, GeoComposer derives a centimeter-oriented precision from the CRS unit. (integer or \"$i{ENV_VAR|default}\")"
             },
             "$ref": {
               "type": "string",
