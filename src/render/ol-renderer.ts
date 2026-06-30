@@ -274,10 +274,10 @@ export class OlRenderer {
         return this.canvas.toBuffer('image/png')
     }
 
-    toJpegBuffer(quality = 0.85): Buffer {
+    toJpegBuffer(quality = 0.85, background = '#ffffff'): Buffer {
         const output = createCanvas(this.width, this.height)
         const context = output.getContext('2d')
-        context.fillStyle = '#ffffff'
+        context.fillStyle = background
         context.fillRect(0, 0, this.width, this.height)
         context.drawImage(this.canvas, 0, 0)
         return output.toBuffer('image/jpeg', { quality })

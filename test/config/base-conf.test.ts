@@ -13,6 +13,7 @@ import { Feature } from '../../src/core/feature.js'
 import { Tileset } from '../../src/tileset/tileset.js'
 import { Crs } from '../../src/core/crs.js'
 import { Gt } from '../../src/core/geotools.js'
+import { jpegBackground, jpegQuality } from '../../src/config/config.js'
 
 
 describe('test sources loading', () => {
@@ -47,6 +48,17 @@ describe('test sources loading', () => {
         const tileset = Tileset.registry.get('world')
         expect(tileset.layers).toEqual([layer])
         expect(tileset.resolveStyles()).toEqual([layer.style])
+    })
+
+    test('server JPEG options are loaded into global server options', async () => {
+        config_min.server.jpegQuality = 92
+        config_min.server.jpegBackground = '#abcdef'
+        const configPath = writeConf('config_server_jpeg_options.json', config_min)
+
+        await GeoComposer.from({ configPath })
+
+        expect(jpegQuality).toBe(92)
+        expect(jpegBackground).toBe('#abcdef')
     })
 
     test('crs registry accepts custom Proj4 definitions', async () => {

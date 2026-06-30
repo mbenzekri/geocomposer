@@ -5,6 +5,7 @@ import { createStyleContext, type StyleFn } from '../style/style-fn.js'
 import { createDeferredTextRenderQueue, OlRenderer } from '../render/ol-renderer.js'
 import { RenderWritable } from '../stream/render-writable.js'
 import type { RequestTimings } from '../source/source.js'
+import { jpegBackground, jpegQuality } from '../config/config.js'
 
 
 export type GetMapOptions = {
@@ -93,7 +94,9 @@ function createTimings(): RequestTimings {
 }
 
 function encodeImage(renderer: OlRenderer, format: 'image/png' | 'image/jpeg'): Buffer {
-    if (format === 'image/jpeg') return renderer.toJpegBuffer()
+    if (format === 'image/jpeg') {
+        return renderer.toJpegBuffer(jpegQuality / 100, jpegBackground)
+    }
     return renderer.toPngBuffer()
 }
 

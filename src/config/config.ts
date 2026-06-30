@@ -21,6 +21,8 @@ import { DefsSolver } from './defs-solver.js'
 import configSchema from './config.schema.json' with { type: 'json' }
 import { PathsSolver } from './path-solver.js'
 
+export let jpegQuality = 85
+export let jpegBackground = '#ffffff'
 
 class ConfigValidator extends JsonValidator<GeoComposerJson> {
     constructor(schema: unknown, name: string) {
@@ -38,6 +40,8 @@ class ConfigValidator extends JsonValidator<GeoComposerJson> {
 export type ServerJson = {
     port?: number
     logLevel?: "DEBUG" | "LOG" | "WARN" | "ERROR" | "NONE"
+    jpegQuality?: number
+    jpegBackground?: string
 }
 
 export type GeoComposerJson = {
@@ -100,6 +104,8 @@ export class Config extends Singleton {
         console.setLevel(logLevel)
         this._port ??= json.server?.port ?? 3000
         console.log(`[CONFIG]: Server port set to ${this._port}`)
+        jpegQuality = json.server?.jpegQuality ?? 85
+        jpegBackground = json.server?.jpegBackground ?? '#ffffff'
         this._site = this.findStaticSite()
         if (this._site) {
             console.log(`[CONFIG]: Static site set to ${this._site}`)

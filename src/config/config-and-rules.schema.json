@@ -95,6 +95,46 @@
               ],
               "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
             },
+            "jpegQuality": {
+              "anyOf": [
+                {
+                  "description": "JPEG output quality for WMS image/jpeg responses, as a percentage. Defaults to 85. Minimum: 1. Maximum: 100. (integer or \"$i{ENV_VAR|default}\")",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "JPEG output quality for WMS image/jpeg responses, as a percentage. Defaults to 85. Minimum: 1. Maximum: 100. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "jpegBackground": {
+              "anyOf": [
+                {
+                  "description": "CSS color used as the opaque background for WMS image/jpeg responses. Defaults to #ffffff. (string or \"$s{ENV_VAR|default}\")",
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "CSS color used as the opaque background for WMS image/jpeg responses. Defaults to #ffffff. (string or \"$s{ENV_VAR|default}\")"
+            },
             "$ref": {
               "type": "string",
               "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
@@ -1507,6 +1547,46 @@
                 }
               ],
               "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
+            },
+            "jpegQuality": {
+              "anyOf": [
+                {
+                  "description": "JPEG output quality for WMS image/jpeg responses, as a percentage. Defaults to 85. Minimum: 1. Maximum: 100. (integer or \"$i{ENV_VAR|default}\")",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "JPEG output quality for WMS image/jpeg responses, as a percentage. Defaults to 85. Minimum: 1. Maximum: 100. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "jpegBackground": {
+              "anyOf": [
+                {
+                  "description": "CSS color used as the opaque background for WMS image/jpeg responses. Defaults to #ffffff. (string or \"$s{ENV_VAR|default}\")",
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "CSS color used as the opaque background for WMS image/jpeg responses. Defaults to #ffffff. (string or \"$s{ENV_VAR|default}\")"
             }
           }
         },
@@ -1566,6 +1646,46 @@
                 }
               ],
               "description": "Application log verbosity. Allowed values: `DEBUG`, `LOG`, `WARN`, `ERROR`, `NONE`. (\"DEBUG\", \"LOG\", \"WARN\", \"ERROR\", \"NONE\" or \"$s{ENV_VAR|default}\")"
+            },
+            "jpegQuality": {
+              "anyOf": [
+                {
+                  "description": "JPEG output quality for WMS image/jpeg responses, as a percentage. Defaults to 85. Minimum: 1. Maximum: 100. (integer or \"$i{ENV_VAR|default}\")",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "JPEG output quality for WMS image/jpeg responses, as a percentage. Defaults to 85. Minimum: 1. Maximum: 100. (integer or \"$i{ENV_VAR|default}\")"
+            },
+            "jpegBackground": {
+              "anyOf": [
+                {
+                  "description": "CSS color used as the opaque background for WMS image/jpeg responses. Defaults to #ffffff. (string or \"$s{ENV_VAR|default}\")",
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "CSS color used as the opaque background for WMS image/jpeg responses. Defaults to #ffffff. (string or \"$s{ENV_VAR|default}\")"
             },
             "$ref": {
               "type": "string",

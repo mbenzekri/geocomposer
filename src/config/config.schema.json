@@ -140,6 +140,16 @@
             "ERROR",
             "NONE"
           ]
+        },
+        "jpegQuality": {
+          "description": "JPEG output quality for WMS image/jpeg responses, as a percentage. Defaults to 85. Minimum: 1. Maximum: 100.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "jpegBackground": {
+          "description": "CSS color used as the opaque background for WMS image/jpeg responses. Defaults to #ffffff.",
+          "type": "string"
         }
       }
     },
