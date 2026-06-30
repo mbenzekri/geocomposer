@@ -15,17 +15,26 @@ const layer = {
 } as Layer
 
 let tmpDir: string
+let openedSources: CsvSource[] = []
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'csv-source-'))
+  openedSources = []
 })
 
-afterEach(() => {
+afterEach(async () => {
+  await Promise.allSettled(openedSources.reverse().map((source) => source.close()))
   fs.rmSync(tmpDir, {
     recursive: true,
     force: true
   })
 })
+
+async function openSource(source: CsvSource): Promise<CsvSource> {
+  await source.open()
+  openedSources.push(source)
+  return source
+}
 
 describe('CsvSource', () => {
   it('accepts csv config entries and creates a source from config', () => {
@@ -58,7 +67,7 @@ describe('CsvSource', () => {
       'a,Paris,2148000,true,,"POINT (2.35 48.85)"',
       'b,"Quoted, city",42,false,,"LINESTRING (0 0, 1 1)"'
     ].join('\n'))
-    const source = new CsvSource('cities', file, { highWaterMark: 7 })
+    const source = await openSource(new CsvSource('cities', file, { highWaterMark: 7 }))
     const result = await readAll(source.stream({ layer }))
 
     expect(result).toHaveLength(2)
@@ -107,7 +116,7 @@ describe('CsvSource', () => {
       'a,"A ""quoted"" city",POINT (1 2)\r',
       'b,last,POINT (3 4)'
     ].join('\n'))
-    const source = new CsvSource('quoted', file, { highWaterMark: 5 })
+    const source = await openSource(new CsvSource('quoted', file, { highWaterMark: 5 }))
     const result = await readAll(source.stream({ layer }))
 
     expect(result).toHaveLength(2)
@@ -120,11 +129,11 @@ describe('CsvSource', () => {
       'code;label;geom',
       'p1;Point 1;POINT (1 2)'
     ].join('\n'))
-    const source = new CsvSource('custom', file, {
+    const source = await openSource(new CsvSource('custom', file, {
       delimiter: ';',
       primaryKey: 'code',
       geometryColumn: 'geom'
-    })
+    }))
     const [feature] = await readAll(source.stream({ layer }))
     const read = await source.read(feature.sourceRef!, { layer })
 
@@ -137,7 +146,7 @@ describe('CsvSource', () => {
       'points,"GEOMETRYCOLLECTION (POINT (1 2), POINT (3 4))"',
       'mixed,"GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (0 0, 1 1))"'
     ].join('\n'))
-    const source = new CsvSource('collections', file)
+    const source = await openSource(new CsvSource('collections', file))
     const result = await readAll(source.stream({ layer }))
 
     expect(result[0].geometry).toEqual({
@@ -153,7 +162,7 @@ describe('CsvSource', () => {
       'a,POINT (1 2)',
       'b,POINT (3 4)'
     ].join('\n'))
-    const source = new CsvSource('indexed', file)
+    const source = await openSource(new CsvSource('indexed', file))
     const csvLayer = {
       id: 'indexed-layer',
       crs: 'EPSG:4326',
@@ -177,7 +186,7 @@ describe('CsvSource', () => {
       'id,wkt',
       'a,POINT (1 2)'
     ].join('\n'))
-    const source = new CsvSource('invalid', file)
+    const source = await openSource(new CsvSource('invalid', file))
 
     await expect(readAll(source.stream({ layer })))
       .rejects.toThrow('CSV source "invalid" missing geometryColumn "geometry"')
@@ -187,12 +196,12 @@ describe('CsvSource', () => {
     expect(() => new CsvSource('bad-delimiter', 'bad.csv', { delimiter: '::' }))
       .toThrow('CSV delimiter must be a single character')
 
-    const empty = new CsvSource('empty', writeFile('empty.csv', ''))
+    const empty = await openSource(new CsvSource('empty', writeFile('empty.csv', '')))
     await expect(readAll(empty.stream({ layer }))).resolves.toEqual([])
     await expect(empty.read({ storage: 'file', sourceId: 'empty', offset: 0, byteLength: 1 }, { layer }))
       .rejects.toThrow('CSV source "empty" is empty')
 
-    const emptyHeader = new CsvSource('empty-header', writeFile('empty-header.csv', ',,\n'))
+    const emptyHeader = await openSource(new CsvSource('empty-header', writeFile('empty-header.csv', ',,\n')))
     await expect(readAll(emptyHeader.stream({ layer })))
       .rejects.toThrow('CSV source "empty-header" header is empty')
 
@@ -200,7 +209,7 @@ describe('CsvSource', () => {
       'id,geometry',
       'a,POINT (1 2)'
     ].join('\n'))
-    const source = new CsvSource('refs', file)
+    const source = await openSource(new CsvSource('refs', file))
 
     await expect(source.read({ storage: 'file', sourceId: 'other', offset: 0, byteLength: 1 }, { layer }))
       .rejects.toThrow('Invalid CSV sourceRef for source "refs"')

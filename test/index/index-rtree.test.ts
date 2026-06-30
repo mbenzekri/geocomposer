@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Feature } from '../../src/core/feature.js'
 import { Crs } from '../../src/core/crs.js'
 import { Indexer } from '../../src/index/indexer.js'
@@ -14,19 +14,28 @@ import type { StyleFn } from '../../src/style/style-fn.js'
 import { init } from '../test-tools.js'
 
 let tmpDir: string
+let openedSources: GeoJsonSource[] = []
 
 beforeEach(() => {
   init()
   setupRegistries()
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'index-rtree-'))
+  openedSources = []
 })
 
-afterEach(() => {
+afterEach(async () => {
+  await Promise.allSettled(openedSources.reverse().map((source) => source.close()))
   fs.rmSync(tmpDir, {
     recursive: true,
     force: true
   })
 })
+
+async function openSource(source: GeoJsonSource): Promise<GeoJsonSource> {
+  await source.open()
+  openedSources.push(source)
+  return source
+}
 
 describe('IndexRtree', () => {
   it('streams records whose feature bbox intersects the query bbox', async () => {
@@ -35,17 +44,40 @@ describe('IndexRtree', () => {
       featureJson('outside', [10, 11]),
       featureJson('edge', [2, 3])
     ])
-    const source = registerSource(new GeoJsonSource('rtree', geojsonPath, 'utf8', 16))
+    const source = registerSource(await openSource(new GeoJsonSource('rtree', geojsonPath, 'utf8', 16)))
     const layer = new Layer('rtree', { source: source.id, crs: 'EPSG:4326' })
 
     await new Indexer(layer).build()
     const rtree = layer.indexes.get(IndexRtree.NAME) as IndexRtree
+    const bulk = vi.spyOn(source, 'bulk')
 
     expect(rtree).toBeInstanceOf(IndexRtree)
     expect(materializeBbox(await collect(rtree.stream([0, 0, 2, 3]))))
       .toMatchObject([{ id: 'inside' }, { id: 'edge' }])
+    expect(bulk).toHaveBeenCalledWith(0, 2, { layer })
     expect(() => rtree.stream())
       .toThrow('IndexRtree.stream requires a bbox')
+  })
+
+  it('traverses a multi-level rtree and returns only intersecting ranges', async () => {
+    const features = Array.from({ length: 2_000 }, (_value, index) => featureJson(`p${index}`, [index, 0]))
+    const geojsonPath = writeGeoJson('rtree-large.geojson', features)
+    const source = registerSource(await openSource(new GeoJsonSource('rtree-large', geojsonPath, 'utf8', 64)))
+    const layer = new Layer('rtree-large', { source: source.id, crs: 'EPSG:4326' })
+
+    await new Indexer(layer).build()
+    const rtree = layer.indexes.get(IndexRtree.NAME) as IndexRtree
+    const ranges = rtree.ranges([1050, -1, 1050, 1])
+    const allRanges = rtree.ranges([-1, -1, 2000, 1])
+    const expectedRanges = Array.from(
+      { length: 20 },
+      (_value, index) => [index * 100, index * 100 + 99]
+    ).flat()
+
+    expect(rtree.entry.recordCount).toBeGreaterThan(20)
+    expect(sortRanges(allRanges)).toEqual(expectedRanges)
+    expect(ranges).toEqual([1000, 1099])
+    expect((await collect(rtree.stream([1050, -1, 1050, 1]))).map((feature) => feature.id)).toEqual(['p1050'])
   })
 })
 
@@ -100,4 +132,13 @@ async function collect<T>(stream: ReadableStream<T>): Promise<T[]> {
 function materializeBbox(features: Feature[]): Feature[] {
   for (const feature of features) void feature.bbox
   return features
+}
+
+function sortRanges(ranges: number[]): number[] {
+  const pairs: Array<[number, number]> = []
+  for (let index = 0; index < ranges.length; index += 2) {
+    pairs.push([ranges[index], ranges[index + 1]])
+  }
+
+  return pairs.sort((a, b) => a[0] - b[0]).flat()
 }

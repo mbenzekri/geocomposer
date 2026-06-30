@@ -105,29 +105,61 @@ export class IndexRtree extends Index<BBox> {
       throw new Error('IndexRtree.stream requires a bbox')
     }
 
-    const records = this.records(bbox)
-    let position = 0
+    const ranges = this.ranges(bbox)
+    let rangeIndex = 0
+    let reader: ReadableStreamDefaultReader<Feature> | null = null
 
     return new ReadableStream({
       pull: async (controller) => {
-        while (position < records.length) {
-          const feature = await this.record.get(records[position])
-          position += 1
+        for (;;) {
+          if (!reader) {
+            const recordStart = ranges[rangeIndex]
+            const recordEnd = ranges[rangeIndex + 1]
+            rangeIndex += 2
+            if (recordStart === undefined || recordEnd === undefined) {
+              controller.close()
+              return
+            }
+
+            reader = this.layer.source.bulk(recordStart, recordEnd, { layer: this.layer }).getReader()
+          }
+
+          const result = await reader.read()
+          if (result.done) {
+            reader.releaseLock()
+            reader = null
+            continue
+          }
+
+          const feature = result.value
           if (feature?.bbox && Gt.intersects(feature.bbox, bbox)) {
             controller.enqueue(feature)
             return
           }
         }
-
-        controller.close()
+      },
+      cancel: async () => {
+        await reader?.cancel()
       }
     })
   }
 
   records(bbox: BBox): number[] {
+    const records: number[] = []
+    const ranges = this.ranges(bbox)
+    for (let index = 0; index < ranges.length; index += 2) {
+      for (let record = ranges[index]; record <= ranges[index + 1]; record += 1) {
+        records.push(record)
+      }
+    }
+
+    return records
+  }
+
+  ranges(bbox: BBox): number[] {
     if (this.entry.byteLength === 0) return []
 
-    const records: number[] = []
+    const ranges: number[] = []
     const stack = [0]
 
     while (stack.length > 0) {
@@ -135,9 +167,7 @@ export class IndexRtree extends Index<BBox> {
       if (!entry.intersects(bbox)) continue
 
       if (entry.isLeaf) {
-        for (let record = entry.recordStart; record <= entry.recordEnd; record += 1) {
-          records.push(record)
-        }
+        ranges.push(entry.recordStart, entry.recordEnd)
         continue
       }
 
@@ -146,7 +176,7 @@ export class IndexRtree extends Index<BBox> {
       }
     }
 
-    return records
+    return ranges
   }
 
   private readEntry(position: number): RtreeEntry {

@@ -1,9 +1,9 @@
-import { constants, createReadStream, type PathLike } from 'node:fs'
-import { access, open, readFile, type FileHandle } from 'node:fs/promises'
+import type { PathLike } from 'node:fs'
+import { readFile, type FileHandle } from 'node:fs/promises'
 import type { DescInfo, Feature, ByteRange, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
-import { FileSource, hasSourceConfigType, type FeatureTransform } from './source.js'
+import { FileSource, hasSourceConfigType, toStream, type FeatureTransform } from './source.js'
 import type { StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 import { Props } from '../core/tools.js'
@@ -78,27 +78,55 @@ export class ShpSource extends FileSource {
   }
 
   async open(): Promise<void> {
-    await this.reader.open()
+    await super.open()
+    try {
+      await this.reader.open(this.fileHandle('geometry'), this.fileHandle('attributes'))
+    } catch (error) {
+      await super.close()
+      throw error
+    }
   }
 
   async close(): Promise<void> {
-    await this.reader.close()
+    try {
+      await this.reader.close()
+    } finally {
+      await super.close()
+    }
   }
 
   protected override streamFeatures(options: StreamOptions): AsyncIterable<Feature> {
-    return this.reader.stream(options)
+    return this.reader.stream(options, this.fileStream('geometry', {
+      start: 100,
+      highWaterMark: this.reader.highWaterMark,
+      signal: options.signal
+    }))
   }
 
   protected override readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     return this.reader.read(sourceRef, options)
   }
 
+  override bulk(minRecord: number, maxRecord: number, options: StreamOptions): ReadableStream<Feature> {
+    return toStream(
+      this.bulkFeatures(minRecord, maxRecord, options),
+      options,
+      (signal) => this.abortReason(signal)
+    )
+  }
+
   protected override abortReason(signal: AbortSignal): unknown {
     return AbortSignalGuard.reason(signal, 'Shapefile stream aborted')
+  }
+
+  private async *bulkFeatures(minRecord: number, maxRecord: number, options: StreamOptions): AsyncGenerator<Feature> {
+    await this.open()
+    yield* this.mapFeatures(this.reader.bulk(minRecord, maxRecord, options), options)
   }
 }
 
 class ShpReader {
+  private shpHandle: FileHandle | null = null
   private dbfReader: DbfReader | null = null
 
   constructor(
@@ -111,93 +139,131 @@ class ShpReader {
     }
   ) {}
 
-  async open(): Promise<void> {
-    await access(this.shpPath, constants.R_OK)
-    await access(this.dbfPath, constants.R_OK)
-    this.dbfReader ??= await this.openDbfReader()
+  get highWaterMark(): number | undefined {
+    return this.options.highWaterMark
+  }
+
+  async open(shpHandle: FileHandle, dbfHandle: FileHandle): Promise<void> {
+    this.shpHandle = shpHandle
+    this.dbfReader = await this.openDbfReader(dbfHandle)
   }
 
   async close(): Promise<void> {
-    await this.dbfReader?.close()
+    this.shpHandle = null
     this.dbfReader = null
   }
 
-  async *stream(options: StreamOptions): AsyncGenerator<Feature> {
+  async *stream(options: StreamOptions, file: AsyncIterable<Buffer | string>): AsyncGenerator<Feature> {
     const { layer, signal } = options
-    const dbf = this.dbfReader ?? await this.openDbfReader()
-    const closeDbf = dbf !== this.dbfReader
+    const dbf = this.requiredDbfReader()
     const parser = new ShpRecordParser()
-    const file = createReadStream(this.shpPath, {
-      start: 100,
-      highWaterMark: this.options.highWaterMark,
-      signal
-    })
 
-    try {
-      for await (const chunk of file) {
+    for await (const chunk of file) {
+      AbortSignalGuard.throwIfAborted(signal, 'Shapefile stream aborted')
+      parser.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
+
+      for (;;) {
+        const record = parser.read()
+        if (!record) break
+
+        yield this.toFeature(record, await dbf.readRecord(record.recordNumber - 1), layer)
         AbortSignalGuard.throwIfAborted(signal, 'Shapefile stream aborted')
-        parser.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
-
-        for (;;) {
-          const record = parser.read()
-          if (!record) break
-
-          yield this.toFeature(record, await dbf.readRecord(record.recordNumber - 1), layer)
-          AbortSignalGuard.throwIfAborted(signal, 'Shapefile stream aborted')
-        }
       }
+    }
 
-      if (!parser.empty) {
-        throw new Error('Invalid shapefile: unfinished record at end of file')
-      }
-    } finally {
-      file.destroy()
-      if (closeDbf) {
-        await dbf.close()
-      }
+    if (!parser.empty) {
+      throw new Error('Invalid shapefile: unfinished record at end of file')
     }
   }
 
   async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
     const ref = this.toShpRef(sourceRef)
-    const handle = await open(this.shpPath, 'r')
-    const dbf = this.dbfReader ?? await this.openDbfReader()
-    const closeDbf = dbf !== this.dbfReader
+    const handle = this.requiredShpHandle()
+    const dbf = this.requiredDbfReader()
 
-    try {
-      const buffer = Buffer.alloc(ref.byteLength)
-      const bytesRead = await FileByteReader.readFully(handle, buffer, ref.offset)
-      if (bytesRead < ref.byteLength) {
-        throw new Error('Invalid shapefile sourceRef: byte range exceeds file length')
+    const buffer = Buffer.alloc(ref.byteLength)
+    const bytesRead = await FileByteReader.readFully(handle, buffer, ref.offset)
+    if (bytesRead < ref.byteLength) {
+      throw new Error('Invalid shapefile sourceRef: byte range exceeds file length')
+    }
+
+    if (buffer.length < 8) {
+      throw new Error('Invalid shapefile sourceRef: record is shorter than the SHP header')
+    }
+
+    const record: ShpRecord = {
+      recordNumber: buffer.readInt32BE(0),
+      offset: ref.offset,
+      byteLength: ref.byteLength,
+      content: buffer.subarray(8)
+    }
+    const recordIndex = ref.recordIndex ?? record.recordNumber - 1
+
+    return this.toFeature(record, await dbf.readRecord(recordIndex), options.layer, recordIndex)
+  }
+
+  async *bulk(minRecord: number, maxRecord: number, options: StreamOptions): AsyncGenerator<Feature> {
+    if (!Number.isSafeInteger(minRecord) || !Number.isSafeInteger(maxRecord) || minRecord < 0 || maxRecord < minRecord) {
+      throw new Error(`Invalid shapefile bulk range ${minRecord}-${maxRecord}`)
+    }
+
+    const recordIndex = this.recordIndex(options.layer)
+    const firstRef = this.toShpRef(recordIndex.sourceRef(minRecord))
+    const lastRef = this.toShpRef(recordIndex.sourceRef(maxRecord))
+    const blockOffset = firstRef.offset
+    const blockByteLength = lastRef.offset + lastRef.byteLength - blockOffset
+    const handle = this.requiredShpHandle()
+    const dbf = this.requiredDbfReader()
+
+    const buffer = Buffer.alloc(blockByteLength)
+    const bytesRead = await FileByteReader.readFully(handle, buffer, blockOffset)
+    if (bytesRead < blockByteLength) {
+      throw new Error('Invalid shapefile sourceRef: bulk byte range exceeds file length')
+    }
+
+    for (let recordIndexValue = minRecord; recordIndexValue <= maxRecord; recordIndexValue += 1) {
+      AbortSignalGuard.throwIfAborted(options.signal, 'Shapefile bulk stream aborted')
+      const ref = this.toShpRef(recordIndex.sourceRef(recordIndexValue))
+      const localOffset = ref.offset - blockOffset
+
+      if (localOffset < 0 || localOffset + ref.byteLength > buffer.length) {
+        throw new Error('Invalid shapefile sourceRef: bulk record is outside loaded byte range')
       }
 
-      if (buffer.length < 8) {
+      if (ref.byteLength < 8) {
         throw new Error('Invalid shapefile sourceRef: record is shorter than the SHP header')
       }
 
       const record: ShpRecord = {
-        recordNumber: buffer.readInt32BE(0),
+        recordNumber: buffer.readInt32BE(localOffset),
         offset: ref.offset,
         byteLength: ref.byteLength,
-        content: buffer.subarray(8)
+        content: buffer.subarray(localOffset + 8, localOffset + ref.byteLength)
       }
-      const recordIndex = ref.recordIndex ?? record.recordNumber - 1
 
-      return this.toFeature(record, await dbf.readRecord(recordIndex), options.layer, recordIndex)
-    } finally {
-      try {
-        await handle.close()
-      } finally {
-        if (closeDbf) {
-          await dbf.close()
-        }
-      }
+      yield this.toFeature(record, await dbf.readRecord(recordIndexValue), options.layer, recordIndexValue)
     }
   }
 
-  private async openDbfReader(): Promise<DbfReader> {
+  private async openDbfReader(handle: FileHandle): Promise<DbfReader> {
     const encoding = this.options.dbfEncoding ?? await DbfEncodingResolver.read(this.dbfPath)
-    return DbfReader.open(this.sourceId, this.dbfPath, encoding)
+    return DbfReader.open(this.sourceId, handle, encoding)
+  }
+
+  private requiredShpHandle(): FileHandle {
+    if (!this.shpHandle) {
+      throw new Error(`Shapefile source "${this.sourceId}" is not open`)
+    }
+
+    return this.shpHandle
+  }
+
+  private requiredDbfReader(): DbfReader {
+    if (!this.dbfReader) {
+      throw new Error(`Shapefile source "${this.sourceId}" is not open`)
+    }
+
+    return this.dbfReader
   }
 
   private toFeature(
@@ -237,6 +303,14 @@ class ShpReader {
     }
 
     return sourceRef as FileRef & Pick<SourceRef, 'recordIndex' | 'related'>
+  }
+
+  private recordIndex(layer: Layer): { sourceRef(record: number): SourceRef } {
+    if (!layer.indexes.has('record')) {
+      throw new Error(`Layer "${layer.id}" has no record index for shapefile bulk read`)
+    }
+
+    return layer.indexes.get('record') as unknown as { sourceRef(record: number): SourceRef }
   }
 }
 
@@ -284,60 +358,49 @@ class DbfReader {
     private readonly fields: DbfField[]
   ) {}
 
-  static async open(sourceId: string, path: PathLike, encoding: BufferEncoding): Promise<DbfReader> {
-    const handle = await open(path, 'r')
-
-    try {
-      const header = Buffer.alloc(32)
-      const bytesRead = await FileByteReader.readFully(handle, header, 0)
-      if (bytesRead < header.length) {
-        throw new Error('Invalid DBF: header is too short')
-      }
-
-      const recordCount = header.readUInt32LE(4)
-      const headerLength = header.readUInt16LE(8)
-      const recordLength = header.readUInt16LE(10)
-      const descriptors = Buffer.alloc(headerLength - 32)
-      const descriptorBytesRead = await FileByteReader.readFully(handle, descriptors, 32)
-      if (descriptorBytesRead < descriptors.length) {
-        throw new Error('Invalid DBF: field descriptors are incomplete')
-      }
-
-      const fields: DbfField[] = []
-      let recordOffset = 1
-
-      for (let offset = 0; offset + 32 <= descriptors.length; offset += 32) {
-        if (descriptors[offset] === 0x0d) break
-
-        const descriptor = descriptors.subarray(offset, offset + 32)
-        const nameEnd = descriptor.indexOf(0)
-        const name = descriptor
-          .subarray(0, nameEnd === -1 ? 11 : nameEnd)
-          .toString('ascii')
-          .trim()
-        const length = descriptor[16]
-
-        if (!name || length === 0) continue
-
-        fields.push({
-          name,
-          type: String.fromCharCode(descriptor[11]),
-          length,
-          decimalCount: descriptor[17],
-          offset: recordOffset
-        })
-        recordOffset += length
-      }
-
-      return new DbfReader(sourceId, handle, encoding, recordCount, headerLength, recordLength, fields)
-    } catch (error) {
-      await handle.close()
-      throw error
+  static async open(sourceId: string, handle: FileHandle, encoding: BufferEncoding): Promise<DbfReader> {
+    const header = Buffer.alloc(32)
+    const bytesRead = await FileByteReader.readFully(handle, header, 0)
+    if (bytesRead < header.length) {
+      throw new Error('Invalid DBF: header is too short')
     }
-  }
 
-  async close(): Promise<void> {
-    await this.handle.close()
+    const recordCount = header.readUInt32LE(4)
+    const headerLength = header.readUInt16LE(8)
+    const recordLength = header.readUInt16LE(10)
+    const descriptors = Buffer.alloc(headerLength - 32)
+    const descriptorBytesRead = await FileByteReader.readFully(handle, descriptors, 32)
+    if (descriptorBytesRead < descriptors.length) {
+      throw new Error('Invalid DBF: field descriptors are incomplete')
+    }
+
+    const fields: DbfField[] = []
+    let recordOffset = 1
+
+    for (let offset = 0; offset + 32 <= descriptors.length; offset += 32) {
+      if (descriptors[offset] === 0x0d) break
+
+      const descriptor = descriptors.subarray(offset, offset + 32)
+      const nameEnd = descriptor.indexOf(0)
+      const name = descriptor
+        .subarray(0, nameEnd === -1 ? 11 : nameEnd)
+        .toString('ascii')
+        .trim()
+      const length = descriptor[16]
+
+      if (!name || length === 0) continue
+
+      fields.push({
+        name,
+        type: String.fromCharCode(descriptor[11]),
+        length,
+        decimalCount: descriptor[17],
+        offset: recordOffset
+      })
+      recordOffset += length
+    }
+
+    return new DbfReader(sourceId, handle, encoding, recordCount, headerLength, recordLength, fields)
   }
 
   async readRecord(index: number): Promise<DbfRecord> {

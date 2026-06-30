@@ -19,12 +19,15 @@ type ShapefileFixture = {
 }
 
 let tmpDirs: string[] = []
+let openedSources: ShpSource[] = []
 
 beforeEach(() => {
     tmpDirs = []
+    openedSources = []
 })
 
 afterEach(async () => {
+    await Promise.allSettled(openedSources.reverse().map((source) => source.close()))
     await Promise.all(
         tmpDirs.map((dir) =>
             fs.rm(dir, {
@@ -34,6 +37,12 @@ afterEach(async () => {
         )
     )
 })
+
+async function openSource(source: ShpSource): Promise<ShpSource> {
+    await source.open()
+    openedSources.push(source)
+    return source
+}
 
 async function createShapefileFixture(
     name: string,
@@ -210,7 +219,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
         const features = await readAll(source.stream({ layer }))
 
         expect(features).toHaveLength(2)
@@ -267,7 +276,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
         const [streamed] = await readAll(source.stream({ layer }))
         const read = await source.read(streamed.sourceRef!, { layer })
 
@@ -304,7 +313,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
 
         await expect(source.readById('2', { layer })).resolves.toMatchObject({
             id: 2,
@@ -332,7 +341,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
 
         await expect(source.readById('999', { layer })).resolves.toBeNull()
     })
@@ -351,7 +360,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource(
+        const source = await openSource(new ShpSource(
             'cities',
             fixture.shpPath,
             fixture.dbfPath,
@@ -361,7 +370,7 @@ describe('ShpSource', () => {
                 ...feature,
                 id: `generated-${index}`
             })
-        )
+        ))
 
         const [streamed] = await readAll(source.stream({ layer }))
         const read = await source.read(streamed.sourceRef!, { layer })
@@ -390,7 +399,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('roads', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('roads', fixture.shpPath, fixture.dbfPath))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -430,7 +439,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('roads', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('roads', fixture.shpPath, fixture.dbfPath))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -470,7 +479,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('areas', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('areas', fixture.shpPath, fixture.dbfPath))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry?.type).toBe('Polygon')
@@ -508,7 +517,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('areas', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('areas', fixture.shpPath, fixture.dbfPath))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry?.type).toBe('Polygon')
@@ -536,7 +545,7 @@ describe('ShpSource', () => {
             [4, 45]
         ]))
 
-        const source = new ShpSource('multipoints', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('multipoints', fixture.shpPath, fixture.dbfPath))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -563,7 +572,7 @@ describe('ShpSource', () => {
         )
         await fs.writeFile(path.join(fixture.dir, 'encoded.cpg'), 'latin1')
 
-        const source = new ShpSource('encoded', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('encoded', fixture.shpPath, fixture.dbfPath))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.properties).toMatchObject({
@@ -586,7 +595,7 @@ describe('ShpSource', () => {
         )
         await fs.writeFile(path.join(fixture.dir, 'ascii.cpg'), 'us-ascii')
 
-        const source = new ShpSource('ascii', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('ascii', fixture.shpPath, fixture.dbfPath))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.properties).toMatchObject({
@@ -607,7 +616,7 @@ describe('ShpSource', () => {
                 }
             ]
         )
-        const source = new ShpSource('null-shape', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('null-shape', fixture.shpPath, fixture.dbfPath))
 
         await replaceFirstShpRecord(fixture.shpPath, shpRecord(Buffer.alloc(0)))
         await expect(readAll(source.stream({ layer }))).resolves.toMatchObject([{ geometry: null }])
@@ -629,7 +638,7 @@ describe('ShpSource', () => {
                 }
             ]
         )
-        const source = new ShpSource('bad-shape', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('bad-shape', fixture.shpPath, fixture.dbfPath))
 
         await replaceFirstShpRecord(fixture.shpPath, shapeTypeRecord(31))
         await expect(readAll(source.stream({ layer }))).rejects.toThrow('Unsupported shapefile shape type: 31')
@@ -652,7 +661,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
 
         await expect(source.open()).resolves.toBeUndefined()
         await expect(source.close()).resolves.toBeUndefined()
@@ -673,7 +682,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
 
         await expect(source.read({
             storage: 'file',
@@ -699,7 +708,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
 
         await expect(source.read({
             storage: 'file',
@@ -724,7 +733,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
 
         await expect(source.read({
             storage: 'file',
@@ -749,7 +758,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
 
         await expect(source.read({
             storage: 'file',
@@ -775,7 +784,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
 
         await expect(source.read({
             storage: 'file',
@@ -801,7 +810,7 @@ describe('ShpSource', () => {
             ]
         )
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
         const [feature] = await readAll(source.stream({ layer }))
 
         await expect(source.read({
@@ -827,7 +836,7 @@ describe('ShpSource', () => {
         )
 
         await fs.writeFile(fixture.dbfPath, Buffer.alloc(8))
-        await expect(readAll(new ShpSource('bad-dbf', fixture.shpPath, fixture.dbfPath).stream({ layer })))
+        await expect(openSource(new ShpSource('bad-dbf', fixture.shpPath, fixture.dbfPath)))
             .rejects.toThrow('Invalid DBF: header is too short')
 
         const header = Buffer.alloc(32)
@@ -835,7 +844,7 @@ describe('ShpSource', () => {
         header.writeUInt16LE(64, 8)
         header.writeUInt16LE(1, 10)
         await fs.writeFile(fixture.dbfPath, header)
-        await expect(readAll(new ShpSource('bad-dbf', fixture.shpPath, fixture.dbfPath).stream({ layer })))
+        await expect(openSource(new ShpSource('bad-dbf', fixture.shpPath, fixture.dbfPath)))
             .rejects.toThrow('Invalid DBF: field descriptors are incomplete')
     })
 
@@ -856,7 +865,7 @@ describe('ShpSource', () => {
         const controller = new AbortController()
         controller.abort('Shapefile stream aborted')
 
-        const source = new ShpSource('cities', fixture.shpPath, fixture.dbfPath)
+        const source = await openSource(new ShpSource('cities', fixture.shpPath, fixture.dbfPath))
         const reader = source.stream({
             layer,
             signal: controller.signal

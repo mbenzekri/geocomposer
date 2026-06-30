@@ -27,15 +27,19 @@ const FILE_INDEX_VERSION = 1
 
 let tmpDir: string
 let createdIndexPaths: string[] = []
+let openedSources: FileSource[] = []
 
 beforeEach(() => {
   init()
   setupRegistries()
   createdIndexPaths = []
+  openedSources = []
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'file-index-'))
 })
 
-afterEach(() => {
+afterEach(async () => {
+  await Promise.allSettled(openedSources.reverse().map((source) => source.close()))
+
   for (const indexPath of createdIndexPaths) {
     fs.rmSync(indexPath, { force: true })
   }
@@ -45,6 +49,12 @@ afterEach(() => {
     force: true
   })
 })
+
+async function openSource<T extends FileSource>(source: T): Promise<T> {
+  await source.open()
+  openedSources.push(source)
+  return source
+}
 
 describe('Indexer', () => {
   it('derives an .idx path from the primary source file while preserving the extension', () => {
@@ -87,7 +97,7 @@ describe('Indexer', () => {
       featureJson('b', [3, 4]),
       featureJson('c', [5, 6])
     ])
-    const source = registerSource(new GeoJsonSource('cities', geojsonPath, 'utf8', 16))
+    const source = registerSource(await openSource(new GeoJsonSource('cities', geojsonPath, 'utf8', 16)))
     const layer = new Layer('cities', { source: source.id, crs: 'EPSG:4326' })
     const streamed = await collect(layer.stream())
 
@@ -141,7 +151,7 @@ describe('Indexer', () => {
       featureJson('a', [1, 2]),
       featureJson('b', [10, 11])
     ])
-    const source = registerSource(new GeoJsonSource('indexed', geojsonPath, 'utf8', 16))
+    const source = registerSource(await openSource(new GeoJsonSource('indexed', geojsonPath, 'utf8', 16)))
     const layer = new Layer('indexed', { source: source.id, crs: 'EPSG:4326' })
 
     await new Indexer(layer).build()
@@ -197,6 +207,12 @@ describe('Indexer', () => {
   })
 
   it('rejects streamed features without a valid file sourceRef', async () => {
+    await fs.promises.writeFile(path.join(tmpDir, 'missing.geojson'), '')
+    await fs.promises.writeFile(path.join(tmpDir, 'mem.geojson'), '')
+    await fs.promises.writeFile(path.join(tmpDir, 'offset.geojson'), '')
+    await fs.promises.writeFile(path.join(tmpDir, 'length.geojson'), '')
+    await fs.promises.writeFile(path.join(tmpDir, 'multiple.geojson'), '')
+
     const noRef = registerSource(new TestFileSource('missing-ref', [
       { role: 'data', path: path.join(tmpDir, 'missing.geojson') }
     ], [feature('a')]))
@@ -255,6 +271,7 @@ describe('Indexer', () => {
       fs.rmSync(indexPath, { force: true })
 
       try {
+        await layer.source.open()
         const streamed = await collect(layer.stream())
         const index = await new Indexer(layer).build()
 
@@ -277,6 +294,7 @@ describe('Indexer', () => {
           expect(read).toEqual(streamed[record])
         }
       } finally {
+        await layer.source.close()
         if (existingIndex) fs.writeFileSync(indexPath, existingIndex)
         else fs.rmSync(indexPath, { force: true })
       }
@@ -361,14 +379,14 @@ class TestFileSource extends FileSource {
 
   constructor(
     id: string,
-    private readonly files: readonly SourceFile[],
+    private readonly sourceFiles: readonly SourceFile[],
     private readonly features: Feature[] = []
   ) {
     super(id)
   }
 
   getFiles(): readonly SourceFile[] {
-    return this.files
+    return this.sourceFiles
   }
 
   async getExtent(_layer: Layer): Promise<BBox | null> {

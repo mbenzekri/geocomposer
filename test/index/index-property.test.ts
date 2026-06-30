@@ -13,19 +13,28 @@ import type { StyleFn } from '../../src/style/style-fn.js'
 import { init } from '../test-tools.js'
 
 let tmpDir: string
+let openedSources: GeoJsonSource[] = []
 
 beforeEach(() => {
   init()
   setupRegistries()
+  openedSources = []
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'index-property-'))
 })
 
-afterEach(() => {
+afterEach(async () => {
+  await Promise.allSettled(openedSources.reverse().map((source) => source.close()))
   fs.rmSync(tmpDir, {
     recursive: true,
     force: true
   })
 })
+
+async function openSource(source: GeoJsonSource): Promise<GeoJsonSource> {
+  await source.open()
+  openedSources.push(source)
+  return source
+}
 
 describe('IndexProperty', () => {
   it('builds a uint32 record-order index and streams matching records by binary-search criteria', async () => {
@@ -36,9 +45,9 @@ describe('IndexProperty', () => {
       featureJson('missing', [3, 3], { name: 'D' }),
       featureJson('mid-b', [4, 4], { rank: 5, name: 'E' })
     ])
-    const source = registerSource(new GeoJsonSource('property-indexed', geojsonPath, 'utf8', 16, undefined, {
+    const source = registerSource(await openSource(new GeoJsonSource('property-indexed', geojsonPath, 'utf8', 16, undefined, {
       indexes: { properties: ['rank'] }
-    }))
+    })))
     const layer = new Layer('property-indexed', { source: source.id, crs: 'EPSG:4326' })
 
     const record = await new Indexer(layer).build()
@@ -85,9 +94,9 @@ describe('IndexProperty', () => {
       featureJson('mid-a', [2, 2], { rank: 5 }),
       featureJson('mid-b', [4, 4], { rank: 5 })
     ])
-    const source = registerSource(new GeoJsonSource('property-query', geojsonPath, 'utf8', 16, undefined, {
+    const source = registerSource(await openSource(new GeoJsonSource('property-query', geojsonPath, 'utf8', 16, undefined, {
       indexes: { properties: ['rank'] }
-    }))
+    })))
     const layer = new Layer('property-query', { source: source.id, crs: 'EPSG:4326' })
 
     await new Indexer(layer).build()
@@ -111,7 +120,7 @@ describe('IndexProperty', () => {
       featureJson('mid', [1, 1], { rank: 5 }),
       featureJson('high', [2, 2], { rank: 9 })
     ])
-    const source = registerSource(new GeoJsonSource('property-scan', geojsonPath, 'utf8', 16))
+    const source = registerSource(await openSource(new GeoJsonSource('property-scan', geojsonPath, 'utf8', 16)))
     const layer = new Layer('property-scan', { source: source.id, crs: 'EPSG:4326' })
 
     await expect(collect(layer.query({
@@ -125,9 +134,9 @@ describe('IndexProperty', () => {
       featureJson('number', [0, 0], { rank: 1 }),
       featureJson('string', [1, 1], { rank: '2' })
     ])
-    const source = registerSource(new GeoJsonSource('property-mixed', geojsonPath, 'utf8', 16, undefined, {
+    const source = registerSource(await openSource(new GeoJsonSource('property-mixed', geojsonPath, 'utf8', 16, undefined, {
       indexes: { properties: ['rank'] }
-    }))
+    })))
     const layer = new Layer('property-mixed', { source: source.id, crs: 'EPSG:4326' })
 
     await expect(new Indexer(layer).build())
@@ -138,9 +147,9 @@ describe('IndexProperty', () => {
     const geojsonPath = writeGeoJson('property-corrupt.geojson', [
       featureJson('one', [0, 0], { rank: 1 })
     ])
-    const source = registerSource(new GeoJsonSource('property-corrupt', geojsonPath, 'utf8', 16, undefined, {
+    const source = registerSource(await openSource(new GeoJsonSource('property-corrupt', geojsonPath, 'utf8', 16, undefined, {
       indexes: { properties: ['rank'] }
-    }))
+    })))
     const layer = new Layer('property-corrupt', { source: source.id, crs: 'EPSG:4326' })
     const record = await new Indexer(layer).build()
 

@@ -11,17 +11,26 @@ const layer = {
 } as Layer
 
 let tmpDir: string
+let openedSources: GmlSource[] = []
 
 beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gml-source-'))
+    openedSources = []
 })
 
-afterEach(() => {
+afterEach(async () => {
+    await Promise.allSettled(openedSources.reverse().map((source) => source.close()))
     fs.rmSync(tmpDir, {
         recursive: true,
         force: true
     })
 })
+
+async function openSource(source: GmlSource): Promise<GmlSource> {
+    await source.open()
+    openedSources.push(source)
+    return source
+}
 
 function writeFile(name: string, content: string): string {
     const file = path.join(tmpDir, name)
@@ -101,10 +110,10 @@ describe('GmlSource', () => {
             </gml:FeatureCollection>
         `)
 
-        const source = new GmlSource('cities', file, {
+        const source = await openSource(new GmlSource('cities', file, {
             axisOrder: 'xy',
             highWaterMark: 16
-        })
+        }))
 
         const result = await readAll(source.stream({ layer }))
 
@@ -149,7 +158,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('places', file)
+        const source = await openSource(new GmlSource('places', file))
         const result = await readAll(source.stream({ layer }))
 
         expect(result).toHaveLength(1)
@@ -181,7 +190,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
         const [streamed] = await readAll(source.stream({ layer }))
         const read = await source.read(streamed.sourceRef!, { layer })
 
@@ -212,12 +221,12 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file, {
+        const source = await openSource(new GmlSource('cities', file, {
             transformFeature: (feature, index) => ({
                 ...feature,
                 id: `generated-${index}`
             })
-        })
+        }))
 
         const [streamed] = await readAll(source.stream({ layer }))
         const read = await source.read(streamed.sourceRef!, { layer })
@@ -241,7 +250,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('roads', file)
+        const source = await openSource(new GmlSource('roads', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -270,7 +279,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('roads', file)
+        const source = await openSource(new GmlSource('roads', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -304,7 +313,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('roads', file)
+        const source = await openSource(new GmlSource('roads', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -333,7 +342,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('roads', file)
+        const source = await openSource(new GmlSource('roads', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -369,7 +378,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('areas', file)
+        const source = await openSource(new GmlSource('areas', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -405,7 +414,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('areas', file)
+        const source = await openSource(new GmlSource('areas', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -434,7 +443,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('areas', file)
+        const source = await openSource(new GmlSource('areas', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -461,7 +470,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('places', file)
+        const source = await openSource(new GmlSource('places', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -492,7 +501,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('roads', file)
+        const source = await openSource(new GmlSource('roads', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -528,7 +537,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('roads', file)
+        const source = await openSource(new GmlSource('roads', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -563,7 +572,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('areas', file)
+        const source = await openSource(new GmlSource('areas', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -598,7 +607,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('areas', file)
+        const source = await openSource(new GmlSource('areas', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -625,9 +634,9 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file, {
+        const source = await openSource(new GmlSource('cities', file, {
             axisOrder: 'yx'
-        })
+        }))
 
         const [feature] = await readAll(source.stream({ layer }))
 
@@ -652,7 +661,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -676,7 +685,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toEqual({
@@ -701,7 +710,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.properties).toEqual({
@@ -731,9 +740,9 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file, {
+        const source = await openSource(new GmlSource('cities', file, {
             geometryPropertyNames: ['geom']
-        })
+        }))
 
         const [feature] = await readAll(source.stream({ layer }))
 
@@ -753,7 +762,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
         const [feature] = await readAll(source.stream({ layer }))
 
         expect(feature.geometry).toBeNull()
@@ -761,7 +770,7 @@ describe('GmlSource', () => {
 
     it('throws when sourceRef belongs to another source', async () => {
         const file = writeFile('features.gml', '<root/>')
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
 
         await expect(source.read({
             storage: 'file',
@@ -775,7 +784,7 @@ describe('GmlSource', () => {
 
     it('throws when sourceRef has no offset', async () => {
         const file = writeFile('features.gml', '<root/>')
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
 
         await expect(source.read({
             storage: 'file',
@@ -788,7 +797,7 @@ describe('GmlSource', () => {
 
     it('throws when sourceRef has no byteLength', async () => {
         const file = writeFile('features.gml', '<root/>')
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
 
         await expect(source.read({
             storage: 'file',
@@ -801,7 +810,7 @@ describe('GmlSource', () => {
 
     it('throws when sourceRef byte range exceeds file length', async () => {
         const file = writeFile('features.gml', '<root/>')
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
 
         await expect(source.read({
             storage: 'file',
@@ -815,7 +824,7 @@ describe('GmlSource', () => {
 
     it('throws when read sourceRef points to invalid XML', async () => {
         const file = writeFile('invalid.gml', 'not xml')
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
 
         await expect(source.read({
             storage: 'file',
@@ -835,7 +844,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
 
         await expect(readAll(source.stream({ layer }))).rejects.toThrow(
             'Invalid GML: unfinished feature element'
@@ -847,7 +856,7 @@ describe('GmlSource', () => {
         const controller = new AbortController()
         controller.abort('GML stream aborted')
 
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
         const reader = source.stream({
             layer,
             signal: controller.signal
@@ -871,7 +880,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
         const result = await readAll(source.stream({ layer }))
 
         expect(result).toHaveLength(1)
@@ -891,9 +900,9 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file, {
+        const source = await openSource(new GmlSource('cities', file, {
             highWaterMark: 1
-        })
+        }))
 
         const result = await readAll(source.stream({ layer }))
 
@@ -913,7 +922,7 @@ describe('GmlSource', () => {
             </root>
         `)
 
-        const source = new GmlSource('cities', file)
+        const source = await openSource(new GmlSource('cities', file))
         const result = await readAll(source.stream({ layer }))
 
         expect(result).toHaveLength(1)

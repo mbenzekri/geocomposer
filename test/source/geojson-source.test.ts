@@ -11,17 +11,26 @@ const layer = {
 } as Layer
 
 let tmpDir: string
+let openedSources: GeoJsonSource[] = []
 
 beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'geojson-source-'))
+    openedSources = []
 })
 
-afterEach(() => {
+afterEach(async () => {
+    await Promise.allSettled(openedSources.reverse().map((source) => source.close()))
     fs.rmSync(tmpDir, {
         recursive: true,
         force: true
     })
 })
+
+async function openSource(source: GeoJsonSource): Promise<GeoJsonSource> {
+    await source.open()
+    openedSources.push(source)
+    return source
+}
 
 function writeFile(name: string, content: string): string {
     const file = path.join(tmpDir, name)
@@ -104,7 +113,7 @@ describe('GeoJsonSource', () => {
             ]
         }))
 
-        const source = new GeoJsonSource('cities', file, 'utf8', 8)
+        const source = await openSource(new GeoJsonSource('cities', file, 'utf8', 8))
         const result = await readAll(source.stream({ layer }))
 
         expect(result).toHaveLength(2)
@@ -163,7 +172,7 @@ describe('GeoJsonSource', () => {
             ]
         }))
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
         const [streamed] = await readAll(source.stream({ layer }))
 
         const read = await source.read(streamed.sourceRef!, { layer })
@@ -193,7 +202,7 @@ describe('GeoJsonSource', () => {
             ]
         }))
 
-        const source = new GeoJsonSource(
+        const source = await openSource(new GeoJsonSource(
             'cities',
             file,
             'utf8',
@@ -202,7 +211,7 @@ describe('GeoJsonSource', () => {
                 ...feature,
                 id: `generated-${index}`
             })
-        )
+        ))
 
         const [streamed] = await readAll(source.stream({ layer }))
         const read = await source.read(streamed.sourceRef!, { layer })
@@ -224,7 +233,7 @@ describe('GeoJsonSource', () => {
             ]
         }))
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(source.readById('target', { layer })).resolves.toMatchObject({
             id: 'target'
@@ -237,7 +246,7 @@ describe('GeoJsonSource', () => {
             features: []
         }))
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(source.readById('missing', { layer })).resolves.toBeNull()
     })
@@ -248,7 +257,7 @@ describe('GeoJsonSource', () => {
             features: []
         }))
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(source.read({
             storage: 'file',
@@ -262,7 +271,7 @@ describe('GeoJsonSource', () => {
 
     it('throws when sourceRef has no offset', async () => {
         const file = writeFile('features.geojson', '{}')
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(source.read({
             storage: 'file',
@@ -275,7 +284,7 @@ describe('GeoJsonSource', () => {
 
     it('throws when sourceRef has no byteLength', async () => {
         const file = writeFile('features.geojson', '{}')
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(source.read({
             storage: 'file',
@@ -288,7 +297,7 @@ describe('GeoJsonSource', () => {
 
     it('throws when sourceRef byte range exceeds file length', async () => {
         const file = writeFile('features.geojson', '{}')
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(source.read({
             storage: 'file',
@@ -305,7 +314,7 @@ describe('GeoJsonSource', () => {
             type: 'FeatureCollection'
         }))
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(readAll(source.stream({ layer }))).rejects.toThrow(
             'Invalid GeoJSON: expected a top-level FeatureCollection.features array'
@@ -318,7 +327,7 @@ describe('GeoJsonSource', () => {
             features: {}
         }))
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(readAll(source.stream({ layer }))).rejects.toThrow(
             'Invalid GeoJSON: FeatureCollection.features must be an array'
@@ -331,7 +340,7 @@ describe('GeoJsonSource', () => {
             features: [1]
         }))
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(readAll(source.stream({ layer }))).rejects.toThrow(
             'Invalid GeoJSON: FeatureCollection.features must contain Feature objects'
@@ -349,7 +358,7 @@ describe('GeoJsonSource', () => {
             ]
         }))
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(readAll(source.stream({ layer }))).rejects.toThrow(
             'Invalid GeoJSON: expected a Feature object'
@@ -362,7 +371,7 @@ describe('GeoJsonSource', () => {
             '{"type":"FeatureCollection","features":[{"type":"Feature"}'
         )
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(readAll(source.stream({ layer }))).rejects.toThrow(
             'Invalid GeoJSON: unfinished FeatureCollection.features array'
@@ -375,7 +384,7 @@ describe('GeoJsonSource', () => {
             coordinates: [1, 2]
         }))
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
 
         await expect(source.read({
             storage: 'file',
@@ -396,7 +405,7 @@ describe('GeoJsonSource', () => {
         const controller = new AbortController()
         controller.abort('GeoJSON stream aborted')
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
         const reader = source.stream({
             layer,
             signal: controller.signal
@@ -411,7 +420,7 @@ describe('GeoJsonSource', () => {
             '{"type":"FeatureCollection","ignored\\"key":1,"features":[{"type":"Feature","properties":{"name":"A"},"geometry":null}]}'
         )
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
         const result = await readAll(source.stream({ layer }))
 
         expect(result).toHaveLength(1)
@@ -437,7 +446,7 @@ describe('GeoJsonSource', () => {
             ]
         }))
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
         const result = await readAll(source.stream({ layer }))
 
         expect(result).toHaveLength(1)
@@ -462,7 +471,7 @@ describe('GeoJsonSource', () => {
             }`
         )
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
         const result = await readAll(source.stream({ layer }))
 
         expect(result.map((feature) => feature.id)).toEqual(['a', 'b'])
@@ -479,7 +488,7 @@ describe('GeoJsonSource', () => {
             ]
         }))
 
-        const source = new GeoJsonSource('cities', file, 'utf8', 1)
+        const source = await openSource(new GeoJsonSource('cities', file, 'utf8', 1))
         const result = await readAll(source.stream({ layer }))
 
         expect(result).toHaveLength(1)
@@ -501,7 +510,7 @@ describe('GeoJsonSource', () => {
             ]
         }))
 
-        const source = new GeoJsonSource('cities', file, 'utf8', 2)
+        const source = await openSource(new GeoJsonSource('cities', file, 'utf8', 2))
         const result = await readAll(source.stream({ layer }))
 
         expect(result).toHaveLength(1)
@@ -522,7 +531,7 @@ describe('GeoJsonSource', () => {
             ]
         }))
 
-        const source = new GeoJsonSource('cities', file)
+        const source = await openSource(new GeoJsonSource('cities', file))
         const result = await readAll(source.stream({ layer }))
 
         expect(result).toHaveLength(1)

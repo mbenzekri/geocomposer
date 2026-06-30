@@ -1,5 +1,5 @@
-import { createReadStream, type PathLike } from 'node:fs'
-import { open } from 'node:fs/promises'
+import type { PathLike } from 'node:fs'
+import type { FileHandle } from 'node:fs/promises'
 import type { DescInfo, Feature, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position } from '../core/geometry.js'
 import type { Layer } from '../layer/layer.js'
@@ -106,7 +106,7 @@ export class GmlSource extends FileSource {
   ) {
     super(id, options, options.transformFeature)
 
-    this.reader = new GmlReader(this.id, this.filePath, {
+    this.reader = new GmlReader(this.id, {
       encoding: options.encoding ?? 'utf8',
       highWaterMark: options.highWaterMark,
       featureElementNames: options.featureElementNames ?? DEFAULT_FEATURE_ELEMENT_NAMES,
@@ -120,11 +120,14 @@ export class GmlSource extends FileSource {
   }
 
   protected override streamFeatures(options: StreamOptions): AsyncIterable<Feature> {
-    return this.reader.stream(options)
+    return this.reader.stream(options, this.fileStream('data', {
+      highWaterMark: this.reader.highWaterMark,
+      signal: options.signal
+    }))
   }
 
   protected override readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
-    return this.reader.read(sourceRef, options)
+    return this.reader.read(sourceRef, options, this.fileHandle('data'))
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
@@ -135,7 +138,6 @@ export class GmlSource extends FileSource {
 class GmlReader {
   constructor(
     private readonly sourceId: string,
-    private readonly filePath: PathLike,
     private readonly options: {
       encoding: BufferEncoding
       highWaterMark?: number
@@ -145,14 +147,14 @@ class GmlReader {
     }
   ) {}
 
-  async *stream(options: StreamOptions): AsyncGenerator<Feature> {
+  get highWaterMark(): number | undefined {
+    return this.options.highWaterMark
+  }
+
+  async *stream(options: StreamOptions, file: AsyncIterable<Buffer | string>): AsyncGenerator<Feature> {
     const { layer, signal } = options
     let index = 0
     const parser = new GmlFeatureStreamParser(this.options.featureElementNames, this.options.encoding)
-    const file = createReadStream(this.filePath, {
-      highWaterMark: this.options.highWaterMark,
-      signal
-    })
 
     try {
       for await (const chunk of file) {
@@ -185,38 +187,33 @@ class GmlReader {
 
       parser.finish()
     } finally {
-      file.destroy()
+      ;(file as { destroy?: () => void }).destroy?.()
     }
   }
 
-  async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+  async read(sourceRef: SourceRef, options: StreamOptions, handle: FileHandle): Promise<Feature | null> {
     const ref = this.toFileRef(sourceRef)
-    const handle = await open(this.filePath, 'r')
 
-    try {
-      const buffer = Buffer.alloc(ref.byteLength)
-      const bytesRead = await FileByteReader.readFully(handle, buffer, ref.offset)
-      if (bytesRead < ref.byteLength) {
-        throw new Error('Invalid GML sourceRef: byte range exceeds file length')
-      }
-
-      return this.withSourceRef(
-        parseGmlFeature(buffer.toString(this.options.encoding), {
-          axisOrder: this.options.axisOrder,
-          geometryPropertyNames: this.options.geometryPropertyNames
-        }, options.layer),
-        {
-          storage: 'file',
-          sourceId: this.sourceId,
-          offset: ref.offset,
-          byteLength: ref.byteLength,
-          recordIndex: ref.recordIndex
-        },
-        options.layer
-      )
-    } finally {
-      await handle.close()
+    const buffer = Buffer.alloc(ref.byteLength)
+    const bytesRead = await FileByteReader.readFully(handle, buffer, ref.offset)
+    if (bytesRead < ref.byteLength) {
+      throw new Error('Invalid GML sourceRef: byte range exceeds file length')
     }
+
+    return this.withSourceRef(
+      parseGmlFeature(buffer.toString(this.options.encoding), {
+        axisOrder: this.options.axisOrder,
+        geometryPropertyNames: this.options.geometryPropertyNames
+      }, options.layer),
+      {
+        storage: 'file',
+        sourceId: this.sourceId,
+        offset: ref.offset,
+        byteLength: ref.byteLength,
+        recordIndex: ref.recordIndex
+      },
+      options.layer
+    )
   }
 
   private withSourceRef(feature: Feature, sourceRef: SourceRef, layer: Layer): Feature {

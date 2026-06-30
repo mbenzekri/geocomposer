@@ -1,4 +1,5 @@
 import type { PathLike } from 'node:fs'
+import { open as openFile, type FileHandle } from 'node:fs/promises'
 import type { BBox } from '../core/geometry.js'
 import type { DescInfo, Feature, SourceRef } from '../core/feature.js'
 import { IdFromFeature } from '../core/feature.js'
@@ -66,6 +67,22 @@ export abstract class Source extends RegistryEntry {
 
   abstract stream(options: StreamOptions): ReadableStream<Feature>
   abstract read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null>
+
+  bulk(minRecord: number, maxRecord: number, options: StreamOptions): ReadableStream<Feature> {
+    if (options.layer.indexes.has('record')) {
+      const recordIndex = options.layer.indexes.get('record') as unknown as {
+        streamRange(minRecord: number, maxRecord: number): ReadableStream<Feature>
+      }
+
+      return recordIndex.streamRange(minRecord, maxRecord)
+    }
+
+    return this.query({
+      ...options,
+      offset: minRecord,
+      limit: maxRecord - minRecord + 1
+    })
+  }
 
   async readById(featureId: string, options: StreamOptions): Promise<Feature | null> {
     const reader = this.stream(options).getReader()
@@ -169,12 +186,74 @@ export abstract class FeatureSource extends Source {
 
 export abstract class FileSource extends FeatureSource {
   readonly storage = 'file' as const
+  readonly handles = new Map<string, FileHandle>()
 
   protected constructor(id: string, info: DescInfo = {}, transformFeature?: FeatureTransform) {
     super(id, info, transformFeature)
   }
 
+  override async open(): Promise<void> {
+    if (this.handles.size > 0) return
+
+    const opened: FileHandle[] = []
+    try {
+      for (const file of this.files) {
+        const handle = await openFile(file.path, 'r')
+        opened.push(handle)
+        this.handles.set(file.role, handle)
+      }
+    } catch (error) {
+      await Promise.allSettled(opened.map((handle) => handle.close()))
+      this.handles.clear()
+      throw error
+    }
+  }
+
+  override async close(): Promise<void> {
+    const handles = [...this.handles.values()]
+    this.handles.clear()
+    await Promise.all(handles.map((handle) => handle.close()))
+  }
+
   abstract getFiles(): readonly SourceFile[]
+
+  get files(): readonly SourceFile[] {
+    return this.getFiles()
+  }
+
+  protected fileHandle(role: SourceFileRole | string = 'data'): FileHandle {
+    const handle = this.handles.get(role)
+    if (!handle) {
+      throw new Error(`FileSource "${this.id}" file role "${role}" is not open`)
+    }
+
+    return handle
+  }
+
+  protected fileStream(role: SourceFileRole | string = 'data', options: {
+    start?: number
+    highWaterMark?: number
+    signal?: AbortSignal
+  } = {}): AsyncIterable<Buffer> {
+    const handle = this.fileHandle(role)
+    const highWaterMark = options.highWaterMark ?? 64 * 1024
+    let position = options.start ?? 0
+
+    return {
+      async *[Symbol.asyncIterator]() {
+        for (;;) {
+          if (options.signal?.aborted) throw options.signal.reason
+
+          const buffer = Buffer.allocUnsafe(highWaterMark)
+          const { bytesRead } = await handle.read(buffer, 0, buffer.length, position)
+          if (bytesRead === 0) return
+
+          position += bytesRead
+          yield buffer.subarray(0, bytesRead)
+        }
+      }
+    }
+  }
 }
 
 export abstract class DbSource extends FeatureSource {

@@ -61,6 +61,25 @@ export class IndexRecord extends Index<number | readonly number[]> {
     })
   }
 
+  streamRange(minRecord: number, maxRecord: number): ReadableStream<Feature> {
+    let record = minRecord
+
+    return new ReadableStream({
+      pull: async (controller) => {
+        while (record <= maxRecord) {
+          const feature = await this.layer.source.read(this.sourceRef(record), { layer: this.layer })
+          record += 1
+          if (feature) {
+            controller.enqueue(feature)
+            return
+          }
+        }
+
+        controller.close()
+      }
+    })
+  }
+
   sourceRef(record: number): SourceRef {
     if (!Number.isSafeInteger(record) || record < 0 || record >= this.recordCount) {
       throw new Error(`Record index ${record} is out of bounds`)
@@ -87,7 +106,6 @@ export class IndexRecord extends Index<number | readonly number[]> {
 
     return typeof criteria === 'number' ? [criteria] : [...criteria]
   }
-
 }
 
 export class IndexRecordBuilder {

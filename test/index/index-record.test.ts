@@ -131,14 +131,14 @@ class TestFileSource extends FileSource {
 
   constructor(
     id: string,
-    private readonly files: readonly SourceFile[],
+    private readonly sourceFiles: readonly SourceFile[],
     private readonly features: Feature[] = []
   ) {
     super(id)
   }
 
   getFiles(): readonly SourceFile[] {
-    return this.files
+    return this.sourceFiles
   }
 
   async getExtent(_layer: Layer): Promise<BBox | null> {

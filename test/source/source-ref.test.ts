@@ -23,40 +23,50 @@ describe('file sourceRef contracts', () => {
   test('GeoJSON sourceRef byte range is a parseable feature and read() roundtrips it', async () => {
     const filePath = resolve(rootDir, 'data/world.geojson')
     const source = new GeoJsonSource('world-geojson', filePath, undefined, 97)
-    const feature = await readFirst(source.stream({ layer }))
-    const sourceRef = assertFileRef(feature, 'world-geojson')
-    const slice = await readSlice(filePath, sourceRef)
+    await source.open()
+    try {
+      const feature = await readFirst(source.stream({ layer }))
+      const sourceRef = assertFileRef(feature, 'world-geojson')
+      const slice = await readSlice(filePath, sourceRef)
 
-    expect(slice.toString('utf8', 0, 1)).toBe('{')
-    expect(slice.toString('utf8', slice.length - 1)).toBe('}')
+      expect(slice.toString('utf8', 0, 1)).toBe('{')
+      expect(slice.toString('utf8', slice.length - 1)).toBe('}')
 
-    const parsed = JSON.parse(slice.toString('utf8')) as { type?: unknown }
-    expect(parsed.type).toBe('Feature')
+      const parsed = JSON.parse(slice.toString('utf8')) as { type?: unknown }
+      expect(parsed.type).toBe('Feature')
 
-    const reread = await source.read(sourceRef, { layer })
-    expect(reread).not.toBeNull()
-    expect(reread?.properties).toEqual(feature.properties)
-    expect(reread?.geometry).toEqual(feature.geometry)
-    assertSameFileRef(reread?.sourceRef, sourceRef)
+      const reread = await source.read(sourceRef, { layer })
+      expect(reread).not.toBeNull()
+      expect(reread?.properties).toEqual(feature.properties)
+      expect(reread?.geometry).toEqual(feature.geometry)
+      assertSameFileRef(reread?.sourceRef, sourceRef)
+    } finally {
+      await source.close()
+    }
   })
 
   test('GML sourceRef byte range is a complete feature element and read() roundtrips it', async () => {
     const filePath = resolve(rootDir, 'data/world.gml')
     const source = new GmlSource('world-gml', filePath, { highWaterMark: 257 })
-    const feature = await readFirst(source.stream({ layer }))
-    const sourceRef = assertFileRef(feature, 'world-gml')
-    const slice = await readSlice(filePath, sourceRef)
-    const text = slice.toString('utf8')
+    await source.open()
+    try {
+      const feature = await readFirst(source.stream({ layer }))
+      const sourceRef = assertFileRef(feature, 'world-gml')
+      const slice = await readSlice(filePath, sourceRef)
+      const text = slice.toString('utf8')
 
-    expect(text.startsWith('<ogr:featureMember>')).toBe(true)
-    expect(text.endsWith('</ogr:featureMember>')).toBe(true)
-    expect(feature.id).toBe('world.0')
+      expect(text.startsWith('<ogr:featureMember>')).toBe(true)
+      expect(text.endsWith('</ogr:featureMember>')).toBe(true)
+      expect(feature.id).toBe('world.0')
 
-    const reread = await source.read(sourceRef, { layer })
-    expect(reread).not.toBeNull()
-    expect(reread?.properties).toEqual(feature.properties)
-    expect(reread?.geometry).toEqual(feature.geometry)
-    assertSameFileRef(reread?.sourceRef, sourceRef)
+      const reread = await source.read(sourceRef, { layer })
+      expect(reread).not.toBeNull()
+      expect(reread?.properties).toEqual(feature.properties)
+      expect(reread?.geometry).toEqual(feature.geometry)
+      assertSameFileRef(reread?.sourceRef, sourceRef)
+    } finally {
+      await source.close()
+    }
   })
 
   test('Shapefile sourceRef covers the full SHP record and related DBF record', async () => {

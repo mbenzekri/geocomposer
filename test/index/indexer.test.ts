@@ -14,19 +14,28 @@ import type { StyleFn } from '../../src/style/style-fn.js'
 import { init } from '../test-tools.js'
 
 let tmpDir: string
+let openedSources: GeoJsonSource[] = []
 
 beforeEach(() => {
   init()
   setupRegistries()
+  openedSources = []
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'indexer-'))
 })
 
-afterEach(() => {
+afterEach(async () => {
+  await Promise.allSettled(openedSources.reverse().map((source) => source.close()))
   fs.rmSync(tmpDir, {
     recursive: true,
     force: true
   })
 })
+
+async function openSource(source: GeoJsonSource): Promise<GeoJsonSource> {
+  await source.open()
+  openedSources.push(source)
+  return source
+}
 
 describe('Indexer', () => {
   it('builds and loads record and rtree indexes for a file source', async () => {
@@ -34,7 +43,7 @@ describe('Indexer', () => {
       featureJson('a', [1, 2]),
       featureJson('b', [3, 4])
     ])
-    const source = registerSource(new GeoJsonSource('cities', geojsonPath, 'utf8', 16))
+    const source = registerSource(await openSource(new GeoJsonSource('cities', geojsonPath, 'utf8', 16)))
     const layer = new Layer('cities', { source: source.id, crs: 'EPSG:4326' })
 
     expect(Indexer.resolveIndexPath(layer)).toBe(`${geojsonPath}.idx`)

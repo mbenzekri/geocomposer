@@ -1,5 +1,5 @@
-import { createReadStream, type PathLike } from 'node:fs'
-import { open } from 'node:fs/promises'
+import type { PathLike } from 'node:fs'
+import type { FileHandle } from 'node:fs/promises'
 import * as wkx from 'wkx'
 import type { DescInfo, Feature, FileRef, SourceRef } from '../core/feature.js'
 import type { Geometry, Position } from '../core/geometry.js'
@@ -70,7 +70,7 @@ export class CsvSource extends FileSource {
   ) {
     super(id, options, options.transformFeature)
 
-    this.reader = new CsvReader(this.id, this.filePath, {
+    this.reader = new CsvReader(this.id, {
       encoding: options.encoding ?? 'utf8',
       highWaterMark: options.highWaterMark,
       delimiter: normalizeDelimiter(options.delimiter),
@@ -84,11 +84,22 @@ export class CsvSource extends FileSource {
   }
 
   protected override streamFeatures(options: StreamOptions): AsyncIterable<Feature> {
-    return this.reader.stream(options)
+    return this.reader.stream(options, this.fileStream('data', {
+      highWaterMark: this.reader.highWaterMark,
+      signal: options.signal
+    }))
   }
 
   protected override readFeature(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
-    return this.reader.read(sourceRef, options)
+    return this.reader.read(
+      sourceRef,
+      options,
+      this.fileHandle('data'),
+      this.fileStream('data', {
+        highWaterMark: this.reader.highWaterMark,
+        signal: options.signal
+      })
+    )
   }
 
   protected override abortReason(signal: AbortSignal): unknown {
@@ -99,7 +110,6 @@ export class CsvSource extends FileSource {
 class CsvReader {
   constructor(
     private readonly sourceId: string,
-    private readonly filePath: PathLike,
     private readonly options: {
       encoding: BufferEncoding
       highWaterMark?: number
@@ -109,8 +119,12 @@ class CsvReader {
     }
   ) {}
 
-  async *stream(options: StreamOptions): AsyncGenerator<Feature> {
-    const records = this.records(options.signal)
+  get highWaterMark(): number | undefined {
+    return this.options.highWaterMark
+  }
+
+  async *stream(options: StreamOptions, file: AsyncIterable<Buffer | string>): AsyncGenerator<Feature> {
+    const records = this.records(options.signal, file)
     const headerRecord = await records.next()
     if (headerRecord.done) return
 
@@ -125,31 +139,31 @@ class CsvReader {
     }
   }
 
-  async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+  async read(
+    sourceRef: SourceRef,
+    options: StreamOptions,
+    handle: FileHandle,
+    file: AsyncIterable<Buffer | string>
+  ): Promise<Feature | null> {
     const ref = this.toFileRef(sourceRef)
-    const header = await this.readHeader(options.signal)
-    const handle = await open(this.filePath, 'r')
+    const header = await this.readHeader(options.signal, file)
 
-    try {
-      const buffer = Buffer.alloc(ref.byteLength)
-      const bytesRead = await FileByteReader.readFully(handle, buffer, ref.offset)
-      if (bytesRead < ref.byteLength) {
-        throw new Error('Invalid CSV sourceRef: byte range exceeds file length')
-      }
-
-      const record: CsvRecord = {
-        fields: parseCsvRecord(buffer.toString(this.options.encoding), this.options.delimiter),
-        offset: ref.offset,
-        byteLength: ref.byteLength
-      }
-      return this.feature(record, header, options.layer, sourceRef.recordIndex ?? 0)
-    } finally {
-      await handle.close()
+    const buffer = Buffer.alloc(ref.byteLength)
+    const bytesRead = await FileByteReader.readFully(handle, buffer, ref.offset)
+    if (bytesRead < ref.byteLength) {
+      throw new Error('Invalid CSV sourceRef: byte range exceeds file length')
     }
+
+    const record: CsvRecord = {
+      fields: parseCsvRecord(buffer.toString(this.options.encoding), this.options.delimiter),
+      offset: ref.offset,
+      byteLength: ref.byteLength
+    }
+    return this.feature(record, header, options.layer, sourceRef.recordIndex ?? 0)
   }
 
-  private async readHeader(signal: AbortSignal | undefined): Promise<string[]> {
-    const records = this.records(signal)
+  private async readHeader(signal: AbortSignal | undefined, file: AsyncIterable<Buffer | string>): Promise<string[]> {
+    const records = this.records(signal, file)
     const header = await records.next()
     if (header.done) throw new Error(`CSV source "${this.sourceId}" is empty`)
     await records.return?.(undefined)
@@ -201,11 +215,7 @@ class CsvReader {
     return row
   }
 
-  private async *records(signal: AbortSignal | undefined): AsyncGenerator<CsvRecord> {
-    const file = createReadStream(this.filePath, {
-      highWaterMark: this.options.highWaterMark,
-      signal
-    })
+  private async *records(signal: AbortSignal | undefined, file: AsyncIterable<Buffer | string>): AsyncGenerator<CsvRecord> {
     const parser = new CsvRecordParser(this.options.encoding, this.options.delimiter)
 
     try {
@@ -223,7 +233,7 @@ class CsvReader {
       const lastRecord = parser.finish()
       if (lastRecord) yield lastRecord
     } finally {
-      file.destroy()
+      ;(file as { destroy?: () => void }).destroy?.()
     }
   }
 
