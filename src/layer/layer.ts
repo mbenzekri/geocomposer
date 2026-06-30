@@ -247,7 +247,7 @@ export class Layer extends RegistryEntry {
             layer: this
         })
 
-        const reprojected = input.pipeThrough(new Reproject(this.crs, crs))
+        const reprojected = input.pipeThrough(new Reproject(this.crs, crs, options.timings))
         let output = options.bbox
             ? reprojected.pipeThrough(new BboxFilter(options.bbox))
             : reprojected

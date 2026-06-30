@@ -33,7 +33,9 @@ export type SourceIndexConfig = true | {
 
 export type RequestTimings = {
   accessMs: number
+  reprojectionMs: number
   renderingMs: number
+  encodingMs: number
   readFeatures: number
   renderedFeatures: number
 }
