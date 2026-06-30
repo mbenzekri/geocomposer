@@ -1,4 +1,5 @@
 import proj4 from 'proj4'
+import type { Converter } from 'proj4'
 import { get as getProjection } from 'ol/proj.js'
 import type { BBox, CrsCode, Geometry, HitContext, Position } from './geometry.js'
 import { Feature } from './feature.js'
@@ -6,6 +7,129 @@ import { Feature } from './feature.js'
 type ProjectionDomain = {
     extent: BBox
     wrapsX: boolean
+}
+
+export class CoordinateTransformer {
+    private readonly converter: Converter
+    private readonly constrainX: boolean
+    private readonly constrainY: boolean
+    private readonly targetDomain: BBox | null
+
+    constructor(
+        private readonly sourceCrs: string,
+        private readonly targetCrs: string,
+        sourceDomain: ProjectionDomain | null,
+        targetDomain: BBox | null
+    ) {
+        try {
+            this.converter = proj4(sourceCrs, targetCrs)
+        } catch (error) {
+            throw new Error(`Unable to transform coordinates from ${sourceCrs} to ${targetCrs}: ${String(error)}`)
+        }
+
+        this.targetDomain = sourceDomain && targetDomain ? targetDomain : null
+        this.constrainX = false
+        this.constrainY = false
+
+        if (sourceDomain && targetDomain) {
+            const sourceWidth = sourceDomain.extent[2] - sourceDomain.extent[0]
+            const sourceHeight = sourceDomain.extent[3] - sourceDomain.extent[1]
+            const targetWidth = targetDomain[2] - targetDomain[0]
+            const targetHeight = targetDomain[3] - targetDomain[1]
+            this.constrainX = targetWidth < sourceWidth
+            this.constrainY = targetHeight < sourceHeight
+        }
+    }
+
+    transformPosition(position: Position): Position {
+        const [fromX, fromY] = this.constrainPosition(position)
+        const projected = this.transformRaw([fromX, fromY])
+
+        return position.length > 2 ? [projected[0], projected[1], ...position.slice(2)] : projected
+    }
+
+    transformGeometry(geometry: Geometry): Geometry {
+        switch (geometry.type) {
+            case 'Point':
+                return {
+                    type: 'Point',
+                    coordinates: this.transformPosition(geometry.coordinates)
+                }
+
+            case 'LineString':
+                return {
+                    type: 'LineString',
+                    coordinates: geometry.coordinates.map((position) => this.transformPosition(position))
+                }
+
+            case 'Polygon':
+                return {
+                    type: 'Polygon',
+                    coordinates: geometry.coordinates.map((ring) =>
+                        ring.map((position) => this.transformPosition(position))
+                    )
+                }
+
+            case 'MultiPoint':
+                return {
+                    type: 'MultiPoint',
+                    coordinates: geometry.coordinates.map((position) => this.transformPosition(position))
+                }
+
+            case 'MultiLineString':
+                return {
+                    type: 'MultiLineString',
+                    coordinates: geometry.coordinates.map((line) =>
+                        line.map((position) => this.transformPosition(position))
+                    )
+                }
+
+            case 'MultiPolygon':
+                return {
+                    type: 'MultiPolygon',
+                    coordinates: geometry.coordinates.map((polygon) =>
+                        polygon.map((ring) =>
+                            ring.map((position) => this.transformPosition(position))
+                        )
+                    )
+                }
+        }
+    }
+
+    transformLabelPosition(
+        properties: Feature['properties'],
+        label_x: string,
+        label_y: string
+    ): Feature['properties'] {
+        if (!properties) return properties
+
+        const x_src = Number(properties[label_x])
+        const y_src = Number(properties[label_y])
+        if (!Number.isFinite(x_src) || !Number.isFinite(y_src)) return properties
+
+        const [x, y] = this.transformPosition([x_src, y_src])
+        const projected = { ...properties }
+        projected[label_x] = x
+        projected[label_y] = y
+        return projected
+    }
+
+    private constrainPosition(position: Position): [number, number] {
+        if (!this.targetDomain) return [position[0], position[1]]
+
+        return [
+            this.constrainX ? Gt.clamp(position[0], this.targetDomain[0], this.targetDomain[2]) : position[0],
+            this.constrainY ? Gt.clamp(position[1], this.targetDomain[1], this.targetDomain[3]) : position[1]
+        ]
+    }
+
+    private transformRaw(position: [number, number]): [number, number] {
+        try {
+            return this.converter.forward(position) as [number, number]
+        } catch (error) {
+            throw new Error(`Unable to transform coordinates from ${this.sourceCrs} to ${this.targetCrs}: ${String(error)}`)
+        }
+    }
 }
 
 export abstract class Gt {
@@ -221,62 +345,20 @@ export abstract class Gt {
     }
 
     static transformGeometry(geometry: Geometry, sourceCrs: string, targetCrs: string): Geometry {
-        switch (geometry.type) {
-            case 'Point':
-                return {
-                    type: 'Point',
-                    coordinates: Gt.transformPosition(geometry.coordinates, sourceCrs, targetCrs)
-                }
-
-            case 'LineString':
-                return {
-                    type: 'LineString',
-                    coordinates: geometry.coordinates.map((position) =>
-                        Gt.transformPosition(position, sourceCrs, targetCrs)
-                    )
-                }
-
-            case 'Polygon':
-                return {
-                    type: 'Polygon',
-                    coordinates: geometry.coordinates.map((ring) =>
-                        ring.map((position) => Gt.transformPosition(position, sourceCrs, targetCrs))
-                    )
-                }
-
-            case 'MultiPoint':
-                return {
-                    type: 'MultiPoint',
-                    coordinates: geometry.coordinates.map((position) =>
-                        Gt.transformPosition(position, sourceCrs, targetCrs)
-                    )
-                }
-
-            case 'MultiLineString':
-                return {
-                    type: 'MultiLineString',
-                    coordinates: geometry.coordinates.map((line) =>
-                        line.map((position) => Gt.transformPosition(position, sourceCrs, targetCrs))
-                    )
-                }
-
-            case 'MultiPolygon':
-                return {
-                    type: 'MultiPolygon',
-                    coordinates: geometry.coordinates.map((polygon) =>
-                        polygon.map((ring) =>
-                            ring.map((position) => Gt.transformPosition(position, sourceCrs, targetCrs))
-                        )
-                    )
-                }
-        }
+        return Gt.createCoordinateTransformer(sourceCrs, targetCrs).transformGeometry(geometry)
     }
 
     static transformPosition(position: Position, sourceCrs: string, targetCrs: string): Position {
-        const [fromX, fromY] = Gt.constrainPositionToTargetDomain(position, sourceCrs, targetCrs)
-        const projected = Gt.transformPositionRaw([fromX, fromY], sourceCrs, targetCrs)
+        return Gt.createCoordinateTransformer(sourceCrs, targetCrs).transformPosition(position)
+    }
 
-        return position.length > 2 ? [projected[0], projected[1], ...position.slice(2)] : projected
+    static createCoordinateTransformer(sourceCrs: string, targetCrs: string): CoordinateTransformer {
+        return new CoordinateTransformer(
+            sourceCrs,
+            targetCrs,
+            Gt.projectionDomain(sourceCrs),
+            Gt.targetDomainInSourceCrs(sourceCrs, targetCrs)
+        )
     }
 
     private static transformBBoxRaw(bbox: BBox, sourceCrs: string, targetCrs: string): BBox {
@@ -402,17 +484,8 @@ export abstract class Gt {
         sourceCrs: string,
         targetCrs: string
     ): Feature['properties'] {
-        if (!properties) return properties
-
-        const x_src = Number(properties[label_x])
-        const y_src = Number(properties[label_y])
-        if (!Number.isFinite(x_src) || !Number.isFinite(y_src)) return properties
-
-        const [x, y] = Gt.transformPosition([x_src, y_src], sourceCrs, targetCrs)
-        const projected = { ...properties }
-        projected[label_x] = x
-        projected[label_y] = y
-        return projected
+        return Gt.createCoordinateTransformer(sourceCrs, targetCrs)
+            .transformLabelPosition(properties, label_x, label_y)
     }
 
     static parseBBox(value: string, crs: CrsCode, version: string): { bbox: BBox, order: 'xy' | 'yx' } {
