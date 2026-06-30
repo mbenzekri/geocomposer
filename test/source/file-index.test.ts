@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Feature, SourceRef } from '../../src/core/feature.js'
+import type { DescInfo, Feature, SourceRef } from '../../src/core/feature.js'
 import type { BBox } from '../../src/core/geometry.js'
 import { Crs } from '../../src/core/crs.js'
 import { Config } from '../../src/config/config.js'
@@ -13,6 +13,7 @@ import { Layer } from '../../src/layer/layer.js'
 import {
   FileSource,
   Source,
+  type SourceIndexConfig,
   type SourceFile,
   type StreamOptions
 } from '../../src/source/source.js'
@@ -175,6 +176,77 @@ describe('Indexer', () => {
       propertyFilter: { property: 'id', op: '==', value: 'b' }
     }))).resolves.toMatchObject([{ id: 'b' }])
     expect(source.stream).not.toHaveBeenCalled()
+  })
+
+  it('builds clustered GeoJSON rtree indexes from a mirror file', async () => {
+    const geojsonPath = writeGeoJson('clustered.geojson', [
+      featureJson('east', [100, 0]),
+      featureJson('west', [-100, 0]),
+      featureJson('center', [0, 0])
+    ])
+    const clusteredPath = `${geojsonPath}.clustered.geojson`
+    const source = registerSource(await openSource(new GeoJsonSource('clustered', geojsonPath, 'utf8', 16, undefined, {
+      indexes: {
+        rtree: {
+          chunkSize: 1,
+          clustered: true
+        }
+      }
+    })))
+    const layer = new Layer('clustered', { source: source.id, crs: 'EPSG:4326' })
+
+    const index = await new Indexer(layer).build()
+
+    expect(fs.existsSync(clusteredPath)).toBe(true)
+    expect(index.path).toBe(`${clusteredPath}.idx`)
+    expect(Indexer.resolveIndexPath(layer)).toBe(`${clusteredPath}.idx`)
+
+    const mirrored = JSON.parse(fs.readFileSync(clusteredPath, 'utf8')) as { features: Array<{ id: string }> }
+    expect(mirrored.features.map((feature) => feature.id).sort()).toEqual(['center', 'east', 'west'])
+
+    const reread = await collect(index.stream())
+    expect(reread.map((feature) => feature.id).sort()).toEqual(['center', 'east', 'west'])
+
+    for (const feature of reread) {
+      const sourceRef = assertFileRef(feature.sourceRef)
+      const slice = fs.readFileSync(clusteredPath).subarray(sourceRef.offset, sourceRef.offset + sourceRef.byteLength)
+      expect(JSON.parse(slice.toString('utf8')).id).toBe(feature.id)
+    }
+  })
+
+  it('uses the clustered GeoJSON mirror as the active file for every FileSource', async () => {
+    const originalPath = path.join(tmpDir, 'generic-source.dat')
+    fs.writeFileSync(originalPath, 'original')
+    const source = registerSource(new TestFileSource('generic-clustered', [
+      { role: 'data', path: originalPath }
+    ], [
+      pointFeature('east', [100, 0], { rank: 3 }),
+      pointFeature('west', [-100, 0], { rank: 1 }),
+      pointFeature('center', [0, 0], { rank: 2 })
+    ], {
+      rtree: {
+        chunkSize: 1,
+        clustered: true
+      },
+      properties: ['rank']
+    }))
+    const layer = new Layer('generic-clustered', { source: source.id, crs: 'EPSG:4326' })
+
+    const index = await new Indexer(layer).build()
+    const clusteredPath = `${originalPath}.clustered.geojson`
+
+    expect(index.path).toBe(`${clusteredPath}.idx`)
+    expect(source.files).toEqual([{ role: 'data', path: clusteredPath }])
+    expect(source.getFiles()).toEqual([{ role: 'data', path: originalPath }])
+
+    source.originalReadCount = 0
+    const streamed = await collect(layer.stream())
+    expect(streamed.map((feature) => feature.id).sort()).toEqual(['center', 'east', 'west'])
+    expect(source.originalReadCount).toBe(0)
+
+    const read = await index.get(0)
+    expect(read?.sourceRef?.sourceId).toBe(source.id)
+    expect(read?.geometry?.type).toBe('Point')
   })
 
   it('fails clearly when an expected index file is missing', async () => {
@@ -348,6 +420,19 @@ function feature(id: string, sourceRef?: SourceRef): Feature {
   }
 }
 
+function pointFeature(id: string, coordinates: [number, number], properties: Record<string, unknown>): Feature {
+  return {
+    type: 'Feature',
+    id,
+    properties,
+    geometry: {
+      type: 'Point',
+      coordinates
+    },
+    layer: undefined as unknown as Layer
+  }
+}
+
 function assertFileRef(sourceRef: SourceRef | undefined): SourceRef & { offset: number, byteLength: number } {
   if (!sourceRef || sourceRef.storage !== 'file') {
     throw new Error('Expected a file sourceRef')
@@ -391,13 +476,15 @@ function recordIndex(feature: Feature): number {
 
 class TestFileSource extends FileSource {
   readonly type = 'test-file'
+  originalReadCount = 0
 
   constructor(
     id: string,
     private readonly sourceFiles: readonly SourceFile[],
-    private readonly features: Feature[] = []
+    private readonly features: Feature[] = [],
+    indexes?: SourceIndexConfig
   ) {
-    super(id)
+    super(id, indexes ? { indexes } as DescInfo & { indexes: SourceIndexConfig } : undefined)
   }
 
   getFiles(): readonly SourceFile[] {
@@ -409,6 +496,7 @@ class TestFileSource extends FileSource {
   }
 
   protected async *streamFeatures(_options: StreamOptions): AsyncIterable<Feature> {
+    this.originalReadCount += 1
     yield* this.features
   }
 

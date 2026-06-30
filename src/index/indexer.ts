@@ -32,8 +32,9 @@ export class Indexer {
       throw new Error(`Layer "${layer.id}" source "${layer.source.id}" is not a FileSource`)
     }
 
+    await Indexer.prepareClusteredIndexSource(layer)
     const indexPath = Indexer.resolveIndexPath(layer)
-    const files = layer.source.getFiles()
+    const files = layer.source.files
     const indexStat = await stat(indexPath).catch((error: NodeJS.ErrnoException) => {
       if (error.code === 'ENOENT') return null
       throw error
@@ -54,7 +55,7 @@ export class Indexer {
       throw new Error(`Layer "${layer.id}" source "${layer.source.id}" is not a FileSource`)
     }
 
-    const sourceFile = Indexer.resolvePrimaryFile(layer.source.getFiles(), layer)
+    const sourceFile = Indexer.resolvePrimaryFile(layer.source.files, layer)
     return `${Indexer.pathToString(sourceFile.path)}.idx`
   }
 
@@ -63,6 +64,7 @@ export class Indexer {
       throw new Error(`Layer "${this.layer.id}" source "${this.layer.source.id}" is not a FileSource`)
     }
 
+    await Indexer.prepareClusteredIndexSource(this.layer)
     const outputPath = Indexer.resolveIndexPath(this.layer)
     const record = new IndexRecordBuilder(this.layer)
     const rtree = new IndexRtreeBuilder(this.rtreeChunkSize())
@@ -82,6 +84,7 @@ export class Indexer {
       throw new Error(`Layer "${this.layer.id}" source "${this.layer.source.id}" is not a FileSource`)
     }
 
+    await Indexer.prepareClusteredIndexSource(this.layer)
     const path = Indexer.resolveIndexPath(this.layer)
     let buffer: Buffer
     try {
@@ -211,11 +214,8 @@ export class Indexer {
     const indexes = this.layer.source.indexes
     if (!indexes || indexes === true) return DEFAULT_RTREE_CHUNK_SIZE
 
-    const rtree = indexes.rtree
+    const rtree = this.rtreeConfig()
     if (rtree === undefined || rtree === true) return DEFAULT_RTREE_CHUNK_SIZE
-    if (!rtree || typeof rtree !== 'object' || Array.isArray(rtree)) {
-      throw new Error(`Source "${this.layer.source.id}" rtree index configuration must be an object`)
-    }
 
     const chunkSize = rtree.chunkSize
     if (chunkSize === undefined) return DEFAULT_RTREE_CHUNK_SIZE
@@ -224,6 +224,50 @@ export class Indexer {
     }
 
     return chunkSize
+  }
+
+  private rtreeConfig(): true | { chunkSize?: number, clustered?: boolean } | undefined {
+    const indexes = this.layer.source.indexes
+    if (!indexes || indexes === true) return undefined
+
+    const rtree = indexes.rtree
+    if (rtree === undefined || rtree === true) return rtree
+    if (!rtree || typeof rtree !== 'object' || Array.isArray(rtree)) {
+      throw new Error(`Source "${this.layer.source.id}" rtree index configuration must be an object`)
+    }
+
+    const clustered = rtree.clustered
+    if (clustered !== undefined && typeof clustered !== 'boolean') {
+      throw new Error(`Source "${this.layer.source.id}" rtree clustered must be a boolean`)
+    }
+
+    return rtree
+  }
+
+  private static rtreeClustered(layer: Layer): boolean {
+    const indexes = layer.source.indexes
+    if (!indexes || indexes === true) return false
+
+    const rtree = indexes.rtree
+    if (rtree === undefined || rtree === true) return false
+    if (!rtree || typeof rtree !== 'object' || Array.isArray(rtree)) {
+      throw new Error(`Source "${layer.source.id}" rtree index configuration must be an object`)
+    }
+
+    const clustered = rtree.clustered
+    if (clustered !== undefined && typeof clustered !== 'boolean') {
+      throw new Error(`Source "${layer.source.id}" rtree clustered must be a boolean`)
+    }
+
+    return clustered === true
+  }
+
+  private static async prepareClusteredIndexSource(layer: Layer): Promise<void> {
+    if (!Indexer.rtreeClustered(layer)) return
+    if (!(layer.source instanceof FileSource)) {
+      throw new Error(`Layer "${layer.id}" source "${layer.source.id}" is not a FileSource`)
+    }
+    await layer.source.prepareClusteredIndexSource(layer)
   }
 }
 

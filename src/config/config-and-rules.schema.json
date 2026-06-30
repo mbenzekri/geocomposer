@@ -10782,6 +10782,23 @@
                                         }
                                       ],
                                       "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    "clustered": {
+                                      "anyOf": [
+                                        {
+                                          "type": "boolean",
+                                          "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                        }
+                                      ],
+                                      "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                     }
                                   }
                                 },
@@ -10812,6 +10829,23 @@
                                         }
                                       ],
                                       "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    "clustered": {
+                                      "anyOf": [
+                                        {
+                                          "type": "boolean",
+                                          "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                        }
+                                      ],
+                                      "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                     },
                                     "$ref": {
                                       "type": "string",
@@ -10924,6 +10958,23 @@
                                         }
                                       ],
                                       "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    "clustered": {
+                                      "anyOf": [
+                                        {
+                                          "type": "boolean",
+                                          "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                        }
+                                      ],
+                                      "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                     }
                                   }
                                 },
@@ -10954,6 +11005,23 @@
                                         }
                                       ],
                                       "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                    },
+                                    "clustered": {
+                                      "anyOf": [
+                                        {
+                                          "type": "boolean",
+                                          "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                                        }
+                                      ],
+                                      "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                     },
                                     "$ref": {
                                       "type": "string",

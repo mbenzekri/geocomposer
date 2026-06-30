@@ -11,6 +11,7 @@ import { PageFilter } from '../stream/page-filter.js'
 import { PropertyFilter, type PropertyFilterCriteria } from '../stream/property-filter.js'
 import type { Layer } from '../layer/layer.js'
 import { isPlainObject, Registry } from '../core/tools.js'
+import { ClusteredGeoJsonFile, clusteredGeoJsonPath } from './geojson-file.js'
 
 export type SourceStorage = 'mem' | 'file' | 'database'
 
@@ -24,6 +25,7 @@ export type SourceFile = {
 export type SourceIndexConfig = true | {
   rtree?: true | {
     chunkSize?: number
+    clustered?: boolean
   }
   properties?: string[]
   [key: string]: unknown
@@ -215,9 +217,31 @@ export abstract class FeatureSource extends Source {
 export abstract class FileSource extends FeatureSource {
   readonly storage = 'file' as const
   readonly handles = new Map<string, FileHandle>()
+  private clusteredFile: ClusteredGeoJsonFile | null = null
 
   protected constructor(id: string, info: DescInfo = {}, transformFeature?: FeatureTransform) {
     super(id, info, transformFeature)
+  }
+
+  override stream(options: StreamOptions): ReadableStream<Feature> {
+    if (!this.clusteredFile) return super.stream(options)
+
+    return toStream(
+      this.mapFeatures(this.clusteredFile.stream(options), options),
+      options,
+      (signal) => this.abortReason(signal)
+    )
+  }
+
+  override async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+    if (!this.clusteredFile) return super.read(sourceRef, options)
+
+    const startedAt = performance.now()
+    const feature = await this.clusteredFile.read(sourceRef, options)
+    if (options.timings) options.timings.accessMs += performance.now() - startedAt
+    if (!feature) return null
+    if (options.timings) options.timings.readFeatures += 1
+    return this.mapFeature(feature, sourceRef.recordIndex ?? 0, options.layer)
   }
 
   override async open(): Promise<void> {
@@ -246,7 +270,27 @@ export abstract class FileSource extends FeatureSource {
   abstract getFiles(): readonly SourceFile[]
 
   get files(): readonly SourceFile[] {
-    return this.getFiles()
+    return this.clusteredFile ? [this.clusteredFile.file] : this.getFiles()
+  }
+
+  async prepareClusteredIndexSource(layer: Layer): Promise<void> {
+    const originalFiles = this.getFiles()
+    const primaryFile = FileSource.resolvePrimaryFile(originalFiles, this.id)
+    const clusteredFile = new ClusteredGeoJsonFile(this.id, clusteredGeoJsonPath(primaryFile))
+    const wasOpen = this.handles.size > 0
+
+    if (wasOpen) await this.close()
+    this.clusteredFile = null
+
+    try {
+      await this.open()
+      await clusteredFile.prepare(layer, originalFiles, () => super.stream({ layer }))
+    } finally {
+      await this.close()
+    }
+
+    this.clusteredFile = clusteredFile
+    if (wasOpen) await this.open()
   }
 
   protected fileHandle(role: SourceFileRole | string = 'data'): FileHandle {
@@ -281,6 +325,18 @@ export abstract class FileSource extends FeatureSource {
         }
       }
     }
+  }
+
+  private static resolvePrimaryFile(files: readonly SourceFile[], sourceId: string): SourceFile {
+    const sourceFile = files.find((file) => file.role === 'data')
+      ?? files.find((file) => file.role === 'geometry')
+      ?? files[0]
+
+    if (!sourceFile) {
+      throw new Error(`FileSource "${sourceId}" has no source files`)
+    }
+
+    return sourceFile
   }
 }
 

@@ -669,6 +669,10 @@
                       "type": "integer",
                       "minimum": 1,
                       "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10."
+                    },
+                    "clustered": {
+                      "type": "boolean",
+                      "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file."
                     }
                   }
                 }
