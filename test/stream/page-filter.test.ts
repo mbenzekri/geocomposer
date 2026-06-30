@@ -50,6 +50,37 @@ describe('PageFilter', () => {
         })).resolves.toEqual([1, 2])
     })
 
+    it('cancels upstream when the limit is reached', async () => {
+        let produced = 0
+        let cancelled = false
+        const input = new ReadableStream<number>({
+            pull(controller) {
+                produced += 1
+                controller.enqueue(produced)
+                if (produced >= 100) controller.close()
+            },
+            cancel() {
+                cancelled = true
+            }
+        })
+
+        const reader = input
+            .pipeThrough(new PageFilter<number>({ limit: 2 }))
+            .getReader()
+        const result: number[] = []
+
+        for (;;) {
+            const item = await reader.read()
+            if (item.done) break
+            result.push(item.value)
+        }
+
+        expect(result).toEqual([1, 2])
+        await new Promise(resolve => setTimeout(resolve, 0))
+        expect(cancelled).toBe(true)
+        expect(produced).toBeLessThan(100)
+    })
+
     it('applies offset and limit together', async () => {
         await expect(applyPageFilter([1, 2, 3, 4, 5], {
             offset: 1,

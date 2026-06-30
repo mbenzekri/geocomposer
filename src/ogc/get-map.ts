@@ -37,7 +37,8 @@ export async function getMap(options: GetMapOptions): Promise<Buffer> {
 
         const features = layer.query({
             bbox: options.bbox,
-            crs: options.crs
+            crs: options.crs,
+            limit: layer.maxRenderFeatures
         }).pipeThrough(new TransformStream<Feature, Feature>({
             transform(feature, controller) {
                 featureCount += 1
@@ -47,7 +48,7 @@ export async function getMap(options: GetMapOptions): Promise<Buffer> {
 
         await features.pipeTo(new RenderWritable(renderer))
         await renderer.drawLayerText()
-        console.debug(`[GetMap] layer=${layer.id} source=${layer.source.id} layerCrs=${layer.crs} requestCrs=${options.crs} features=${featureCount}`)
+        console.debug(`[GetMap] layer=${layer.id} source=${layer.source.id} layerCrs=${layer.crs} requestCrs=${options.crs} features=${featureCount} maxRenderFeatures=${layer.maxRenderFeatures ?? 'none'}`)
     }
 
     await renderer.drawDeferredText('map')

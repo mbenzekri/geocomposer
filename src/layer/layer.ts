@@ -29,6 +29,7 @@ export type LayerJson = DescInfo & {
     crs?: string
     extent?: BBox
     style?: string
+    maxRenderFeatures?: number
     pointProperties?: PointProperties[]
 }
 
@@ -66,6 +67,7 @@ export class Layer extends RegistryEntry {
     readonly dataset?: string
     readonly crs: CrsCode
     readonly extent?: BBox
+    readonly maxRenderFeatures?: number
     readonly pointProperties: Array<PointProperties & { crs: CrsCode }>
     readonly indexes = new Registry<Index<any>>('INDEX')
     private readonly styleName: string
@@ -89,6 +91,7 @@ export class Layer extends RegistryEntry {
         this.extent = entry.extent !== undefined
             ? Gt.normalize(entry.extent, id)
             : inheritedLayer?.extent
+        this.maxRenderFeatures = Layer.resolveMaxRenderFeatures(id, entry, inheritedLayer)
         this.pointProperties = pointProperties
         this.styleName = styleName
     }
@@ -191,6 +194,17 @@ export class Layer extends RegistryEntry {
         }
 
         return pointProperties
+    }
+
+    private static resolveMaxRenderFeatures(name: string, entry: LayerJson, inheritedLayer: Layer | undefined): number | undefined {
+        const maxRenderFeatures = entry.maxRenderFeatures ?? inheritedLayer?.maxRenderFeatures
+        if (maxRenderFeatures === undefined) return undefined
+
+        if (!Number.isInteger(maxRenderFeatures) || maxRenderFeatures <= 0) {
+            throw new Error(`Layer "${name}" maxRenderFeatures must be a positive integer`)
+        }
+
+        return maxRenderFeatures
     }
 
     get style(): StyleFn {

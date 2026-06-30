@@ -56,13 +56,14 @@ describe('Layer', () => {
         await expect(child.getExtent()).resolves.toEqual([2, 1, 4, 3])
     })
 
-    test('inherits extent, style, point properties and crs from parent layers', () => {
+    test('inherits extent, style, maxRenderFeatures, point properties and crs from parent layers', () => {
         setupSource('source-a')
         const base = new Layer('base', {
             source: 'source-a',
             crs: 'EPSG:4326',
             extent: [0, 1, 2, 3],
             style: 'alternate',
+            maxRenderFeatures: 2,
             pointProperties: [
                 { x: 'label_x', y: 'label_y' }
             ]
@@ -73,6 +74,7 @@ describe('Layer', () => {
 
         expect(child.crs).toBe(base.crs)
         expect(child.extent).toEqual(base.extent)
+        expect(child.maxRenderFeatures).toBe(2)
         expect(child.style).toBe(alternateStyle)
         expect(child.pointProperties).toEqual(base.pointProperties)
         expect(child.pointProperties).not.toBe(base.pointProperties)
@@ -159,6 +161,10 @@ describe('Layer', () => {
 
         expect(() => new Layer('bad', { source: 'source-a', layer: 'base', crs: 'EPSG:4326' }))
             .toThrow('Layer "bad" must define either source or layer, not both')
+        expect(() => new Layer('bad', { source: 'source-a', crs: 'EPSG:4326', maxRenderFeatures: 0 }))
+            .toThrow('Layer "bad" maxRenderFeatures must be a positive integer')
+        expect(() => new Layer('bad', { source: 'source-a', crs: 'EPSG:4326', maxRenderFeatures: 1.5 }))
+            .toThrow('Layer "bad" maxRenderFeatures must be a positive integer')
         expect(() => new Layer('bad', { layer: 'base', dataset: 'dataset-a' }))
             .toThrow('Layer "bad" cannot override dataset when it references layer "base"')
         expect(() => new Layer('bad', { crs: 'EPSG:4326' }))

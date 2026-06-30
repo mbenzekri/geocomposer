@@ -1557,6 +1557,11 @@
           "type": "string",
           "description": "Style name. Must reference a key from the top-level `styles` registry."
         },
+        "maxRenderFeatures": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum number of features to draw for this layer in map rendering. Minimum: 1."
+        },
         "pointProperties": {
           "type": "array",
           "items": {

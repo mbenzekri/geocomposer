@@ -17829,6 +17829,24 @@
                     ],
                     "description": "Style name. Must reference a key from the top-level `styles` registry. (string or \"$s{ENV_VAR|default}\")"
                   },
+                  "maxRenderFeatures": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Maximum number of features to draw for this layer in map rendering. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      }
+                    ],
+                    "description": "Maximum number of features to draw for this layer in map rendering. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                  },
                   "pointProperties": {
                     "anyOf": [
                       {
@@ -18135,6 +18153,24 @@
                       }
                     ],
                     "description": "Style name. Must reference a key from the top-level `styles` registry. (string or \"$s{ENV_VAR|default}\")"
+                  },
+                  "maxRenderFeatures": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Maximum number of features to draw for this layer in map rendering. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                      }
+                    ],
+                    "description": "Maximum number of features to draw for this layer in map rendering. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
                   },
                   "pointProperties": {
                     "anyOf": [
@@ -18533,6 +18569,24 @@
               ],
               "description": "Style name. Must reference a key from the top-level `styles` registry. (string or \"$s{ENV_VAR|default}\")"
             },
+            "maxRenderFeatures": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Maximum number of features to draw for this layer in map rendering. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Maximum number of features to draw for this layer in map rendering. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+            },
             "pointProperties": {
               "anyOf": [
                 {
@@ -18809,6 +18863,24 @@
                 }
               ],
               "description": "Style name. Must reference a key from the top-level `styles` registry. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "maxRenderFeatures": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Maximum number of features to draw for this layer in map rendering. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Maximum number of features to draw for this layer in map rendering. Minimum: 1. (integer or \"$i{ENV_VAR|default}\")"
             },
             "pointProperties": {
               "anyOf": [
