@@ -19,6 +19,7 @@ import {
 } from '../../src/source/source.js'
 import { GeoJsonSource } from '../../src/source/geojson-source.js'
 import { MemSource } from '../../src/source/mem-source.js'
+import { ShpSource } from '../../src/source/shp-source.js'
 import { Style } from '../../src/style/style.js'
 import type { StyleFn } from '../../src/style/style-fn.js'
 import { init } from '../test-tools.js'
@@ -247,6 +248,30 @@ describe('Indexer', () => {
     const read = await index.get(0)
     expect(read?.sourceRef?.sourceId).toBe(source.id)
     expect(read?.geometry?.type).toBe('Point')
+  })
+
+  it('keeps clustered shapefile sources on the GeoJSON mirror after needsBuild', async () => {
+    const shpPath = path.join(tmpDir, 'world.shp')
+    const dbfPath = path.join(tmpDir, 'world.dbf')
+    fs.copyFileSync(path.resolve('data/shapefile/world.shp'), shpPath)
+    fs.copyFileSync(path.resolve('data/shapefile/world.dbf'), dbfPath)
+    const source = registerSource(new ShpSource('world-shp-clustered', shpPath, dbfPath, undefined, undefined, undefined, {
+      indexes: {
+        rtree: {
+          clustered: true
+        }
+      }
+    } as DescInfo & { indexes: SourceIndexConfig }))
+    const layer = new Layer('world-shp-clustered', { source: source.id, crs: 'EPSG:4326' })
+
+    await expect(Indexer.needsBuild(layer)).resolves.toBe('missing')
+    await expect(source.open()).resolves.toBeUndefined()
+    openedSources.push(source)
+
+    const index = await new Indexer(layer).build()
+
+    expect(index.path).toBe(`${shpPath}.clustered.geojson.idx`)
+    expect(await collect(layer.stream())).toHaveLength(index.recordCount)
   })
 
   it('fails clearly when an expected index file is missing', async () => {

@@ -273,6 +273,10 @@ export abstract class FileSource extends FeatureSource {
     return this.clusteredFile ? [this.clusteredFile.file] : this.getFiles()
   }
 
+  protected get clusteredSourceActive(): boolean {
+    return this.clusteredFile !== null
+  }
+
   async prepareClusteredIndexSource(layer: Layer): Promise<void> {
     const originalFiles = this.getFiles()
     const primaryFile = FileSource.resolvePrimaryFile(originalFiles, this.id)

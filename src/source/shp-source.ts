@@ -79,6 +79,8 @@ export class ShpSource extends FileSource {
 
   async open(): Promise<void> {
     await super.open()
+    if (this.clusteredSourceActive) return
+
     try {
       await this.reader.open(this.fileHandle('geometry'), this.fileHandle('attributes'))
     } catch (error) {
@@ -88,6 +90,11 @@ export class ShpSource extends FileSource {
   }
 
   async close(): Promise<void> {
+    if (this.clusteredSourceActive) {
+      await super.close()
+      return
+    }
+
     try {
       await this.reader.close()
     } finally {
@@ -108,6 +115,8 @@ export class ShpSource extends FileSource {
   }
 
   override bulk(minRecord: number, maxRecord: number, options: StreamOptions): ReadableStream<Feature> {
+    if (this.clusteredSourceActive) return super.bulk(minRecord, maxRecord, options)
+
     return toStream(
       this.bulkFeatures(minRecord, maxRecord, options),
       options,
