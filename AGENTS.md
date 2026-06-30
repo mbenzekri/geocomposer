@@ -4,6 +4,13 @@
 
 - Do not modify files, generate patches, run formatters, or alter project state without the user's explicit approval for that specific change. Analysis, reading files, and reporting findings are allowed; implementation requires a clear "go" from the user.
 
+- Prefer the simplest direct implementation that satisfies the request.
+- Do not introduce new classes, services, option holders, registries, factories, or abstraction layers unless the user explicitly asks for them or there is already an established project pattern that requires it.
+- For global server-wide settings, prefer direct config-owned variables or existing config structures over new wrapper objects.
+- When the user says "simple", "première étape", or pushes back on complexity, stop abstracting and reduce the change to the smallest working code path.
+- Before adding a new abstraction, justify why a plain variable, function, or existing class field is insufficient.
+- The user strongly prefers simple, direct code. Avoid "architecture" for small features. In particular, do not create small classes such as `Options`, `Manager`, `Builder`, `Factory`, or `Service` just to hold two values or wrap straightforward behavior.
+
 - File-backed source streams must preserve future random-access indexing data. When a `Feature` comes from a file, set `Feature.sourceRef` with the source id plus byte `offset` and `byteLength` of the feature in that source file.
 - For GeoJSON, `sourceRef.offset` must point to the opening `{` and `sourceRef.byteLength` must include the closing `}`, so the referenced byte slice is directly `JSON.parse`-able.
 - For shapefiles, `sourceRef` must point to the full `.shp` record, including the 8-byte record header, and `sourceRef.related.dbf` must point to the corresponding full DBF record, including the deletion flag byte. This is required for later attribute and R-tree indexes across GeoJSON, shapefile, and similar sources.
