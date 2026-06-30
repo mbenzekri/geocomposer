@@ -110,7 +110,9 @@ export class Wms extends Service {
                     width: mapRequest.width,
                     height: mapRequest.height,
                     crs: mapRequest.crs,
-                    pixelRatio: mapRequest.pixelRatio
+                    pixelRatio: mapRequest.pixelRatio,
+                    traceId,
+                    requestStartedAt: startedAt
                 })
 
                 res.statusCode = 200

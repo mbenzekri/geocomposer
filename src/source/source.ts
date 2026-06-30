@@ -23,9 +23,15 @@ export type SourceFile = {
 
 export type SourceIndexConfig = true | Record<string, unknown>
 
+export type RequestTimings = {
+  accessMs: number
+  renderingMs: number
+}
+
 export type StreamOptions = {
   signal?: AbortSignal
   layer: Layer
+  timings?: RequestTimings
 }
 
 export type QueryOptions = StreamOptions & {
@@ -144,7 +150,9 @@ export abstract class FeatureSource extends Source {
   }
 
   async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+    const startedAt = performance.now()
     const feature = await this.readFeature(sourceRef, options)
+    if (options.timings) options.timings.accessMs += performance.now() - startedAt
     if (!feature) return null
     return this.mapFeature(feature, sourceRef.recordIndex ?? 0, options.layer)
   }
@@ -158,10 +166,20 @@ export abstract class FeatureSource extends Source {
 
   protected async *mapFeatures(features: AsyncIterable<Feature>, options: StreamOptions): AsyncGenerator<Feature> {
     let index = 0
+    const iterator = features[Symbol.asyncIterator]()
 
-    for await (const feature of features) {
-      yield await this.mapFeature(feature, index, options.layer)
-      index += 1
+    try {
+      for (;;) {
+        const startedAt = performance.now()
+        const result = await iterator.next()
+        if (options.timings) options.timings.accessMs += performance.now() - startedAt
+        if (result.done) return
+
+        yield await this.mapFeature(result.value, index, options.layer)
+        index += 1
+      }
+    } finally {
+      await iterator.return?.()
     }
   }
 

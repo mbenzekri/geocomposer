@@ -1,5 +1,6 @@
 import type { Feature, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
+import type { RequestTimings } from '../source/source.js'
 import { Index } from './index.js'
 import type { HeaderEntry } from './indexer.js'
 
@@ -41,14 +42,14 @@ export class IndexRecord extends Index<number | readonly number[]> {
     return new IndexRecord(layer, path, sourceId, buffer, entry)
   }
 
-  stream(criteria?: number | readonly number[]): ReadableStream<Feature> {
+  stream(criteria?: number | readonly number[], timings?: RequestTimings): ReadableStream<Feature> {
     const records = this.records(criteria)
     let position = 0
 
     return new ReadableStream({
       pull: async (controller) => {
         while (position < records.length) {
-          const feature = await this.layer.source.read(this.sourceRef(records[position]), { layer: this.layer })
+          const feature = await this.layer.source.read(this.sourceRef(records[position]), { layer: this.layer, timings })
           position += 1
           if (feature) {
             controller.enqueue(feature)
@@ -61,13 +62,13 @@ export class IndexRecord extends Index<number | readonly number[]> {
     })
   }
 
-  streamRange(minRecord: number, maxRecord: number): ReadableStream<Feature> {
+  streamRange(minRecord: number, maxRecord: number, timings?: RequestTimings): ReadableStream<Feature> {
     let record = minRecord
 
     return new ReadableStream({
       pull: async (controller) => {
         while (record <= maxRecord) {
-          const feature = await this.layer.source.read(this.sourceRef(record), { layer: this.layer })
+          const feature = await this.layer.source.read(this.sourceRef(record), { layer: this.layer, timings })
           record += 1
           if (feature) {
             controller.enqueue(feature)

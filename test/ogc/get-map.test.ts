@@ -30,10 +30,10 @@ describe('getMap', () => {
       crs: 'EPSG:3857'
     })
 
-    expect(query).toHaveBeenCalledWith({
+    expect(query).toHaveBeenCalledWith(expect.objectContaining({
       bbox: [0, 1, 2, 3],
       crs: 'EPSG:3857',
       limit: 2
-    })
+    }))
   })
 })

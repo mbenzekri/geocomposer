@@ -1,5 +1,6 @@
 import type { Feature } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
+import type { RequestTimings } from '../source/source.js'
 import {
   comparePropertyValues,
   matchesPropertyFilter,
@@ -61,7 +62,7 @@ export class IndexProperty extends Index<PropertyFilterCriteria> {
     return new IndexProperty(layer, record, IndexProperty.propertyFromIndexName(entry.name), buffer, entry)
   }
 
-  stream(criteria?: PropertyFilterCriteria): ReadableStream<Feature> {
+  stream(criteria?: PropertyFilterCriteria, timings?: RequestTimings): ReadableStream<Feature> {
     if (!criteria) throw new Error('IndexProperty.stream requires property criteria')
     if (criteria.property !== this.property) {
       throw new Error(`IndexProperty "${this.property}" cannot query property "${criteria.property}"`)
@@ -74,7 +75,7 @@ export class IndexProperty extends Index<PropertyFilterCriteria> {
       pull: async (controller) => {
         const resolvedRecords = await records
         while (position < resolvedRecords.length) {
-          const feature = await this.record.get(resolvedRecords[position])
+          const feature = await this.record.get(resolvedRecords[position], timings)
           position += 1
           if (feature && matchesPropertyFilter(feature, criteria)) {
             controller.enqueue(feature)

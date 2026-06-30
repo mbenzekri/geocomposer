@@ -3,6 +3,7 @@ import type { Feature } from '../core/feature.js'
 import type { BBox } from '../core/geometry.js'
 import { Gt } from '../core/geotools.js'
 import type { Layer } from '../layer/layer.js'
+import type { RequestTimings } from '../source/source.js'
 import { Index } from './index.js'
 import type { HeaderEntry } from './indexer.js'
 import { IndexRecord } from './index-record.js'
@@ -100,7 +101,7 @@ export class IndexRtree extends Index<BBox> {
     return new IndexRtree(layer, record, buffer, entry)
   }
 
-  stream(bbox?: BBox): ReadableStream<Feature> {
+  stream(bbox?: BBox, timings?: RequestTimings): ReadableStream<Feature> {
     if (!bbox) {
       throw new Error('IndexRtree.stream requires a bbox')
     }
@@ -121,7 +122,7 @@ export class IndexRtree extends Index<BBox> {
               return
             }
 
-            reader = this.layer.source.bulk(recordStart, recordEnd, { layer: this.layer }).getReader()
+            reader = this.layer.source.bulk(recordStart, recordEnd, { layer: this.layer, timings }).getReader()
           }
 
           const result = await reader.read()

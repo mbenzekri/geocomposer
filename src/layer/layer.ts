@@ -227,6 +227,7 @@ export class Layer extends RegistryEntry {
                 bbox: options.bbox,
                 propertyFilter: options.propertyFilter,
                 signal: options.signal,
+                timings: options.timings,
                 properties: options.properties,
                 limit: options.limit,
                 offset: options.offset,
@@ -241,6 +242,7 @@ export class Layer extends RegistryEntry {
             bbox: sourceBbox,
             propertyFilter: options.propertyFilter,
             signal: options.signal,
+            timings: options.timings,
             properties: options.properties,
             layer: this
         })
@@ -267,7 +269,7 @@ export class Layer extends RegistryEntry {
                 ? this.indexes.get(indexName) as Index<typeof options.propertyFilter>
                 : undefined
             if (propertyIndex) {
-                let output = propertyIndex.stream(options.propertyFilter)
+                let output = propertyIndex.stream(options.propertyFilter, options.timings)
                 if (options.bbox) output = output.pipeThrough(new BboxFilter(options.bbox))
                 if (options.offset !== undefined || options.limit !== undefined) {
                     output = output.pipeThrough(new PageFilter({
@@ -285,7 +287,7 @@ export class Layer extends RegistryEntry {
         if (!this.indexes.has(IndexRtree.NAME)) return this.source.query(options)
 
         const rtree = this.indexes.get(IndexRtree.NAME) as Index<BBox>
-        let output = rtree.stream(options.bbox)
+        let output = rtree.stream(options.bbox, options.timings)
         if (options.propertyFilter) output = output.pipeThrough(new PropertyFilter(options.propertyFilter))
         if (options.offset !== undefined || options.limit !== undefined) {
             output = output.pipeThrough(new PageFilter({

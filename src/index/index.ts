@@ -1,5 +1,6 @@
 import type { Feature } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
+import type { RequestTimings } from '../source/source.js'
 
 export abstract class Index<C = unknown> {
   protected constructor(
@@ -7,10 +8,10 @@ export abstract class Index<C = unknown> {
     readonly layer: Layer
   ) {}
 
-  abstract stream(criteria?: C): ReadableStream<Feature>
+  abstract stream(criteria?: C, timings?: RequestTimings): ReadableStream<Feature>
 
-  async get(criteria?: C): Promise<Feature | null> {
-    const reader = this.stream(criteria).getReader()
+  async get(criteria?: C, timings?: RequestTimings): Promise<Feature | null> {
+    const reader = this.stream(criteria, timings).getReader()
 
     try {
       const result = await reader.read()
