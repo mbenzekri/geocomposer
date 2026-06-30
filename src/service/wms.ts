@@ -111,6 +111,7 @@ export class Wms extends Service {
                     height: mapRequest.height,
                     crs: mapRequest.crs,
                     pixelRatio: mapRequest.pixelRatio,
+                    format: mapRequest.format,
                     traceId,
                     requestStartedAt: startedAt
                 })
@@ -185,7 +186,7 @@ export class Wms extends Service {
         const layers = selectedLayers.map((layer, index) => layer);
         const styles = selectedLayers.map((layer, index) => resolveNamedStyle(layer, styleNames[index]))
         const format = params.get('FORMAT') ?? 'image/png'
-        if (format !== 'image/png') {
+        if (format !== 'image/png' && format !== 'image/jpeg') {
             throw new Error(`Unsupported FORMAT: ${format}`)
         }
 
@@ -296,7 +297,7 @@ type MapRequest = {
     crs: CrsCode
     pixelRatio: number
     version: string
-    format: string
+    format: 'image/png' | 'image/jpeg'
 }
 
 type InfoRequest = GetInfoOptions & {
@@ -325,7 +326,7 @@ const WMS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
   <Capability>
     <Request>
       <GetCapabilities><Format>text/xml</Format><DCPType><HTTP><Get><OnlineResource>{{onlineResource}}</OnlineResource></Get></HTTP></DCPType></GetCapabilities>
-      <GetMap><Format>image/png</Format><DCPType><HTTP><Get><OnlineResource>{{onlineResource}}</OnlineResource></Get></HTTP></DCPType></GetMap>
+      <GetMap><Format>image/png</Format><Format>image/jpeg</Format><DCPType><HTTP><Get><OnlineResource>{{onlineResource}}</OnlineResource></Get></HTTP></DCPType></GetMap>
       <GetFeatureInfo>{{#featureInfoFormats}}<Format>{{.}}</Format>{{/featureInfoFormats}}<DCPType><HTTP><Get><OnlineResource>{{onlineResource}}</OnlineResource></Get></HTTP></DCPType></GetFeatureInfo>
     </Request>
     <Exception><Format>text/xml</Format></Exception>

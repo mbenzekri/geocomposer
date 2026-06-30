@@ -15,6 +15,7 @@ export type GetMapOptions = {
     height: number
     crs: CrsCode
     pixelRatio?: number
+    format?: 'image/png' | 'image/jpeg'
     traceId?: number
     requestStartedAt?: number
 }
@@ -66,7 +67,7 @@ export async function getMap(options: GetMapOptions): Promise<Buffer> {
     await measureRendering(timings, () => renderer.drawDeferredText('map'))
     await measureRendering(timings, () => renderer.drawDeferredText('overlay'))
 
-    const image = await measureEncoding(timings, () => renderer.toPngBuffer())
+    const image = await measureEncoding(timings, () => encodeImage(renderer, options.format ?? 'image/png'))
     const totalMs = options.requestStartedAt === undefined
         ? performance.now() - mapStartedAt
         : Date.now() - options.requestStartedAt
@@ -89,6 +90,11 @@ function createTimings(): RequestTimings {
         renderedFeatures: 0,
         bulkCalls: 0
     }
+}
+
+function encodeImage(renderer: OlRenderer, format: 'image/png' | 'image/jpeg'): Buffer {
+    if (format === 'image/jpeg') return renderer.toJpegBuffer()
+    return renderer.toPngBuffer()
 }
 
 function addTimings(target: RequestTimings, source: RequestTimings): void {

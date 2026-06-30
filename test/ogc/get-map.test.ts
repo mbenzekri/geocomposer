@@ -36,4 +36,31 @@ describe('getMap', () => {
       limit: 2
     }))
   })
+
+  test('encodes JPEG output when requested', async () => {
+    const style: StyleFn = () => null
+    const layer = {
+      id: 'parcelle',
+      source: { id: 'parcelle' },
+      crs: 'EPSG:2154',
+      style,
+      query: () => new ReadableStream<Feature>({
+        start(controller) {
+          controller.close()
+        }
+      })
+    } as unknown as Layer
+
+    const image = await getMap({
+      layers: [layer],
+      styles: [style],
+      bbox: [0, 1, 2, 3],
+      width: 32,
+      height: 32,
+      crs: 'EPSG:3857',
+      format: 'image/jpeg'
+    })
+
+    expect(image.subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]))
+  })
 })

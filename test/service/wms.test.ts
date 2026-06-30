@@ -36,6 +36,7 @@ describe('Wms', () => {
     expect(caps.statusCode).toBe(200)
     expect(caps.headers.get('content-type')).toContain('text/xml')
     expect(caps.body?.toString()).toContain('<Name>world</Name>')
+    expect(caps.body?.toString()).toContain('<Format>image/jpeg</Format>')
     expect(caps.body?.toString()).toContain('https://published.test/wms')
 
     expect((await handle(wms, '/wms', 'POST')).statusCode).toBe(405)
@@ -50,6 +51,7 @@ describe('Wms', () => {
       layers: [Layer.registry.get('world')],
       width: 256,
       height: 128,
+      format: 'image/png',
       pixelRatio: 2
     }))
   })
@@ -62,12 +64,20 @@ describe('Wms', () => {
     expect(ok.body?.toString()).toBe('png-tile')
     expect(vi.mocked(getMap)).toHaveBeenLastCalledWith(expect.objectContaining({
       styles: [Style.registry.get('alternate').style],
+      format: 'image/png',
       pixelRatio: 1.5
+    }))
+
+    const jpeg = await handle(wms, '/wms?REQUEST=GetMap&LAYERS=world&STYLES=&CRS=EPSG:4326&BBOX=-1,-1,1,1&WIDTH=10&HEIGHT=10&FORMAT=image/jpeg&TRANSPARENT=true')
+    expect(jpeg.statusCode).toBe(200)
+    expect(jpeg.headers.get('content-type')).toBe('image/jpeg')
+    expect(vi.mocked(getMap)).toHaveBeenLastCalledWith(expect.objectContaining({
+      format: 'image/jpeg'
     }))
 
     expect((await handle(wms, '/wms?REQUEST=GetMap&LAYERS=&CRS=EPSG:4326&BBOX=-1,-1,1,1&WIDTH=10&HEIGHT=10')).body?.toString()).toContain('LAYERS is required')
     expect((await handle(wms, '/wms?REQUEST=GetMap&LAYERS=world&STYLES=a,b&CRS=EPSG:4326&BBOX=-1,-1,1,1&WIDTH=10&HEIGHT=10')).body?.toString()).toContain('STYLES must include one entry')
-    expect((await handle(wms, '/wms?REQUEST=GetMap&LAYERS=world&STYLES=&CRS=EPSG:4326&BBOX=-1,-1,1,1&WIDTH=10&HEIGHT=10&FORMAT=image/jpeg')).body?.toString()).toContain('Unsupported FORMAT')
+    expect((await handle(wms, '/wms?REQUEST=GetMap&LAYERS=world&STYLES=&CRS=EPSG:4326&BBOX=-1,-1,1,1&WIDTH=10&HEIGHT=10&FORMAT=image/webp')).body?.toString()).toContain('Unsupported FORMAT')
     expect((await handle(wms, '/wms?REQUEST=GetMap&LAYERS=world&STYLES=&CRS=EPSG:3857&BBOX=-1,-1,1,1&WIDTH=10&HEIGHT=10')).body?.toString()).toContain('CRS EPSG:3857 is not supported')
     expect((await handle(wms, '/wms?REQUEST=GetMap&LAYERS=world&CRS=EPSG:4326&BBOX=-1,-1,1,1&WIDTH=10&HEIGHT=10')).statusCode).toBe(200)
     expect((await handle(wms, '/wms?REQUEST=GetMap&LAYERS=missing&CRS=EPSG:4326&BBOX=-1,-1,1,1&WIDTH=10&HEIGHT=10')).body?.toString()).toContain('Unknown layer: missing')
