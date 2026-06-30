@@ -673,7 +673,7 @@
                     "chunkSize": {
                       "type": "integer",
                       "minimum": 1,
-                      "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10."
+                      "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 50."
                     },
                     "clustered": {
                       "type": "boolean",

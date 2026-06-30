@@ -60,7 +60,7 @@ export async function getMap(options: GetMapOptions): Promise<Buffer> {
         const layerTotalMs = performance.now() - layerStartedAt
         const layerPipelineMs = calculatePipelineMs(layerTotalMs, layerTimings)
         console.debug(`[GetMap] layer=${layer.id} source=${layer.source.id} layerCrs=${layer.crs} requestCrs=${options.crs} features=${featureCount} maxRenderFeatures=${layer.maxRenderFeatures ?? 'none'}`)
-        console.debug(`[GetMap] layer=${layer.id} timing total=${formatMs(layerTotalMs)} access=${formatMs(layerTimings.accessMs)} pipeline=${formatMs(layerPipelineMs)} reprojection=${formatMs(layerTimings.reprojectionMs)} rendering=${formatMs(layerTimings.renderingMs)} read=${layerTimings.readFeatures} rendered=${layerTimings.renderedFeatures} useful=${formatPercent(calculateUsefulRatio(layerTimings))} throughput=${formatRate(calculateThroughput(layerTimings.renderedFeatures, layerTotalMs))}f/s`)
+        console.debug(`[GetMap] layer=${layer.id} timing total=${formatMs(layerTotalMs)} access=${formatMs(layerTimings.accessMs)} pipeline=${formatMs(layerPipelineMs)} reprojection=${formatMs(layerTimings.reprojectionMs)} rendering=${formatMs(layerTimings.renderingMs)} read=${layerTimings.readFeatures} rendered=${layerTimings.renderedFeatures} bulks=${layerTimings.bulkCalls} useful=${formatPercent(calculateUsefulRatio(layerTimings))} throughput=${formatRate(calculateThroughput(layerTimings.renderedFeatures, layerTotalMs))}f/s`)
     }
 
     await measureRendering(timings, () => renderer.drawDeferredText('map'))
@@ -74,7 +74,7 @@ export async function getMap(options: GetMapOptions): Promise<Buffer> {
     const usefulRatio = calculateUsefulRatio(timings)
     const featuresPerSecond = calculateThroughput(timings.renderedFeatures, totalMs)
     const prefix = options.traceId === undefined ? '[GetMap]' : `[GetMap ${options.traceId}]`
-    console.debug(`${prefix} timing total=${formatMs(totalMs)} access=${formatMs(timings.accessMs)} pipeline=${formatMs(pipelineMs)} reprojection=${formatMs(timings.reprojectionMs)} rendering=${formatMs(timings.renderingMs)} encoding=${formatMs(timings.encodingMs)} read=${timings.readFeatures} rendered=${timings.renderedFeatures} useful=${formatPercent(usefulRatio)} throughput=${formatRate(featuresPerSecond)}f/s`)
+    console.debug(`${prefix} timing total=${formatMs(totalMs)} access=${formatMs(timings.accessMs)} pipeline=${formatMs(pipelineMs)} reprojection=${formatMs(timings.reprojectionMs)} rendering=${formatMs(timings.renderingMs)} encoding=${formatMs(timings.encodingMs)} read=${timings.readFeatures} rendered=${timings.renderedFeatures} bulks=${timings.bulkCalls} useful=${formatPercent(usefulRatio)} throughput=${formatRate(featuresPerSecond)}f/s`)
 
     return image
 }
@@ -86,7 +86,8 @@ function createTimings(): RequestTimings {
         renderingMs: 0,
         encodingMs: 0,
         readFeatures: 0,
-        renderedFeatures: 0
+        renderedFeatures: 0,
+        bulkCalls: 0
     }
 }
 
@@ -97,6 +98,7 @@ function addTimings(target: RequestTimings, source: RequestTimings): void {
     target.encodingMs += source.encodingMs
     target.readFeatures += source.readFeatures
     target.renderedFeatures += source.renderedFeatures
+    target.bulkCalls += source.bulkCalls
 }
 
 async function measureRendering<T>(timings: RequestTimings, action: () => T | Promise<T>): Promise<T> {

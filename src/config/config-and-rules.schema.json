@@ -10842,7 +10842,7 @@
                                         {
                                           "type": "integer",
                                           "minimum": 1,
-                                          "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                          "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 50. (integer or \"$i{ENV_VAR|default}\")"
                                         },
                                         {
                                           "type": "string",
@@ -10853,7 +10853,7 @@
                                           "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
                                         }
                                       ],
-                                      "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                      "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 50. (integer or \"$i{ENV_VAR|default}\")"
                                     },
                                     "clustered": {
                                       "anyOf": [
@@ -10889,7 +10889,7 @@
                                         {
                                           "type": "integer",
                                           "minimum": 1,
-                                          "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                          "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 50. (integer or \"$i{ENV_VAR|default}\")"
                                         },
                                         {
                                           "type": "string",
@@ -10900,7 +10900,7 @@
                                           "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
                                         }
                                       ],
-                                      "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                      "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 50. (integer or \"$i{ENV_VAR|default}\")"
                                     },
                                     "clustered": {
                                       "anyOf": [
@@ -11018,7 +11018,7 @@
                                         {
                                           "type": "integer",
                                           "minimum": 1,
-                                          "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                          "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 50. (integer or \"$i{ENV_VAR|default}\")"
                                         },
                                         {
                                           "type": "string",
@@ -11029,7 +11029,7 @@
                                           "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
                                         }
                                       ],
-                                      "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                      "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 50. (integer or \"$i{ENV_VAR|default}\")"
                                     },
                                     "clustered": {
                                       "anyOf": [
@@ -11065,7 +11065,7 @@
                                         {
                                           "type": "integer",
                                           "minimum": 1,
-                                          "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                          "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 50. (integer or \"$i{ENV_VAR|default}\")"
                                         },
                                         {
                                           "type": "string",
@@ -11076,7 +11076,7 @@
                                           "pattern": "^\\$i\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
                                         }
                                       ],
-                                      "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 10. (integer or \"$i{ENV_VAR|default}\")"
+                                      "description": "Number of contiguous records grouped in one R-tree leaf range. Defaults to 50. (integer or \"$i{ENV_VAR|default}\")"
                                     },
                                     "clustered": {
                                       "anyOf": [

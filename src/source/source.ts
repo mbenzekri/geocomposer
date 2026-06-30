@@ -38,6 +38,7 @@ export type RequestTimings = {
   encodingMs: number
   readFeatures: number
   renderedFeatures: number
+  bulkCalls: number
 }
 
 export type StreamOptions = {

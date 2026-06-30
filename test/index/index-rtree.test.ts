@@ -72,13 +72,13 @@ describe('IndexRtree', () => {
     const ranges = rtree.ranges([1050, -1, 1050, 1])
     const allRanges = rtree.ranges([-1, -1, 2000, 1])
     const expectedRanges = Array.from(
-      { length: 200 },
-      (_value, index) => [index * 10, index * 10 + 9]
+      { length: 40 },
+      (_value, index) => [index * 50, index * 50 + 49]
     ).flat()
 
     expect(rtree.entry.recordCount).toBeGreaterThan(20)
     expect(sortRanges(allRanges)).toEqual(expectedRanges)
-    expect(ranges).toEqual([1050, 1059])
+    expect(ranges).toEqual([1050, 1099])
     expect((await collect(rtree.stream([1050, -1, 1050, 1]))).map((feature) => feature.id)).toEqual(['p1050'])
   })
 

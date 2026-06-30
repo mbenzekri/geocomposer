@@ -8,7 +8,7 @@ import { Index } from './index.js'
 import type { HeaderEntry } from './indexer.js'
 import { IndexRecord, IndexRecordBuilder } from './index-record.js'
 
-export const DEFAULT_RTREE_CHUNK_SIZE = 10
+export const DEFAULT_RTREE_CHUNK_SIZE = 50
 const RTREE_LEAF_FLAG = 1
 const MAX_INDEX_BUFFER_SIZE = 0x7fffffff
 
@@ -123,6 +123,7 @@ export class IndexRtree extends Index<BBox> {
             }
 
             reader = this.layer.source.bulk(recordStart, recordEnd, { layer: this.layer, timings }).getReader()
+            if (timings) timings.bulkCalls += 1
           }
 
           const result = await reader.read()
