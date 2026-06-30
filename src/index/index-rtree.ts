@@ -6,7 +6,7 @@ import type { Layer } from '../layer/layer.js'
 import type { RequestTimings } from '../source/source.js'
 import { Index } from './index.js'
 import type { HeaderEntry } from './indexer.js'
-import { IndexRecord } from './index-record.js'
+import { IndexRecord, IndexRecordBuilder } from './index-record.js'
 
 export const DEFAULT_RTREE_CHUNK_SIZE = 10
 const RTREE_LEAF_FLAG = 1
@@ -106,7 +106,7 @@ export class IndexRtree extends Index<BBox> {
       throw new Error('IndexRtree.stream requires a bbox')
     }
 
-    const ranges = this.ranges(bbox)
+    const ranges = this.filteredRanges(bbox)
     let rangeIndex = 0
     let reader: ReadableStreamDefaultReader<Feature> | null = null
 
@@ -147,7 +147,7 @@ export class IndexRtree extends Index<BBox> {
 
   records(bbox: BBox): number[] {
     const records: number[] = []
-    const ranges = this.ranges(bbox)
+    const ranges = this.filteredRanges(bbox)
     for (let index = 0; index < ranges.length; index += 2) {
       for (let record = ranges[index]; record <= ranges[index + 1]; record += 1) {
         records.push(record)
@@ -180,6 +180,29 @@ export class IndexRtree extends Index<BBox> {
     return ranges
   }
 
+  filteredRanges(bbox: BBox): number[] {
+    if (this.entry.byteLength === 0) return []
+
+    const ranges: number[] = []
+    const stack = [0]
+
+    while (stack.length > 0) {
+      const entry = this.readEntry(stack.pop()!)
+      if (!entry.intersects(bbox)) continue
+
+      if (entry.isLeaf) {
+        appendFilteredRecordRanges(ranges, entry, bbox, this.record)
+        continue
+      }
+
+      for (let offset = entry.childCount - 1; offset >= 0; offset -= 1) {
+        stack.push(entry.firstChild + offset)
+      }
+    }
+
+    return ranges
+  }
+
   private readEntry(position: number): RtreeEntry {
     if (position < 0 || position >= this.entry.recordCount) {
       throw new Error(`Invalid rtree index: entry ${position} is out of bounds`)
@@ -193,14 +216,19 @@ export class IndexRtreeBuilder {
   private chunkStart = 0
   private chunkCount = 0
   private chunkBbox: BBox | null = null
+  private chunkFeatureBboxes: Array<BBox | null | undefined> = []
 
-  constructor(private readonly chunkSize = DEFAULT_RTREE_CHUNK_SIZE) {}
+  constructor(
+    private readonly record: IndexRecordBuilder,
+    private readonly chunkSize = DEFAULT_RTREE_CHUNK_SIZE
+  ) {}
 
   add(feature: Feature, record: number): void {
     if (this.chunkCount === 0) this.chunkStart = record
 
     const bbox = feature.bbox
     this.chunkCount = record - this.chunkStart + 1
+    this.chunkFeatureBboxes[record - this.chunkStart] = bbox
     if (bbox) this.chunkBbox = this.chunkBbox ? Gt.expand(this.chunkBbox, bbox) : bbox
 
     if (this.chunkCount === this.chunkSize) this.flushChunk()
@@ -222,6 +250,10 @@ export class IndexRtreeBuilder {
     if (this.chunkCount === 0) return
 
     if (this.chunkBbox) {
+      for (let index = 0; index < this.chunkCount; index += 1) {
+        this.record.setFrame(this.chunkStart + index, this.chunkFeatureBboxes[index], this.chunkBbox)
+      }
+
       this.tree.insert({
         minX: this.chunkBbox[0],
         minY: this.chunkBbox[1],
@@ -235,7 +267,28 @@ export class IndexRtreeBuilder {
     this.chunkStart += this.chunkCount
     this.chunkCount = 0
     this.chunkBbox = null
+    this.chunkFeatureBboxes = []
   }
+}
+
+function appendFilteredRecordRanges(ranges: number[], entry: RtreeEntry, bbox: BBox, record: IndexRecord): void {
+  const rangeBbox = entry.bbox
+  let runStart: number | null = null
+  let previousRecord: number | null = null
+
+  for (let recordIndex = entry.recordStart; recordIndex <= entry.recordEnd; recordIndex += 1) {
+    if (!record.frameIntersects(recordIndex, bbox, rangeBbox)) {
+      if (runStart !== null && previousRecord !== null) ranges.push(runStart, previousRecord)
+      runStart = null
+      previousRecord = null
+      continue
+    }
+
+    if (runStart === null) runStart = recordIndex
+    previousRecord = recordIndex
+  }
+
+  if (runStart !== null && previousRecord !== null) ranges.push(runStart, previousRecord)
 }
 
 class RtreeToBuffer {

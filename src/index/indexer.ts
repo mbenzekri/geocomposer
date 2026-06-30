@@ -67,7 +67,7 @@ export class Indexer {
     await Indexer.prepareClusteredIndexSource(this.layer, force)
     const outputPath = Indexer.resolveIndexPath(this.layer)
     const record = new IndexRecordBuilder(this.layer)
-    const rtree = new IndexRtreeBuilder(this.rtreeChunkSize())
+    const rtree = new IndexRtreeBuilder(record, this.rtreeChunkSize())
     const propertyBuilders = this.propertyIndexNames().map((property) => new IndexPropertyBuilder(property))
     const builders = [record, rtree, ...propertyBuilders]
 
