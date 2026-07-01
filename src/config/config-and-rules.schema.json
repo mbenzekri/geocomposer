@@ -4851,10 +4851,11 @@
                             {
                               "enum": [
                                 "image/png",
+                                "image/webp",
                                 "application/geo+json",
                                 "application/vnd.mapbox-vector-tile"
                               ],
-                              "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
+                              "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"image/webp\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
                             },
                             {
                               "type": "string",
@@ -4869,16 +4870,16 @@
                               "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                             }
                           ],
-                          "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
+                          "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"image/webp\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
                         },
-                        "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
+                        "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
                       },
                       {
                         "type": "string",
                         "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
                       }
                     ],
-                    "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
+                    "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
                   },
                   "minZoom": {
                     "anyOf": [
@@ -5344,10 +5345,11 @@
                             {
                               "enum": [
                                 "image/png",
+                                "image/webp",
                                 "application/geo+json",
                                 "application/vnd.mapbox-vector-tile"
                               ],
-                              "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
+                              "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"image/webp\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
                             },
                             {
                               "type": "string",
@@ -5362,16 +5364,16 @@
                               "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                             }
                           ],
-                          "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
+                          "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"image/webp\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
                         },
-                        "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
+                        "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
                       },
                       {
                         "type": "string",
                         "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
                       }
                     ],
-                    "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
+                    "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
                   },
                   "minZoom": {
                     "anyOf": [
@@ -7496,10 +7498,11 @@
                       {
                         "enum": [
                           "image/png",
+                          "image/webp",
                           "application/geo+json",
                           "application/vnd.mapbox-vector-tile"
                         ],
-                        "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
+                        "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"image/webp\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
                       },
                       {
                         "type": "string",
@@ -7514,16 +7517,16 @@
                         "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                       }
                     ],
-                    "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
+                    "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"image/webp\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
                   },
-                  "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
+                  "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
                 },
                 {
                   "type": "string",
                   "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
                 }
               ],
-              "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
+              "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
             },
             "minZoom": {
               "anyOf": [
@@ -7959,10 +7962,11 @@
                       {
                         "enum": [
                           "image/png",
+                          "image/webp",
                           "application/geo+json",
                           "application/vnd.mapbox-vector-tile"
                         ],
-                        "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
+                        "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"image/webp\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
                       },
                       {
                         "type": "string",
@@ -7977,16 +7981,16 @@
                         "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                       }
                     ],
-                    "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
+                    "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. (\"image/png\", \"image/webp\", \"application/geo+json\", \"application/vnd.mapbox-vector-tile\" or \"$s{ENV_VAR|default}\")"
                   },
-                  "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
+                  "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
                 },
                 {
                   "type": "string",
                   "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
                 }
               ],
-              "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
+              "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique. (array or \"#/$defs/nom\")"
             },
             "minZoom": {
               "anyOf": [

@@ -474,12 +474,13 @@
           "items": {
             "enum": [
               "image/png",
+              "image/webp",
               "application/geo+json",
               "application/vnd.mapbox-vector-tile"
             ],
-            "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`."
+            "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`."
           },
-          "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique."
+          "description": "Unique list of output formats supported by this tileset. Allowed values: `image/png`, `image/webp`, `application/geo+json`, `application/vnd.mapbox-vector-tile`. Array length: minimum 1. Values must be unique."
         },
         "minZoom": {
           "type": "integer",

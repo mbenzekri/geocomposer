@@ -26,6 +26,7 @@
             "tileMatrixSet": "WebMercatorQuad",
             "formats": [
                 "image/png",
+                "image/webp",
                 "application/geo+json",
                 "application/vnd.mapbox-vector-tile"
             ],

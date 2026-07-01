@@ -66,7 +66,7 @@ export function installWorldFixture(): void {
   Tileset.build({
     worldTiles: {
       title: 'World raster tiles',
-      formats: ['image/png'],
+      formats: ['image/png', 'image/webp'],
       minZoom: 0,
       maxZoom: 1,
       cacheControl: 'public, max-age=60',

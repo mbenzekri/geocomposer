@@ -6,17 +6,25 @@ import { RegistryEntry, type DescInfo } from '../core/feature.js'
 import { getTileMatrixSet, type TileMatrixSet } from './tile-matrix-set.js'
 
 export const RASTER_TILE_FORMAT = 'image/png'
+export const WEBP_TILE_FORMAT = 'image/webp'
 export const GEOJSON_TILE_FORMAT = 'application/geo+json'
 export const MVT_TILE_FORMAT = 'application/vnd.mapbox-vector-tile'
 
+export type RasterTileFormat = typeof RASTER_TILE_FORMAT | typeof WEBP_TILE_FORMAT
+export type VectorTileFormat = typeof GEOJSON_TILE_FORMAT | typeof MVT_TILE_FORMAT
 export type TileOutput = {
-    format: string
+    format: RasterTileFormat
     extension: string
-    vector: boolean
+    vector: false
+} | {
+    format: VectorTileFormat
+    extension: string
+    vector: true
 }
 
 const TILE_FORMATS = new Map<string, TileOutput>([
     [RASTER_TILE_FORMAT, { format: RASTER_TILE_FORMAT, extension: 'png', vector: false }],
+    [WEBP_TILE_FORMAT, { format: WEBP_TILE_FORMAT, extension: 'webp', vector: false }],
     [GEOJSON_TILE_FORMAT, { format: GEOJSON_TILE_FORMAT, extension: 'geojson', vector: true }],
     ['application/json', { format: GEOJSON_TILE_FORMAT, extension: 'geojson', vector: true }],
     [MVT_TILE_FORMAT, { format: MVT_TILE_FORMAT, extension: 'pbf', vector: true }],
@@ -264,6 +272,8 @@ export function tileFormatFromExtension(extension: string): string {
     switch (extension.toLowerCase()) {
         case 'png':
             return RASTER_TILE_FORMAT
+        case 'webp':
+            return WEBP_TILE_FORMAT
         case 'geojson':
         case 'json':
             return GEOJSON_TILE_FORMAT

@@ -3,7 +3,7 @@ import proj4 from 'proj4'
 import type { BBox, CrsCode } from '../core/geometry.js'
 import { MarkupTemplate } from '../core/template.js'
 import { getInfo, INFO_FORMATS, type GetInfoOptions } from '../ogc/get-feature-info.js'
-import { getMap } from '../ogc/get-map.js'
+import { getMap, type MapImageFormat } from '../ogc/get-map.js'
 import { escape, paramsFromUrl, parseNonNegativeInt, parsePixelIndex, parsePositiveInt, Props } from '../core/tools.js'
 import { Layer } from '../layer/layer.js'
 import { Service } from './service.js'
@@ -186,7 +186,7 @@ export class Wms extends Service {
         const layers = selectedLayers.map((layer, index) => layer);
         const styles = selectedLayers.map((layer, index) => resolveNamedStyle(layer, styleNames[index]))
         const format = params.get('FORMAT') ?? 'image/png'
-        if (format !== 'image/png' && format !== 'image/jpeg') {
+        if (!isMapImageFormat(format)) {
             throw new Error(`Unsupported FORMAT: ${format}`)
         }
 
@@ -297,7 +297,7 @@ type MapRequest = {
     crs: CrsCode
     pixelRatio: number
     version: string
-    format: 'image/png' | 'image/jpeg'
+    format: MapImageFormat
 }
 
 type InfoRequest = GetInfoOptions & {
@@ -326,7 +326,7 @@ const WMS_CAPABILITIES_TEMPLATE = `<?xml version="1.0" encoding="UTF-8"?>
   <Capability>
     <Request>
       <GetCapabilities><Format>text/xml</Format><DCPType><HTTP><Get><OnlineResource>{{onlineResource}}</OnlineResource></Get></HTTP></DCPType></GetCapabilities>
-      <GetMap><Format>image/png</Format><Format>image/jpeg</Format><DCPType><HTTP><Get><OnlineResource>{{onlineResource}}</OnlineResource></Get></HTTP></DCPType></GetMap>
+      <GetMap><Format>image/png</Format><Format>image/jpeg</Format><Format>image/webp</Format><DCPType><HTTP><Get><OnlineResource>{{onlineResource}}</OnlineResource></Get></HTTP></DCPType></GetMap>
       <GetFeatureInfo>{{#featureInfoFormats}}<Format>{{.}}</Format>{{/featureInfoFormats}}<DCPType><HTTP><Get><OnlineResource>{{onlineResource}}</OnlineResource></Get></HTTP></DCPType></GetFeatureInfo>
     </Request>
     <Exception><Format>text/xml</Format></Exception>
@@ -430,6 +430,10 @@ class WmsCapabilitiesBuilder {
     }
 
 
+}
+
+function isMapImageFormat(format: string): format is MapImageFormat {
+    return format === 'image/png' || format === 'image/jpeg' || format === 'image/webp'
 }
 
 function transformBBox(bbox: BBox, inputCrs: CrsCode, targetCrs: CrsCode): BBox | null {

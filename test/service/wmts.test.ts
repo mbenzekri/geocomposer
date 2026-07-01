@@ -33,6 +33,9 @@ describe('Wmts', () => {
     expect((await handle(wmts, '/wmts?SERVICE=WMTS&REQUEST=GetCapabilities')).body?.toString()).toContain('<ows:Identifier>worldTiles</ows:Identifier>')
     expect((await handle(wmts, '/wmts?REQUEST=GetCapabilities', 'HEAD')).body).toBeUndefined()
     expect((await handle(wmts, '/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=worldTiles&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=0&TILEROW=0&TILECOL=0&FORMAT=image/png')).body?.toString()).toBe('png-tile')
+    expect(vi.mocked(getMap)).toHaveBeenLastCalledWith(expect.objectContaining({ format: 'image/png' }))
+    expect((await handle(wmts, '/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=worldTiles&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=0&TILEROW=0&TILECOL=0&FORMAT=image/webp')).body?.toString()).toBe('png-tile')
+    expect(vi.mocked(getMap)).toHaveBeenLastCalledWith(expect.objectContaining({ format: 'image/webp' }))
     expect((await handle(wmts, '/wmts?REQUEST=GetTile&LAYER=vectorTiles&STYLE=default&TILEMATRIXSET=WebMercatorQuad&TILEMATRIX=0&TILEROW=0&TILECOL=0&FORMAT=application/geo%2Bjson')).body?.toString()).toBe('vector-tile')
 
     expect((await handle(wmts, '/wrong')).statusCode).toBe(404)

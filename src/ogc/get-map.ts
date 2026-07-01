@@ -1,3 +1,4 @@
+import sharp from 'sharp'
 import type { BBox, CrsCode } from '../core/geometry.js'
 import type { Feature } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
@@ -7,6 +8,7 @@ import { RenderWritable } from '../stream/render-writable.js'
 import type { RequestTimings } from '../source/source.js'
 import { jpegBackground, jpegQuality } from '../config/config.js'
 
+export type MapImageFormat = 'image/png' | 'image/jpeg' | 'image/webp'
 
 export type GetMapOptions = {
     layers: Layer[]
@@ -16,7 +18,7 @@ export type GetMapOptions = {
     height: number
     crs: CrsCode
     pixelRatio?: number
-    format?: 'image/png' | 'image/jpeg'
+    format?: MapImageFormat
     traceId?: number
     requestStartedAt?: number
 }
@@ -103,9 +105,22 @@ function createTimings(): RequestTimings {
     }
 }
 
-function encodeImage(renderer: OlRenderer, format: 'image/png' | 'image/jpeg'): Buffer {
+async function encodeImage(renderer: OlRenderer, format: MapImageFormat): Promise<Buffer> {
     if (format === 'image/jpeg') {
         return renderer.toJpegBuffer(jpegQuality / 100, jpegBackground)
+    }
+    if (format === 'image/webp') {
+        return sharp(renderer.toRgbaBuffer(), {
+            raw: {
+                width: renderer.width,
+                height: renderer.height,
+                channels: 4
+            }
+        }).webp({
+            quality: 80,
+            effort: 2,
+            alphaQuality: 100
+        }).toBuffer()
     }
     return renderer.toPngBuffer()
 }

@@ -133,7 +133,7 @@ export class Xyz extends Service {
     ): TileRequest {
         const segments = pathSegmentsAfter(url.pathname, options.path)
         if (segments.length !== 4) {
-            throw new Error(`XYZ tile path must be ${options.path}/{tileset}/{z}/{x}/{y}.{png|geojson|pbf}`)
+            throw new Error(`XYZ tile path must be ${options.path}/{tileset}/{z}/{x}/{y}.{png|webp|geojson|pbf}`)
         }
 
         const tilesetName = decodeURIComponent(segments[0])
@@ -187,9 +187,9 @@ export class Xyz extends Service {
 }
 
 function parseYSegment(segment: string): { y: number, scale?: number, format?: string } {
-    const match = segment.match(/^(\d+)(?:@([1-9]\d*)x)?(?:\.(png|geojson|json|pbf|mvt))?$/i)
+    const match = segment.match(/^(\d+)(?:@([1-9]\d*)x)?(?:\.(png|webp|geojson|json|pbf|mvt))?$/i)
     if (!match) {
-        throw new Error('y must be an integer tile coordinate, optionally ending with .png, .geojson, .json, .pbf or .mvt')
+        throw new Error('y must be an integer tile coordinate, optionally ending with .png, .webp, .geojson, .json, .pbf or .mvt')
     }
 
     return {
@@ -250,7 +250,8 @@ async function renderTile(request: TileRequest): Promise<Buffer> {
             width: request.width,
             height: request.height,
             crs: request.tileset.crs,
-            pixelRatio: request.scale
+            pixelRatio: request.scale,
+            format: request.output.format
         })
     }
 

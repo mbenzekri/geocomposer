@@ -272,7 +272,8 @@ async function renderTile(request: WmtsTileRequest): Promise<Buffer> {
             width: matrix.tileWidth,
             height: matrix.tileHeight,
             crs: request.tileset.crs,
-            pixelRatio: 1
+            pixelRatio: 1,
+            format: request.output.format
         })
     }
 

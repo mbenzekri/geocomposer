@@ -4,7 +4,7 @@
     "worldExtent": [-10, 40, 12, 52],
     "defaultTileset": {
       "tileMatrixSet": "WebMercatorQuad",
-      "formats": ["image/png", "application/geo+json"],
+      "formats": ["image/png", "image/webp", "application/geo+json"],
       "minZoom": 0,
       "maxZoom": 6
     }

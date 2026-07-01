@@ -17,6 +17,7 @@ import {
     MVT_TILE_FORMAT,
     RASTER_TILE_FORMAT,
     Tileset,
+    WEBP_TILE_FORMAT,
     normalizeTileFormat,
     normalizeTileFormats,
     tileFormatFromExtension
@@ -49,6 +50,7 @@ const addLayer = (
 describe('tileset formats', () => {
     it('normalizes supported formats and aliases', () => {
         expect(normalizeTileFormat(RASTER_TILE_FORMAT)).toBe(RASTER_TILE_FORMAT)
+        expect(normalizeTileFormat(WEBP_TILE_FORMAT)).toBe(WEBP_TILE_FORMAT)
         expect(normalizeTileFormat(GEOJSON_TILE_FORMAT)).toBe(GEOJSON_TILE_FORMAT)
         expect(normalizeTileFormat('application/json')).toBe(GEOJSON_TILE_FORMAT)
         expect(normalizeTileFormat(MVT_TILE_FORMAT)).toBe(MVT_TILE_FORMAT)
@@ -64,10 +66,12 @@ describe('tileset formats', () => {
     it('normalizes a unique format list', () => {
         expect(normalizeTileFormats([
             RASTER_TILE_FORMAT,
+            WEBP_TILE_FORMAT,
             'application/json',
             'application/x-protobuf'
         ])).toEqual([
             RASTER_TILE_FORMAT,
+            WEBP_TILE_FORMAT,
             GEOJSON_TILE_FORMAT,
             MVT_TILE_FORMAT
         ])
@@ -92,6 +96,7 @@ describe('tileset formats', () => {
 
     it('resolves formats from extensions', () => {
         expect(tileFormatFromExtension('PNG')).toBe(RASTER_TILE_FORMAT)
+        expect(tileFormatFromExtension('webp')).toBe(WEBP_TILE_FORMAT)
         expect(tileFormatFromExtension('geojson')).toBe(GEOJSON_TILE_FORMAT)
         expect(tileFormatFromExtension('json')).toBe(GEOJSON_TILE_FORMAT)
         expect(tileFormatFromExtension('pbf')).toBe(MVT_TILE_FORMAT)

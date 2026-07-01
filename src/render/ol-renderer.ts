@@ -286,6 +286,11 @@ export class OlRenderer {
         return this.canvas.toBuffer('image/png')
     }
 
+    toRgbaBuffer(): Buffer {
+        const data = this.context.getImageData(0, 0, this.width, this.height).data
+        return Buffer.from(data.buffer, data.byteOffset, data.byteLength)
+    }
+
     toJpegBuffer(quality = 0.85, background = '#ffffff'): Buffer {
         const output = createCanvas(this.width, this.height)
         const context = output.getContext('2d')

@@ -56,6 +56,12 @@ const outputFormats = {
         extension: 'png',
         vector: false
     },
+    webp: {
+        label: 'WebP',
+        format: 'image/webp',
+        extension: 'webp',
+        vector: false
+    },
     geojson: {
         label: 'GeoJSON',
         format: 'application/geo+json',
@@ -177,7 +183,7 @@ function createWmsSource(version) {
             VERSION: '1.3.0',
             LAYERS: currentWmsLayers(),
             STYLES: currentWmsStyles(),
-            FORMAT: 'image/png',
+            FORMAT: currentWmsOutputFormat(),
             TRANSPARENT: true
         },
         ratio: 1,
@@ -404,7 +410,7 @@ function setContent(content) {
 
 function setOutputFormat(format) {
     if (!format || !outputFormats[format]) return
-    if (currentService === 'wms' && format !== 'png') return
+    if (currentService === 'wms' && outputFormats[format].vector) return
 
     currentOutputFormat = format
     outputSelect.value = format
@@ -440,19 +446,27 @@ function syncServiceControls() {
     serviceSelect.value = currentService
 
     const wmsMode = currentService === 'wms'
+    if (wmsMode && currentTilesetInfo().vector) {
+        currentOutputFormat = 'png'
+    }
 
     for (const option of crsSelect.options) {
         option.disabled = !wmsMode && option.value !== 'EPSG:3857'
     }
 
     for (const option of outputSelect.options) {
-        option.disabled = wmsMode && option.value !== 'png'
+        option.disabled = wmsMode && outputFormats[option.value]?.vector
     }
 
     crsSelect.value = currentCrsCode
     sourceSelect.value = currentSourceLayer
     contentSelect.value = currentContent
-    outputSelect.value = wmsMode ? 'png' : currentOutputFormat
+    outputSelect.value = currentOutputFormat
+}
+
+function currentWmsOutputFormat() {
+    const format = outputFormats[currentOutputFormat]
+    return format && !format.vector ? format.format : 'image/png'
 }
 
 function setInfoFormat(format, label) {
