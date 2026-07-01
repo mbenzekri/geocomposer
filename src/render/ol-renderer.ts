@@ -72,6 +72,7 @@ export class OlRenderer {
         this.vectorContext = toContext(this.context as unknown as globalThis.CanvasRenderingContext2D, {
             size: [width, height]
         })
+        this.context.textDrawingMode = 'glyph'
     }
 
     setStyle(style: StyleFn): void {
