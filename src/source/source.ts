@@ -34,6 +34,10 @@ export type SourceIndexConfig = true | {
 export type RequestTimings = {
   accessMs: number
   reprojectionMs: number
+  streamMs: number
+  drawMs: number
+  drawGeometryMs: number
+  textMs: number
   renderingMs: number
   encodingMs: number
   readFeatures: number

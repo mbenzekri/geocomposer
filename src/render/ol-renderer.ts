@@ -7,6 +7,7 @@ import Style from 'ol/style/Style.js'
 import type { Feature } from '../core/feature.js'
 import type { Geometry, BBox } from '../core/geometry.js'
 import type { StyleContext, StyleFn } from '../style/style-fn.js'
+import type { RequestTimings } from '../source/source.js'
 import { copyTextRenderMetadata, getStyleTextDeclutterMode, getStyleTextDeclutterRank,
     getStyleTextRenderStep, type TextDeclutterMode, type TextRenderStep
 } from '../style/text-render-step.js'
@@ -44,6 +45,7 @@ export class OlRenderer {
     private readonly geometryAdapter = new OlGeometryAdapter()
     private readonly layerText: DeferredTextRenderItem[] = []
     private style: StyleFn | null = null
+    private timings: RequestTimings | null = null
 
     constructor(
         readonly width: number,
@@ -74,6 +76,10 @@ export class OlRenderer {
 
     setStyle(style: StyleFn): void {
         this.style = style
+    }
+
+    setTimings(timings: RequestTimings | null): void {
+        this.timings = timings
     }
 
     async draw(feature: Feature): Promise<void> {
@@ -154,7 +160,12 @@ export class OlRenderer {
     private async renderStyle(style: Style, geometry: OlGeometry): Promise<void> {
         await waitForStyleImages(style)
         this.vectorContext.setStyle(style)
-        this.vectorContext.drawGeometry(geometry)
+        const startedAt = performance.now()
+        try {
+            this.vectorContext.drawGeometry(geometry)
+        } finally {
+            if (this.timings) this.timings.drawGeometryMs += performance.now() - startedAt
+        }
     }
 
     private async renderTextItems(items: DeferredTextRenderItem[]): Promise<void> {

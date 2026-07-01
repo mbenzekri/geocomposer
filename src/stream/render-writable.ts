@@ -12,7 +12,11 @@ export class RenderWritable extends WritableStream<Feature> {
                     await renderer.draw(feature)
                     if (requestTimings) requestTimings.renderedFeatures += 1
                 } finally {
-                    if (requestTimings) requestTimings.renderingMs += performance.now() - startedAt
+                    if (requestTimings) {
+                        const elapsedMs = performance.now() - startedAt
+                        requestTimings.drawMs += elapsedMs
+                        requestTimings.renderingMs += elapsedMs
+                    }
                 }
             }
         })
