@@ -64,6 +64,11 @@ type DecodedGeometry = {
   nesting: number[]
 }
 
+type GeometryWithBbox = {
+  geometry: Geometry
+  bbox?: BBox
+}
+
 type PropertyValue = string | number | boolean
 type PropertyType = 'string' | 'integer' | 'number' | 'boolean' | 'date' | 'time' | 'timestamp' | 'mixed'
 
@@ -660,7 +665,9 @@ class FeaturePbfCodec {
         }
         case FEATURE_GEOMETRY: {
           const value = readLengthDelimited(buffer, position, wireType)
-          geometry = this.decodeGeometry(value.buffer)
+          const decoded = this.decodeGeometry(value.buffer)
+          geometry = decoded.geometry
+          bbox ??= decoded.bbox
           position = value.next
           break
         }
@@ -685,7 +692,6 @@ class FeaturePbfCodec {
     if (typeof feature.id === 'string') fields.push(writeString(FEATURE_ID_STRING, feature.id))
     else if (typeof feature.id === 'number') fields.push(writeDouble(FEATURE_ID_NUMBER, feature.id))
 
-    if (feature.bbox) fields.push(writePackedDouble(FEATURE_BBOX, feature.bbox))
     if (feature.properties !== null) fields.push(writeString(FEATURE_PROPERTIES, JSON.stringify(encodeProperties(feature.properties, header))))
     if (feature.geometry) fields.push(writeBytes(FEATURE_GEOMETRY, this.encodeGeometry(feature.geometry, precision)))
 
@@ -710,7 +716,7 @@ class FeaturePbfCodec {
     return Buffer.concat(fields)
   }
 
-  private decodeGeometry(buffer: Buffer): Geometry {
+  private decodeGeometry(buffer: Buffer): GeometryWithBbox {
     const decoded: DecodedGeometry = { nesting: [] }
     let position = 0
 
@@ -927,9 +933,10 @@ function flattenGeometry(geometry: Geometry): FlatGeometry {
   }
 }
 
-function inflateGeometry(decoded: DecodedGeometry): Geometry {
+function inflateGeometry(decoded: DecodedGeometry): GeometryWithBbox {
   if (!decoded.type || !decoded.dimensions) throw new Error('Invalid clustered PBF geometry')
   const positions = inflatePositions(decoded)
+  const bbox = positionsBbox(positions)
   let offset = 0
 
   const take = (count: number): Position[] => {
@@ -940,22 +947,22 @@ function inflateGeometry(decoded: DecodedGeometry): Geometry {
 
   switch (decoded.type) {
     case 1:
-      return { type: 'Point', coordinates: positions[0] }
+      return { geometry: { type: 'Point', coordinates: positions[0] }, bbox }
     case 2:
-      return { type: 'LineString', coordinates: take(decoded.nesting[0] ?? positions.length) }
+      return { geometry: { type: 'LineString', coordinates: take(decoded.nesting[0] ?? positions.length) }, bbox }
     case 3: {
       const ringCount = decoded.nesting[0] ?? 0
       const rings: Position[][] = []
       for (let index = 0; index < ringCount; index += 1) rings.push(take(decoded.nesting[index + 1] ?? 0))
-      return { type: 'Polygon', coordinates: rings }
+      return { geometry: { type: 'Polygon', coordinates: rings }, bbox }
     }
     case 4:
-      return { type: 'MultiPoint', coordinates: take(decoded.nesting[0] ?? positions.length) }
+      return { geometry: { type: 'MultiPoint', coordinates: take(decoded.nesting[0] ?? positions.length) }, bbox }
     case 5: {
       const lineCount = decoded.nesting[0] ?? 0
       const lines: Position[][] = []
       for (let index = 0; index < lineCount; index += 1) lines.push(take(decoded.nesting[index + 1] ?? 0))
-      return { type: 'MultiLineString', coordinates: lines }
+      return { geometry: { type: 'MultiLineString', coordinates: lines }, bbox }
     }
     case 6: {
       const polygonCount = decoded.nesting[0] ?? 0
@@ -971,9 +978,20 @@ function inflateGeometry(decoded: DecodedGeometry): Geometry {
         }
         polygons.push(rings)
       }
-      return { type: 'MultiPolygon', coordinates: polygons }
+      return { geometry: { type: 'MultiPolygon', coordinates: polygons }, bbox }
     }
   }
+}
+
+function positionsBbox(positions: readonly Position[]): BBox | undefined {
+  let bbox: BBox | undefined
+
+  for (const position of positions) {
+    const point: BBox = [position[0], position[1], position[0], position[1]]
+    bbox = bbox ? Gt.expand(bbox, point) : point
+  }
+
+  return bbox
 }
 
 function dimensions(positions: readonly Position[]): number {
