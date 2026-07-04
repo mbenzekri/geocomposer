@@ -255,6 +255,7 @@ describe('Indexer', () => {
 
     expect(header.featureCount).toBe(3)
     expect(header.bbox).toEqual([0, 0, 2, 0])
+    expect(header.propertyNames).toEqual(['zone', 'created', 'active', 'area', 'optional'])
     expect(header.dictionary.zone).toEqual(['A', 'B'])
     expect(header.propertyStats.zone).toEqual({ type: 'string', present: 3, min: 'A', max: 'B' })
     expect(header.propertyStats.created).toEqual({ type: 'date', present: 3, min: '2024-01-01', max: '2024-01-03' })
@@ -552,6 +553,7 @@ function assertFileRef(sourceRef: SourceRef | undefined): SourceRef & { offset: 
 function readClusteredPbfHeader(filePath: string): {
   featureCount: number
   bbox?: number[]
+  propertyNames: string[]
   dictionary: Record<string, unknown[]>
   propertyStats: Record<string, unknown>
 } {
@@ -564,6 +566,7 @@ function readClusteredPbfHeader(filePath: string): {
   let position = 0
   let featureCount = 0
   let bbox: number[] | undefined
+  let propertyNames: string[] = []
   let dictionary: Record<string, unknown[]> = {}
   let propertyStats: Record<string, unknown> = {}
 
@@ -609,10 +612,17 @@ function readClusteredPbfHeader(filePath: string): {
       continue
     }
 
+    if (field === 6) {
+      const value = readLengthDelimited(header, position, wireType)
+      propertyNames = JSON.parse(value.buffer.toString('utf8')) as string[]
+      position = value.next
+      continue
+    }
+
     throw new Error(`Unexpected header field ${field}`)
   }
 
-  return { featureCount, bbox, dictionary, propertyStats }
+  return { featureCount, bbox, propertyNames, dictionary, propertyStats }
 }
 
 function readLengthDelimited(buffer: Buffer, position: number, wireType: number): { buffer: Buffer, next: number } {

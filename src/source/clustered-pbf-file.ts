@@ -28,6 +28,7 @@ const HEADER_FEATURE_COUNT = 2
 const HEADER_BBOX = 3
 const HEADER_DICTIONARY = 4
 const HEADER_PROPERTY_STATS = 5
+const HEADER_PROPERTY_NAMES = 6
 
 const GEOMETRY_TYPE = 1
 const GEOMETRY_PRECISION = 2
@@ -77,6 +78,7 @@ type ClusteredPbfHeader = {
   version: 1
   featureCount: number
   bbox?: BBox
+  propertyNames: string[]
   dictionary: Record<string, PropertyValue[]>
   propertyStats: Record<string, PropertyStat>
 }
@@ -323,6 +325,7 @@ async function readDelimitedRecordAt(handle: FileHandle, offset: number): Promis
 
 function buildHeader(features: readonly Feature[]): ClusteredPbfHeader {
   const summaries = propertySummaries(features)
+  const propertyNames = Object.keys(summaries)
   const dictionary: Record<string, PropertyValue[]> = {}
   const propertyStats: Record<string, PropertyStat> = {}
   let bbox: BBox | undefined
@@ -348,6 +351,7 @@ function buildHeader(features: readonly Feature[]): ClusteredPbfHeader {
     version: 1,
     featureCount: features.length,
     ...(bbox ? { bbox } : {}),
+    propertyNames,
     dictionary,
     propertyStats
   }
@@ -462,29 +466,35 @@ function isIsoTimestamp(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/.test(value)
 }
 
-function encodeProperties(properties: Props, header: ClusteredPbfHeader): Props {
+function encodeProperties(properties: Props, header: ClusteredPbfHeader): Array<PropertyValue | null> {
   const normalized = normalizeProperties(properties)
-  const output: Props = {}
+  const output = header.propertyNames.map((name): PropertyValue | null => {
+    const value = toPropertyValue(normalized[name])
+    if (value === undefined) return null
 
-  for (const [name, value] of Object.entries(normalized)) {
     const dictionary = header.dictionary[name]
-    if (!dictionary) {
-      output[name] = value
-      continue
-    }
+    if (!dictionary) return value
 
     const index = dictionary.findIndex((item) => item === value)
     if (index < 0) throw new Error(`Clustered PBF dictionary for property "${name}" does not contain value "${String(value)}"`)
-    output[name] = index
-  }
+    return index
+  })
+
+  while (output.length > 0 && output[output.length - 1] === null) output.pop()
 
   return output
 }
 
-function decodeProperties(properties: Props, header: ClusteredPbfHeader): Props {
+function decodeProperties(values: unknown, header: ClusteredPbfHeader): Props {
+  if (!Array.isArray(values)) throw new Error('Invalid clustered PBF properties: expected an array')
   const output: Props = {}
 
-  for (const [name, value] of Object.entries(properties)) {
+  for (let index = 0; index < values.length; index += 1) {
+    const name = header.propertyNames[index]
+    if (!name) continue
+    const value = values[index]
+    if (value === null || value === undefined) continue
+
     const dictionary = header.dictionary[name]
     if (!dictionary) {
       output[name] = value
@@ -507,7 +517,8 @@ class FeaturePbfCodec {
       writeUInt(HEADER_FEATURE_COUNT, BigInt(header.featureCount)),
       ...(header.bbox ? [writePackedDouble(HEADER_BBOX, header.bbox)] : []),
       writeString(HEADER_DICTIONARY, JSON.stringify(header.dictionary)),
-      writeString(HEADER_PROPERTY_STATS, JSON.stringify(header.propertyStats))
+      writeString(HEADER_PROPERTY_STATS, JSON.stringify(header.propertyStats)),
+      writeString(HEADER_PROPERTY_NAMES, JSON.stringify(header.propertyNames))
     ])
     return Buffer.concat([encodeVarint(BigInt(message.length)), message])
   }
@@ -530,6 +541,7 @@ class FeaturePbfCodec {
     let version: number | undefined
     let featureCount: number | undefined
     let bbox: BBox | undefined
+    let propertyNames: string[] = []
     let dictionary: Record<string, PropertyValue[]> = {}
     let propertyStats: Record<string, PropertyStat> = {}
 
@@ -573,6 +585,12 @@ class FeaturePbfCodec {
           position = value.next
           break
         }
+        case HEADER_PROPERTY_NAMES: {
+          const value = readLengthDelimited(buffer, position, wireType)
+          propertyNames = JSON.parse(value.buffer.toString('utf8')) as string[]
+          position = value.next
+          break
+        }
         default:
           position = skipField(buffer, position, wireType)
       }
@@ -583,6 +601,7 @@ class FeaturePbfCodec {
       version,
       featureCount,
       ...(bbox ? { bbox } : {}),
+      propertyNames,
       dictionary,
       propertyStats
     }
@@ -635,7 +654,7 @@ class FeaturePbfCodec {
         }
         case FEATURE_PROPERTIES: {
           const value = readLengthDelimited(buffer, position, wireType)
-          properties = decodeProperties(JSON.parse(value.buffer.toString('utf8')) as Props, header)
+          properties = decodeProperties(JSON.parse(value.buffer.toString('utf8')) as unknown, header)
           position = value.next
           break
         }
