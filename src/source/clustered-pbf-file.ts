@@ -1,5 +1,5 @@
 import type { PathLike } from 'node:fs'
-import { open as openFile, stat } from 'node:fs/promises'
+import { open as openFile, stat, type FileHandle } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Feature, FileRef, SourceRef } from '../core/feature.js'
 import { Crs } from '../core/crs.js'
@@ -14,12 +14,20 @@ const HILBERT_LEVEL = 20
 const HILBERT_GRID_SIZE = 2 ** HILBERT_LEVEL
 const WEB_MERCATOR_EXTENT = 20037508.342789244
 const DEFAULT_HIGH_WATER_MARK = 64 * 1024
+const CLUSTERED_PBF_MAGIC = 'GEOC-PDF'
+const CLUSTERED_PBF_MAGIC_BUFFER = Buffer.from(CLUSTERED_PBF_MAGIC, 'ascii')
 
 const FEATURE_ID_STRING = 1
 const FEATURE_ID_NUMBER = 2
 const FEATURE_BBOX = 3
 const FEATURE_PROPERTIES = 4
 const FEATURE_GEOMETRY = 5
+
+const HEADER_VERSION = 1
+const HEADER_FEATURE_COUNT = 2
+const HEADER_BBOX = 3
+const HEADER_DICTIONARY = 4
+const HEADER_PROPERTY_STATS = 5
 
 const GEOMETRY_TYPE = 1
 const GEOMETRY_PRECISION = 2
@@ -55,8 +63,36 @@ type DecodedGeometry = {
   nesting: number[]
 }
 
+type PropertyValue = string | number | boolean
+type PropertyType = 'string' | 'integer' | 'number' | 'boolean' | 'date' | 'time' | 'timestamp' | 'mixed'
+
+type PropertyStat = {
+  type: PropertyType
+  present: number
+  min?: PropertyValue
+  max?: PropertyValue
+}
+
+type ClusteredPbfHeader = {
+  version: 1
+  featureCount: number
+  bbox?: BBox
+  dictionary: Record<string, PropertyValue[]>
+  propertyStats: Record<string, PropertyStat>
+}
+
+type PropertySummary = {
+  values: PropertyValue[]
+  dictionaryValues: PropertyValue[]
+  type: PropertyType
+  present: number
+  min?: PropertyValue
+  max?: PropertyValue
+}
+
 export class ClusteredPbfFile {
   private readonly codec = new FeaturePbfCodec()
+  private header: ClusteredPbfHeader | null = null
 
   constructor(
     private readonly sourceId: string,
@@ -114,12 +150,13 @@ export class ClusteredPbfFile {
     const buffer = Buffer.alloc(ref.byteLength)
 
     try {
+      const header = await this.loadHeader(handle)
       const bytesRead = await FileByteReader.readFully(handle, buffer, ref.offset)
       if (bytesRead < ref.byteLength) {
         throw new Error('Invalid clustered PBF sourceRef: byte range exceeds file length')
       }
 
-      return this.withSourceRef(this.codec.decodeRecord(buffer, options.layer), {
+      return this.withSourceRef(this.codec.decodeRecord(buffer, options.layer, header), {
         storage: 'file',
         sourceId: this.sourceId,
         offset: ref.offset,
@@ -133,14 +170,21 @@ export class ClusteredPbfFile {
 
   private async write(features: readonly Feature[], precision: number | undefined): Promise<void> {
     const handle = await openFile(this.filePath, 'w')
+    const header = buildHeader(features)
+    const headerRecord = this.codec.encodeHeaderRecord(header)
     let position = 0
 
     try {
+      await handle.write(CLUSTERED_PBF_MAGIC_BUFFER, 0, CLUSTERED_PBF_MAGIC_BUFFER.length, position)
+      position += CLUSTERED_PBF_MAGIC_BUFFER.length
+      await handle.write(headerRecord, 0, headerRecord.length, position)
+      position += headerRecord.length
       for (const feature of features) {
-        const record = this.codec.encodeRecord(feature, precision)
+        const record = this.codec.encodeRecord(feature, precision, header)
         await handle.write(record, 0, record.length, position)
         position += record.length
       }
+      this.header = header
     } finally {
       await handle.close()
     }
@@ -148,10 +192,13 @@ export class ClusteredPbfFile {
 
   private async *streamFile(options: StreamOptions): AsyncGenerator<Feature> {
     const handle = await openFile(this.filePath, 'r')
-    const parser = new DelimitedPbfParser()
-    let position = 0
+    const parser = new DelimitedPbfParser(CLUSTERED_PBF_MAGIC_BUFFER.length)
+    let header: ClusteredPbfHeader | null = this.header
+    let headerRead = false
+    let position = CLUSTERED_PBF_MAGIC_BUFFER.length
 
     try {
+      await assertMagic(handle)
       for (;;) {
         AbortSignalGuard.throwIfAborted(options.signal, 'Clustered PBF stream aborted')
         const buffer = Buffer.allocUnsafe(this.highWaterMark)
@@ -165,7 +212,15 @@ export class ClusteredPbfFile {
           const record = parser.read()
           if (!record) break
 
-          yield this.withSourceRef(this.codec.decodeMessage(record.message, options.layer), {
+          if (!headerRead) {
+            header = this.codec.decodeHeaderMessage(record.message)
+            headerRead = true
+            this.header = header
+            continue
+          }
+
+          if (!header) throw new Error('Invalid clustered PBF: missing header')
+          yield this.withSourceRef(this.codec.decodeMessage(record.message, options.layer, header), {
             storage: 'file',
             sourceId: this.sourceId,
             offset: record.offset,
@@ -178,6 +233,16 @@ export class ClusteredPbfFile {
     } finally {
       await handle.close()
     }
+  }
+
+  private async loadHeader(handle: FileHandle): Promise<ClusteredPbfHeader> {
+    if (this.header) return this.header
+
+    await assertMagic(handle)
+    const firstRecord = await readDelimitedRecordAt(handle, CLUSTERED_PBF_MAGIC_BUFFER.length)
+    const header = this.codec.decodeHeaderRecord(firstRecord)
+    this.header = header
+    return this.header
   }
 
   private withSourceRef(feature: Feature, sourceRef: SourceRef, layer: Layer): Feature {
@@ -225,21 +290,318 @@ function pathToString(path: PathLike): string {
   return path.toString()
 }
 
+async function assertMagic(handle: FileHandle): Promise<void> {
+  const buffer = Buffer.alloc(CLUSTERED_PBF_MAGIC_BUFFER.length)
+  const bytesRead = await FileByteReader.readFully(handle, buffer, 0)
+  if (bytesRead < buffer.length || !buffer.equals(CLUSTERED_PBF_MAGIC_BUFFER)) {
+    throw new Error(`Invalid clustered PBF magic, expected "${CLUSTERED_PBF_MAGIC}"`)
+  }
+}
+
+async function readDelimitedRecordAt(handle: FileHandle, offset: number): Promise<Buffer> {
+  const prefix = Buffer.alloc(10)
+  let prefixLength = 0
+
+  for (;;) {
+    const byte = Buffer.alloc(1)
+    const { bytesRead } = await handle.read(byte, 0, 1, offset + prefixLength)
+    if (bytesRead === 0) throw new Error('Invalid clustered PBF: missing header record')
+    prefix[prefixLength] = byte[0]
+    prefixLength += 1
+    if ((byte[0] & 0x80) === 0) break
+    if (prefixLength === prefix.length) throw new Error('Invalid clustered PBF: header length varint is too long')
+  }
+
+  const length = readVarint(prefix.subarray(0, prefixLength), 0)
+  const byteLength = prefixLength + Number(length.value)
+  const record = Buffer.alloc(byteLength)
+  prefix.copy(record, 0, 0, prefixLength)
+  const bytesRead = await FileByteReader.readFully(handle, record.subarray(prefixLength), offset + prefixLength)
+  if (bytesRead < byteLength - prefixLength) throw new Error('Invalid clustered PBF: truncated header record')
+  return record
+}
+
+function buildHeader(features: readonly Feature[]): ClusteredPbfHeader {
+  const summaries = propertySummaries(features)
+  const dictionary: Record<string, PropertyValue[]> = {}
+  const propertyStats: Record<string, PropertyStat> = {}
+  let bbox: BBox | undefined
+
+  for (const feature of features) {
+    if (feature.bbox) bbox = bbox ? Gt.expand(bbox, feature.bbox) : feature.bbox
+  }
+
+  for (const [name, summary] of Object.entries(summaries)) {
+    if (summary.dictionaryValues.length > 0 && summary.dictionaryValues.length <= 100) {
+      dictionary[name] = summary.dictionaryValues
+    }
+
+    propertyStats[name] = {
+      type: summary.type,
+      present: summary.present,
+      ...(summary.min === undefined ? {} : { min: summary.min }),
+      ...(summary.max === undefined ? {} : { max: summary.max })
+    }
+  }
+
+  return {
+    version: 1,
+    featureCount: features.length,
+    ...(bbox ? { bbox } : {}),
+    dictionary,
+    propertyStats
+  }
+}
+
+function propertySummaries(features: readonly Feature[]): Record<string, PropertySummary> {
+  const values = new Map<string, PropertyValue[]>()
+
+  for (const feature of features) {
+    for (const [name, value] of Object.entries(normalizeProperties(feature.properties))) {
+      const propertyValue = toPropertyValue(value)
+      if (propertyValue === undefined) continue
+      const items = values.get(name) ?? []
+      items.push(propertyValue)
+      values.set(name, items)
+    }
+  }
+
+  const summaries: Record<string, PropertySummary> = {}
+  for (const [name, items] of values) {
+    const type = propertyType(items)
+    const dictionaryValues = type === 'mixed' ? [] : distinctValues(items)
+    const minMax = type === 'mixed' ? {} : propertyMinMax(items, type)
+    summaries[name] = {
+      values: items,
+      dictionaryValues,
+      type,
+      present: items.length,
+      ...minMax
+    }
+  }
+
+  return summaries
+}
+
+function normalizeProperties(properties: Props | null | undefined): Props {
+  const output: Props = {}
+  if (!properties) return output
+
+  for (const [name, value] of Object.entries(properties)) {
+    if (value !== null && value !== undefined) output[name] = value
+  }
+
+  return output
+}
+
+function toPropertyValue(value: unknown): PropertyValue | undefined {
+  if (typeof value === 'string' || typeof value === 'boolean') return value
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  return undefined
+}
+
+function distinctValues(values: readonly PropertyValue[]): PropertyValue[] {
+  const seen = new Set<string>()
+  const distinct: PropertyValue[] = []
+
+  for (const value of values) {
+    const key = `${typeof value}:${String(value)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    distinct.push(value)
+    if (distinct.length > 100) return []
+  }
+
+  return distinct
+}
+
+function propertyType(values: readonly PropertyValue[]): PropertyType {
+  if (values.every((value) => typeof value === 'boolean')) return 'boolean'
+  if (values.every((value) => typeof value === 'number')) {
+    return values.every((value) => Number.isSafeInteger(value)) ? 'integer' : 'number'
+  }
+
+  if (values.every((value) => typeof value === 'string')) {
+    const strings = values as string[]
+    if (strings.every(isIsoDate)) return 'date'
+    if (strings.every(isIsoTime)) return 'time'
+    if (strings.every(isIsoTimestamp)) return 'timestamp'
+    return 'string'
+  }
+
+  return 'mixed'
+}
+
+function propertyMinMax(values: readonly PropertyValue[], type: PropertyType): { min: PropertyValue, max: PropertyValue } {
+  let min = values[0]
+  let max = values[0]
+
+  for (const value of values.slice(1)) {
+    if (comparePropertyValues(value, min, type) < 0) min = value
+    if (comparePropertyValues(value, max, type) > 0) max = value
+  }
+
+  return { min, max }
+}
+
+function comparePropertyValues(a: PropertyValue, b: PropertyValue, type: PropertyType): number {
+  if (type === 'boolean') return Number(a) - Number(b)
+  if (type === 'integer' || type === 'number') return Number(a) - Number(b)
+  return String(a).localeCompare(String(b))
+}
+
+function isIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+function isIsoTime(value: string): boolean {
+  return /^\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(value)
+}
+
+function isIsoTimestamp(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/.test(value)
+}
+
+function encodeProperties(properties: Props, header: ClusteredPbfHeader): Props {
+  const normalized = normalizeProperties(properties)
+  const output: Props = {}
+
+  for (const [name, value] of Object.entries(normalized)) {
+    const dictionary = header.dictionary[name]
+    if (!dictionary) {
+      output[name] = value
+      continue
+    }
+
+    const index = dictionary.findIndex((item) => item === value)
+    if (index < 0) throw new Error(`Clustered PBF dictionary for property "${name}" does not contain value "${String(value)}"`)
+    output[name] = index
+  }
+
+  return output
+}
+
+function decodeProperties(properties: Props, header: ClusteredPbfHeader): Props {
+  const output: Props = {}
+
+  for (const [name, value] of Object.entries(properties)) {
+    const dictionary = header.dictionary[name]
+    if (!dictionary) {
+      output[name] = value
+      continue
+    }
+
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0 || value >= dictionary.length) {
+      throw new Error(`Invalid clustered PBF dictionary index for property "${name}"`)
+    }
+    output[name] = dictionary[value]
+  }
+
+  return output
+}
+
 class FeaturePbfCodec {
-  encodeRecord(feature: Feature, precision: number | undefined): Buffer {
-    const message = this.encodeMessage(feature, precision)
+  encodeHeaderRecord(header: ClusteredPbfHeader): Buffer {
+    const message = Buffer.concat([
+      writeUInt(HEADER_VERSION, BigInt(header.version)),
+      writeUInt(HEADER_FEATURE_COUNT, BigInt(header.featureCount)),
+      ...(header.bbox ? [writePackedDouble(HEADER_BBOX, header.bbox)] : []),
+      writeString(HEADER_DICTIONARY, JSON.stringify(header.dictionary)),
+      writeString(HEADER_PROPERTY_STATS, JSON.stringify(header.propertyStats))
+    ])
     return Buffer.concat([encodeVarint(BigInt(message.length)), message])
   }
 
-  decodeRecord(record: Buffer, layer: Layer): Feature {
+  decodeHeaderRecord(record: Buffer): ClusteredPbfHeader {
     const length = readVarint(record, 0)
     const start = length.next
     const end = start + Number(length.value)
     if (end !== record.length) throw new Error('Invalid clustered PBF record length')
-    return this.decodeMessage(record.subarray(start, end), layer)
+    return this.decodeHeaderMessage(record.subarray(start, end))
   }
 
-  decodeMessage(buffer: Buffer, layer: Layer): Feature {
+  decodeHeaderMessage(buffer: Buffer): ClusteredPbfHeader {
+    const firstTag = tryReadVarint(buffer, 0)
+    if (!firstTag || Number(firstTag.value >> 3n) !== HEADER_VERSION || Number(firstTag.value & 7n) !== WIRE_VARINT) {
+      throw new Error('Invalid clustered PBF: missing header')
+    }
+
+    let position = 0
+    let version: number | undefined
+    let featureCount: number | undefined
+    let bbox: BBox | undefined
+    let dictionary: Record<string, PropertyValue[]> = {}
+    let propertyStats: Record<string, PropertyStat> = {}
+
+    while (position < buffer.length) {
+      const tag = readVarint(buffer, position)
+      position = tag.next
+      const field = Number(tag.value >> 3n)
+      const wireType = Number(tag.value & 7n)
+
+      switch (field) {
+        case HEADER_VERSION: {
+          assertWireType(wireType, WIRE_VARINT)
+          const value = readVarint(buffer, position)
+          version = Number(value.value)
+          position = value.next
+          break
+        }
+        case HEADER_FEATURE_COUNT: {
+          assertWireType(wireType, WIRE_VARINT)
+          const value = readVarint(buffer, position)
+          featureCount = Number(value.value)
+          position = value.next
+          break
+        }
+        case HEADER_BBOX: {
+          const value = readLengthDelimited(buffer, position, wireType)
+          const values = readPackedDouble(value.buffer)
+          if (values.length === 4) bbox = values as BBox
+          position = value.next
+          break
+        }
+        case HEADER_DICTIONARY: {
+          const value = readLengthDelimited(buffer, position, wireType)
+          dictionary = JSON.parse(value.buffer.toString('utf8')) as Record<string, PropertyValue[]>
+          position = value.next
+          break
+        }
+        case HEADER_PROPERTY_STATS: {
+          const value = readLengthDelimited(buffer, position, wireType)
+          propertyStats = JSON.parse(value.buffer.toString('utf8')) as Record<string, PropertyStat>
+          position = value.next
+          break
+        }
+        default:
+          position = skipField(buffer, position, wireType)
+      }
+    }
+
+    if (version !== 1 || featureCount === undefined) throw new Error('Invalid clustered PBF header')
+    return {
+      version,
+      featureCount,
+      ...(bbox ? { bbox } : {}),
+      dictionary,
+      propertyStats
+    }
+  }
+
+  encodeRecord(feature: Feature, precision: number | undefined, header: ClusteredPbfHeader): Buffer {
+    const message = this.encodeMessage(feature, precision, header)
+    return Buffer.concat([encodeVarint(BigInt(message.length)), message])
+  }
+
+  decodeRecord(record: Buffer, layer: Layer, header: ClusteredPbfHeader): Feature {
+    const length = readVarint(record, 0)
+    const start = length.next
+    const end = start + Number(length.value)
+    if (end !== record.length) throw new Error('Invalid clustered PBF record length')
+    return this.decodeMessage(record.subarray(start, end), layer, header)
+  }
+
+  decodeMessage(buffer: Buffer, layer: Layer, header: ClusteredPbfHeader): Feature {
     let position = 0
     let id: string | number | undefined
     let bbox: BBox | undefined
@@ -273,7 +635,7 @@ class FeaturePbfCodec {
         }
         case FEATURE_PROPERTIES: {
           const value = readLengthDelimited(buffer, position, wireType)
-          properties = JSON.parse(value.buffer.toString('utf8')) as Props
+          properties = decodeProperties(JSON.parse(value.buffer.toString('utf8')) as Props, header)
           position = value.next
           break
         }
@@ -298,14 +660,14 @@ class FeaturePbfCodec {
     }
   }
 
-  private encodeMessage(feature: Feature, precision: number | undefined): Buffer {
+  private encodeMessage(feature: Feature, precision: number | undefined, header: ClusteredPbfHeader): Buffer {
     const fields: Buffer[] = []
 
     if (typeof feature.id === 'string') fields.push(writeString(FEATURE_ID_STRING, feature.id))
     else if (typeof feature.id === 'number') fields.push(writeDouble(FEATURE_ID_NUMBER, feature.id))
 
     if (feature.bbox) fields.push(writePackedDouble(FEATURE_BBOX, feature.bbox))
-    if (feature.properties !== null) fields.push(writeString(FEATURE_PROPERTIES, JSON.stringify(feature.properties)))
+    if (feature.properties !== null) fields.push(writeString(FEATURE_PROPERTIES, JSON.stringify(encodeProperties(feature.properties, header))))
     if (feature.geometry) fields.push(writeBytes(FEATURE_GEOMETRY, this.encodeGeometry(feature.geometry, precision)))
 
     return Buffer.concat(fields)
@@ -390,7 +752,8 @@ class FeaturePbfCodec {
 
 class DelimitedPbfParser {
   private buffer: Buffer<ArrayBufferLike> = Buffer.alloc(0)
-  private bufferOffset = 0
+
+  constructor(private bufferOffset = 0) {}
 
   push(chunk: Buffer): void {
     this.buffer = this.buffer.length === 0 ? chunk : Buffer.concat([this.buffer, chunk])
@@ -424,7 +787,7 @@ function toWritableFeature(feature: Feature, precision: number | undefined): Fea
   return {
     ...feature,
     bbox: feature.bbox ? roundBbox(feature.bbox, precision) : undefined,
-    properties: feature.properties ?? null,
+    properties: normalizeProperties(feature.properties),
     geometry: roundGeometry(feature.geometry, precision)
   }
 }

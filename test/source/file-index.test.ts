@@ -233,6 +233,46 @@ describe('Indexer', () => {
     expect(mirrored[0].geometry).toEqual({ type: 'Point', coordinates: [123.12, 45.99] })
   })
 
+  it('writes clustered PBF dictionaries and property stats in the header', async () => {
+    const geojsonPath = writeGeoJson('dictionary.geojson', [
+      featureJson('a', [0, 0], { zone: 'A', created: '2024-01-01', active: true, area: 1, optional: null }),
+      featureJson('b', [1, 0], { zone: 'B', created: '2024-01-02', active: true, area: 2, optional: 'x' }),
+      featureJson('c', [2, 0], { zone: 'A', created: '2024-01-03', active: true, area: 3.5 })
+    ])
+    const clusteredPath = `${geojsonPath}.clustered.pbf`
+    const source = registerSource(await openSource(new GeoJsonSource('dictionary', geojsonPath, 'utf8', 16, undefined, {
+      indexes: {
+        rtree: {
+          chunkSize: 1,
+          clustered: true
+        }
+      }
+    })))
+    const layer = new Layer('dictionary', { source: source.id, crs: 'EPSG:4326' })
+
+    const index = await new Indexer(layer).build()
+    const header = readClusteredPbfHeader(clusteredPath)
+
+    expect(header.featureCount).toBe(3)
+    expect(header.bbox).toEqual([0, 0, 2, 0])
+    expect(header.dictionary.zone).toEqual(['A', 'B'])
+    expect(header.propertyStats.zone).toEqual({ type: 'string', present: 3, min: 'A', max: 'B' })
+    expect(header.propertyStats.created).toEqual({ type: 'date', present: 3, min: '2024-01-01', max: '2024-01-03' })
+    expect(header.propertyStats.active).toEqual({ type: 'boolean', present: 3, min: true, max: true })
+    expect(header.propertyStats.area).toEqual({ type: 'number', present: 3, min: 1, max: 3.5 })
+    expect(header.propertyStats.optional).toEqual({ type: 'string', present: 1, min: 'x', max: 'x' })
+
+    const firstRef = assertFileRef(index.sourceRef(0))
+    expect(firstRef.offset).toBeGreaterThan(0)
+
+    const reread = await collect(index.stream())
+    expect(reread.map((feature) => feature.properties)).toEqual([
+      { zone: 'A', created: '2024-01-01', active: true, area: 1 },
+      { zone: 'B', created: '2024-01-02', active: true, area: 2, optional: 'x' },
+      { zone: 'A', created: '2024-01-03', active: true, area: 3.5 }
+    ])
+  })
+
   it('force rebuild rewrites clustered PBF mirrors', async () => {
     Crs.registry.set('EPSG:3857', new Crs('EPSG:3857', 'Web Mercator', 'Web Mercator'))
     const geojsonPath = writeGeoJson('force-cluster.geojson', [
@@ -507,6 +547,97 @@ function assertFileRef(sourceRef: SourceRef | undefined): SourceRef & { offset: 
   }
 
   return sourceRef as SourceRef & { offset: number, byteLength: number }
+}
+
+function readClusteredPbfHeader(filePath: string): {
+  featureCount: number
+  bbox?: number[]
+  dictionary: Record<string, unknown[]>
+  propertyStats: Record<string, unknown>
+} {
+  const file = fs.readFileSync(filePath)
+  expect(file.subarray(0, 8).toString('ascii')).toBe('GEOC-PDF')
+  const recordLength = readVarint(file, 8)
+  const start = recordLength.next
+  const end = start + Number(recordLength.value)
+  const header = file.subarray(start, end)
+  let position = 0
+  let featureCount = 0
+  let bbox: number[] | undefined
+  let dictionary: Record<string, unknown[]> = {}
+  let propertyStats: Record<string, unknown> = {}
+
+  while (position < header.length) {
+    const tag = readVarint(header, position)
+    position = tag.next
+    const field = Number(tag.value >> 3n)
+    const wireType = Number(tag.value & 7n)
+
+    if (field === 1) {
+      const value = readVarint(header, position)
+      expect(Number(value.value)).toBe(1)
+      position = value.next
+      continue
+    }
+
+    if (field === 2) {
+      const value = readVarint(header, position)
+      featureCount = Number(value.value)
+      position = value.next
+      continue
+    }
+
+    if (field === 3) {
+      const value = readLengthDelimited(header, position, wireType)
+      bbox = []
+      for (let offset = 0; offset < value.buffer.length; offset += 8) bbox.push(value.buffer.readDoubleLE(offset))
+      position = value.next
+      continue
+    }
+
+    if (field === 4) {
+      const value = readLengthDelimited(header, position, wireType)
+      dictionary = JSON.parse(value.buffer.toString('utf8')) as Record<string, unknown[]>
+      position = value.next
+      continue
+    }
+
+    if (field === 5) {
+      const value = readLengthDelimited(header, position, wireType)
+      propertyStats = JSON.parse(value.buffer.toString('utf8')) as Record<string, unknown>
+      position = value.next
+      continue
+    }
+
+    throw new Error(`Unexpected header field ${field}`)
+  }
+
+  return { featureCount, bbox, dictionary, propertyStats }
+}
+
+function readLengthDelimited(buffer: Buffer, position: number, wireType: number): { buffer: Buffer, next: number } {
+  expect(wireType).toBe(2)
+  const length = readVarint(buffer, position)
+  const start = length.next
+  const end = start + Number(length.value)
+  return {
+    buffer: buffer.subarray(start, end),
+    next: end
+  }
+}
+
+function readVarint(buffer: Buffer, position: number): { value: bigint, next: number } {
+  let value = 0n
+  let shift = 0n
+
+  for (let index = position; index < buffer.length; index += 1) {
+    const byte = buffer[index]
+    value |= BigInt(byte & 0x7f) << shift
+    if ((byte & 0x80) === 0) return { value, next: index + 1 }
+    shift += 7n
+  }
+
+  throw new Error('Truncated varint')
 }
 
 async function collect<T>(stream: ReadableStream<T>): Promise<T[]> {
