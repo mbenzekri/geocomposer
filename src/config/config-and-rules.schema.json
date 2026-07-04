@@ -10983,7 +10983,7 @@
                                       "anyOf": [
                                         {
                                           "type": "boolean",
-                                          "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                          "description": "When true, build the R-tree from a Hilbert-clustered PBF mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                         },
                                         {
                                           "type": "string",
@@ -10994,7 +10994,7 @@
                                           "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
                                         }
                                       ],
-                                      "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                      "description": "When true, build the R-tree from a Hilbert-clustered PBF mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                     }
                                   }
                                 },
@@ -11030,7 +11030,7 @@
                                       "anyOf": [
                                         {
                                           "type": "boolean",
-                                          "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                          "description": "When true, build the R-tree from a Hilbert-clustered PBF mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                         },
                                         {
                                           "type": "string",
@@ -11041,7 +11041,7 @@
                                           "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
                                         }
                                       ],
-                                      "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                      "description": "When true, build the R-tree from a Hilbert-clustered PBF mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                     },
                                     "$ref": {
                                       "type": "string",
@@ -11159,7 +11159,7 @@
                                       "anyOf": [
                                         {
                                           "type": "boolean",
-                                          "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                          "description": "When true, build the R-tree from a Hilbert-clustered PBF mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                         },
                                         {
                                           "type": "string",
@@ -11170,7 +11170,7 @@
                                           "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
                                         }
                                       ],
-                                      "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                      "description": "When true, build the R-tree from a Hilbert-clustered PBF mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                     }
                                   }
                                 },
@@ -11206,7 +11206,7 @@
                                       "anyOf": [
                                         {
                                           "type": "boolean",
-                                          "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                          "description": "When true, build the R-tree from a Hilbert-clustered PBF mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                         },
                                         {
                                           "type": "string",
@@ -11217,7 +11217,7 @@
                                           "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
                                         }
                                       ],
-                                      "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file. (boolean or \"$b{ENV_VAR|default}\")"
+                                      "description": "When true, build the R-tree from a Hilbert-clustered PBF mirror file. (boolean or \"$b{ENV_VAR|default}\")"
                                     },
                                     "$ref": {
                                       "type": "string",

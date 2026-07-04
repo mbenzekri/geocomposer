@@ -688,7 +688,7 @@
                     },
                     "clustered": {
                       "type": "boolean",
-                      "description": "When true, build the R-tree from a Hilbert-clustered GeoJSON mirror file."
+                      "description": "When true, build the R-tree from a Hilbert-clustered PBF mirror file."
                     }
                   }
                 }

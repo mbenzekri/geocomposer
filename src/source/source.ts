@@ -11,7 +11,7 @@ import { PageFilter } from '../stream/page-filter.js'
 import { PropertyFilter, type PropertyFilterCriteria } from '../stream/property-filter.js'
 import type { Layer } from '../layer/layer.js'
 import { isPlainObject, Registry } from '../core/tools.js'
-import { ClusteredGeoJsonFile, clusteredGeoJsonPath } from './geojson-file.js'
+import { ClusteredPbfFile, clusteredPbfPath } from './clustered-pbf-file.js'
 
 export type SourceStorage = 'mem' | 'file' | 'database'
 
@@ -224,7 +224,7 @@ export abstract class FeatureSource extends Source {
 export abstract class FileSource extends FeatureSource {
   readonly storage = 'file' as const
   readonly handles = new Map<string, FileHandle>()
-  private clusteredFile: ClusteredGeoJsonFile | null = null
+  private clusteredFile: ClusteredPbfFile | null = null
 
   protected constructor(id: string, info: DescInfo = {}, transformFeature?: FeatureTransform) {
     super(id, info, transformFeature)
@@ -287,7 +287,7 @@ export abstract class FileSource extends FeatureSource {
   async prepareClusteredIndexSource(layer: Layer, force = false): Promise<void> {
     const originalFiles = this.getFiles()
     const primaryFile = FileSource.resolvePrimaryFile(originalFiles, this.id)
-    const clusteredFile = new ClusteredGeoJsonFile(this.id, clusteredGeoJsonPath(primaryFile))
+    const clusteredFile = new ClusteredPbfFile(this.id, clusteredPbfPath(primaryFile))
     const wasOpen = this.handles.size > 0
 
     if (wasOpen) await this.close()

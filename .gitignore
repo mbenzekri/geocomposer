@@ -7,3 +7,4 @@ style-smoke/
 map.png
 test/temp/
 data/**/*.idx
+perf-conf

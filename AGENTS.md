@@ -3,6 +3,7 @@
 ## Collaboration policy
 
 - Do not modify files, generate patches, run formatters, or alter project state without the user's explicit approval for that specific change. Analysis, reading files, and reporting findings are allowed; implementation requires a clear "go" from the user.
+- Treat `perf-conf/` as read-only, including its symlink target. Do not edit, regenerate, chmod, delete, or overwrite files under `perf-conf/` unless the user explicitly approves that exact change.
 
 - Prefer the simplest direct implementation that satisfies the request.
 - Do not introduce new classes, services, option holders, registries, factories, or abstraction layers unless the user explicitly asks for them or there is already an established project pattern that requires it.
