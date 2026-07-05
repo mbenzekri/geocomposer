@@ -729,6 +729,10 @@
           "type": "string",
           "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`."
         },
+        "gzip": {
+          "type": "boolean",
+          "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`."
+        },
         "encoding": {
           "type": "string",
           "description": "Text encoding used to read the file, for example `utf8`, `latin1` or `windows-1252`."
@@ -781,6 +785,10 @@
           "type": "string",
           "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`."
         },
+        "gzip": {
+          "type": "boolean",
+          "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`."
+        },
         "encoding": {
           "type": "string",
           "description": "Text encoding used to read the file, for example `utf8`, `latin1` or `windows-1252`."
@@ -818,6 +826,10 @@
         "path": {
           "type": "string",
           "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`."
+        },
+        "gzip": {
+          "type": "boolean",
+          "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`."
         },
         "encoding": {
           "type": "string",

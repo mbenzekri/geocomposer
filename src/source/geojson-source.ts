@@ -10,6 +10,7 @@ import { GeoJsonParser, parseGeoJsonFeature } from './geojson-stream.js'
 export type GeoJsonSourceJson = DescInfo & {
   type: 'geojson'
   path: string
+  gzip?: boolean
   encoding?: BufferEncoding
   highWaterMark?: number
   indexes?: SourceIndexConfig
@@ -37,7 +38,7 @@ export class GeoJsonSource extends FileSource {
     encoding: BufferEncoding = 'utf8',
     highWaterMark?: number,
     transformFeature?: FeatureTransform,
-    info: DescInfo & { indexes?: SourceIndexConfig } = {}
+    info: DescInfo & { gzip?: boolean, indexes?: SourceIndexConfig } = {}
   ) {
     super(id, info, transformFeature)
 

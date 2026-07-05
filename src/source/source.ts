@@ -1,5 +1,6 @@
 import type { PathLike } from 'node:fs'
 import { open as openFile, type FileHandle } from 'node:fs/promises'
+import { extname } from 'node:path'
 import type { BBox } from '../core/geometry.js'
 import type { DescInfo, Feature, SourceRef } from '../core/feature.js'
 import { IdFromFeature } from '../core/feature.js'
@@ -11,6 +12,7 @@ import { PageFilter } from '../stream/page-filter.js'
 import { PropertyFilter, type PropertyFilterCriteria } from '../stream/property-filter.js'
 import type { Layer } from '../layer/layer.js'
 import { isPlainObject, Registry } from '../core/tools.js'
+import { openPossiblyGzippedReadStream } from '../core/gzip-tools.js'
 import { ClusteredPbfFile, clusteredPbfPath } from './clustered-pbf-file.js'
 
 export type SourceStorage = 'mem' | 'file' | 'database'
@@ -29,6 +31,11 @@ export type SourceIndexConfig = true | {
   }
   properties?: string[]
   [key: string]: unknown
+}
+
+export type FileSourceInfo = DescInfo & {
+  gzip?: boolean
+  indexes?: SourceIndexConfig
 }
 
 export type RequestTimings = {
@@ -225,12 +232,26 @@ export abstract class FileSource extends FeatureSource {
   readonly storage = 'file' as const
   readonly handles = new Map<string, FileHandle>()
   private clusteredFile: ClusteredPbfFile | null = null
+  private readonly gzip: boolean
+  private clusteredBuildActive = false
 
-  protected constructor(id: string, info: DescInfo = {}, transformFeature?: FeatureTransform) {
+  protected constructor(id: string, info: FileSourceInfo = {}, transformFeature?: FeatureTransform) {
     super(id, info, transformFeature)
+
+    const gzip = (info as { gzip?: unknown }).gzip
+    if (gzip !== undefined && typeof gzip !== 'boolean') {
+      throw new Error(`FileSource "${id}" gzip option must be a boolean`)
+    }
+    this.gzip = gzip === true
+  }
+
+  override async getExtent(layer: Layer): Promise<BBox | null> {
+    this.requireClusteredForGzip()
+    return super.getExtent(layer)
   }
 
   override stream(options: StreamOptions): ReadableStream<Feature> {
+    this.requireClusteredForGzip()
     if (!this.clusteredFile) return super.stream(options)
 
     return toStream(
@@ -241,6 +262,7 @@ export abstract class FileSource extends FeatureSource {
   }
 
   override async read(sourceRef: SourceRef, options: StreamOptions): Promise<Feature | null> {
+    this.requireClusteredForGzip()
     if (!this.clusteredFile) return super.read(sourceRef, options)
 
     const startedAt = performance.now()
@@ -254,11 +276,14 @@ export abstract class FileSource extends FeatureSource {
   override async open(): Promise<void> {
     if (this.handles.size > 0) return
 
+    const files = this.clusteredFile ? [this.clusteredFile.file] : this.getFiles()
     const opened: FileHandle[] = []
     try {
-      for (const file of this.files) {
+      this.validateGzipFiles(files)
+      for (const file of files) {
         const handle = await openFile(file.path, 'r')
         opened.push(handle)
+        if (!this.clusteredFile && this.isGzipPath(file.path)) await this.verifyGzipHeader(handle, file.path)
         this.handles.set(file.role, handle)
       }
     } catch (error) {
@@ -295,8 +320,10 @@ export abstract class FileSource extends FeatureSource {
 
     try {
       await this.open()
+      this.clusteredBuildActive = true
       await clusteredFile.prepare(layer, originalFiles, () => super.stream({ layer }), force)
     } finally {
+      this.clusteredBuildActive = false
       await this.close()
     }
 
@@ -318,6 +345,31 @@ export abstract class FileSource extends FeatureSource {
     highWaterMark?: number
     signal?: AbortSignal
   } = {}): AsyncIterable<Buffer> {
+    const file = this.getSourceFile(role)
+    if (this.gzip && this.isGzipPath(file.path)) {
+      if (options.start !== undefined && options.start !== 0) {
+        throw new Error(`FileSource "${this.id}" cannot stream gzip file "${String(file.path)}" from a byte offset`)
+      }
+
+      const input = openPossiblyGzippedReadStream(file.path, {
+        compression: 'gzip',
+        highWaterMark: options.highWaterMark
+      })
+
+      return {
+        async *[Symbol.asyncIterator]() {
+          try {
+            for await (const chunk of input.stream) {
+              if (options.signal?.aborted) throw options.signal.reason
+              yield Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk))
+            }
+          } finally {
+            input.close()
+          }
+        }
+      }
+    }
+
     const handle = this.fileHandle(role)
     const highWaterMark = options.highWaterMark ?? 64 * 1024
     let position = options.start ?? 0
@@ -336,6 +388,62 @@ export abstract class FileSource extends FeatureSource {
         }
       }
     }
+  }
+
+  private requireClusteredForGzip(): void {
+    if (!this.gzip || this.clusteredFile || this.clusteredBuildActive) return
+    throw new Error(`FileSource "${this.id}" gzip source requires a clustered PBF source`)
+  }
+
+  private validateGzipFiles(files: readonly SourceFile[]): void {
+    if (this.clusteredFile) return
+
+    const gzipFiles = files.filter((file) => this.isGzipPath(file.path))
+    if (gzipFiles.length === 0) {
+      if (this.gzip) throw new Error(`FileSource "${this.id}" gzip option is enabled but no source file ends with .gz`)
+      return
+    }
+
+    if (!this.gzip) {
+      throw new Error(`FileSource "${this.id}" file "${String(gzipFiles[0].path)}" ends with .gz but gzip option is not enabled`)
+    }
+
+    if (files.length !== 1) {
+      throw new Error(`FileSource "${this.id}" gzip is only supported for single-file sources`)
+    }
+
+    if (!FileSource.rtreeClustered(this.indexes)) {
+      throw new Error(`FileSource "${this.id}" gzip source requires indexes.rtree.clustered: true`)
+    }
+  }
+
+  private async verifyGzipHeader(handle: FileHandle, path: PathLike): Promise<void> {
+    const header = Buffer.alloc(3)
+    const { bytesRead } = await handle.read(header, 0, header.length, 0)
+    if (bytesRead < 3 || header[0] !== 0x1f || header[1] !== 0x8b || header[2] !== 0x08) {
+      throw new Error(`FileSource "${this.id}" gzip file "${String(path)}" is invalid: missing gzip magic`)
+    }
+  }
+
+  private getSourceFile(role: SourceFileRole | string): SourceFile {
+    const file = this.files.find((item) => item.role === role)
+    if (!file) {
+      throw new Error(`FileSource "${this.id}" file role "${role}" is not open`)
+    }
+    return file
+  }
+
+  private isGzipPath(path: PathLike): boolean {
+    return extname(String(path)).toLowerCase() === '.gz'
+  }
+
+  private static rtreeClustered(indexes: SourceIndexConfig | undefined): boolean {
+    if (!indexes || indexes === true) return false
+    const rtree = indexes.rtree
+    return typeof rtree === 'object'
+      && rtree !== null
+      && !Array.isArray(rtree)
+      && rtree.clustered === true
   }
 
   private static resolvePrimaryFile(files: readonly SourceFile[], sourceId: string): SourceFile {

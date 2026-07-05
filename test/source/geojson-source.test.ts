@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Layer } from '../../src/layer/layer.js'
 import { GeoJsonSource } from '../../src/source/geojson-source.js'
@@ -33,6 +34,12 @@ async function openSource(source: GeoJsonSource): Promise<GeoJsonSource> {
 }
 
 function writeFile(name: string, content: string): string {
+    const file = path.join(tmpDir, name)
+    fs.writeFileSync(file, content)
+    return file
+}
+
+function writeBuffer(name: string, content: Buffer): string {
     const file = path.join(tmpDir, name)
     fs.writeFileSync(file, content)
     return file
@@ -76,6 +83,7 @@ describe('GeoJsonSource', () => {
         const source = GeoJsonSource.fromConfig('cities', {
             type: 'geojson',
             path: 'cities.geojson',
+            gzip: false,
             encoding: 'utf8',
             highWaterMark: 32
         })
@@ -89,6 +97,51 @@ describe('GeoJsonSource', () => {
                 path: 'cities.geojson'
             }
         ])
+    })
+
+    it('rejects .gz files when gzip option is not enabled', async () => {
+        const file = writeBuffer('features.geojson.gz', gzipSync('{"type":"FeatureCollection","features":[]}'))
+        const source = new GeoJsonSource('cities', file)
+
+        await expect(source.open()).rejects.toThrow('gzip option is not enabled')
+    })
+
+    it('requires clustered rtree for gzip file sources', async () => {
+        const file = writeBuffer('features.geojson.gz', gzipSync('{"type":"FeatureCollection","features":[]}'))
+        const source = new GeoJsonSource('cities', file, 'utf8', undefined, undefined, { gzip: true })
+
+        await expect(source.open()).rejects.toThrow('requires indexes.rtree.clustered: true')
+    })
+
+    it('rejects invalid gzip files', async () => {
+        const file = writeFile('features.geojson.gz', '{"type":"FeatureCollection","features":[]}')
+        const source = new GeoJsonSource('cities', file, 'utf8', undefined, undefined, {
+            gzip: true,
+            indexes: {
+                rtree: {
+                    clustered: true
+                }
+            }
+        })
+
+        await expect(source.open()).rejects.toThrow('missing gzip magic')
+    })
+
+    it('does not stream gzip sources before the clustered PBF is active', async () => {
+        const file = writeBuffer('features.geojson.gz', gzipSync(JSON.stringify({
+            type: 'FeatureCollection',
+            features: []
+        })))
+        const source = await openSource(new GeoJsonSource('cities', file, 'utf8', undefined, undefined, {
+            gzip: true,
+            indexes: {
+                rtree: {
+                    clustered: true
+                }
+            }
+        }))
+
+        expect(() => source.stream({ layer })).toThrow('requires a clustered PBF source')
     })
 
     it('streams features from a FeatureCollection', async () => {

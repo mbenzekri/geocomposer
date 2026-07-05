@@ -9364,6 +9364,23 @@
                       ],
                       "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
                     },
+                    "gzip": {
+                      "anyOf": [
+                        {
+                          "type": "boolean",
+                          "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+                    },
                     "encoding": {
                       "anyOf": [
                         {
@@ -9593,6 +9610,23 @@
                       ],
                       "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
                     },
+                    "gzip": {
+                      "anyOf": [
+                        {
+                          "type": "boolean",
+                          "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+                    },
                     "encoding": {
                       "anyOf": [
                         {
@@ -9756,6 +9790,23 @@
                         }
                       ],
                       "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "gzip": {
+                      "anyOf": [
+                        {
+                          "type": "boolean",
+                          "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        }
+                      ],
+                      "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
                     },
                     "encoding": {
                       "anyOf": [
@@ -11419,6 +11470,23 @@
               ],
               "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
             },
+            "gzip": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+            },
             "encoding": {
               "anyOf": [
                 {
@@ -11635,6 +11703,23 @@
                 }
               ],
               "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "gzip": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
             },
             "encoding": {
               "anyOf": [
@@ -11888,6 +11973,23 @@
               ],
               "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
             },
+            "gzip": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+            },
             "encoding": {
               "anyOf": [
                 {
@@ -12039,6 +12141,23 @@
                 }
               ],
               "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "gzip": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
             },
             "encoding": {
               "anyOf": [
@@ -12226,6 +12345,23 @@
                 }
               ],
               "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "gzip": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
             },
             "encoding": {
               "anyOf": [
@@ -12471,6 +12607,23 @@
                 }
               ],
               "description": "Filesystem path or HTTP path depending on context. For service paths, the value must start with `/`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "gzip": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$b\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                }
+              ],
+              "description": "Set to true to read a `.gz` source file. Gzip file sources require `indexes.rtree.clustered: true`. (boolean or \"$b{ENV_VAR|default}\")"
             },
             "encoding": {
               "anyOf": [

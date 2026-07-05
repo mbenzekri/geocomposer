@@ -17,6 +17,7 @@ const LF = '\n'.charCodeAt(0)
 export type CsvSourceJson = DescInfo & {
   type: 'csv'
   path: string
+  gzip?: boolean
   encoding?: BufferEncoding
   highWaterMark?: number
   delimiter?: string
@@ -26,6 +27,7 @@ export type CsvSourceJson = DescInfo & {
 }
 
 export type CsvSourceOptions = DescInfo & {
+  gzip?: boolean
   encoding?: BufferEncoding
   highWaterMark?: number
   delimiter?: string
@@ -54,6 +56,7 @@ export class CsvSource extends FileSource {
     return new CsvSource(id, entry.path, {
       title: entry.title,
       abstract: entry.abstract,
+      gzip: entry.gzip,
       encoding: entry.encoding,
       highWaterMark: entry.highWaterMark,
       delimiter: entry.delimiter,

@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Feature } from '../../src/core/feature.js'
 import { Crs } from '../../src/core/crs.js'
@@ -100,6 +101,35 @@ describe('IndexRtree', () => {
 
     expect(rtree.ranges([12, -1, 12, 1])).toEqual([10, 14])
   })
+
+  it('builds a clustered rtree from a gzip GeoJSON source', async () => {
+    const geojsonPath = writeGeoJsonGzip('rtree-gzip.geojson.gz', [
+      featureJson('inside', [1, 2]),
+      featureJson('outside', [10, 11])
+    ])
+    const source = registerSource(await openSource(new GeoJsonSource(
+      'rtree-gzip',
+      geojsonPath,
+      'utf8',
+      16,
+      undefined,
+      {
+        gzip: true,
+        indexes: {
+          rtree: {
+            clustered: true
+          }
+        }
+      }
+    )))
+    const layer = new Layer('rtree-gzip', { source: source.id, crs: 'EPSG:4326' })
+
+    await new Indexer(layer).build()
+    const rtree = layer.indexes.get(IndexRtree.NAME) as IndexRtree
+
+    expect(rtree).toBeInstanceOf(IndexRtree)
+    expect((await collect(rtree.stream([0, 0, 2, 3]))).map((feature) => feature.id)).toEqual(['inside'])
+  })
 })
 
 function registerSource<T extends Source>(source: T): T {
@@ -120,6 +150,15 @@ function writeGeoJson(name: string, features: Record<string, unknown>[]): string
     type: 'FeatureCollection',
     features
   }))
+  return filePath
+}
+
+function writeGeoJsonGzip(name: string, features: Record<string, unknown>[]): string {
+  const filePath = path.join(tmpDir, name)
+  fs.writeFileSync(filePath, gzipSync(JSON.stringify({
+    type: 'FeatureCollection',
+    features
+  })))
   return filePath
 }
 

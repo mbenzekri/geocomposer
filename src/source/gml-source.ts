@@ -11,6 +11,7 @@ import { Props } from '../core/tools.js'
 export type GmlAxisOrder = 'xy' | 'yx' | 'auto'
 
 export type GmlSourceOptions = DescInfo & {
+  gzip?: boolean
   encoding?: BufferEncoding
   highWaterMark?: number
   featureElementNames?: string[]
@@ -23,6 +24,7 @@ export type GmlSourceOptions = DescInfo & {
 export type GmlSourceJson = DescInfo & {
   type: 'gml'
   path: string
+  gzip?: boolean
   encoding?: BufferEncoding
   highWaterMark?: number
   featureElementNames?: string[]
@@ -90,6 +92,7 @@ export class GmlSource extends FileSource {
     return new GmlSource(id, entry.path, {
       title: entry.title,
       abstract: entry.abstract,
+      gzip: entry.gzip,
       encoding: entry.encoding,
       highWaterMark: entry.highWaterMark,
       featureElementNames: entry.featureElementNames,
