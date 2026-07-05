@@ -1,5 +1,5 @@
 import type { PathLike } from 'node:fs'
-import { open as openFile, stat, type FileHandle } from 'node:fs/promises'
+import { mkdir, open as openFile, rm, stat, type FileHandle } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Feature, FileRef, SourceRef } from '../core/feature.js'
 import { Crs } from '../core/crs.js'
@@ -14,6 +14,10 @@ const HILBERT_LEVEL = 20
 const HILBERT_GRID_SIZE = 2 ** HILBERT_LEVEL
 const WEB_MERCATOR_EXTENT = 20037508.342789244
 const DEFAULT_HIGH_WATER_MARK = 64 * 1024
+const SORT_RUN_FEATURE_LIMIT = 250_000
+const SORT_RUN_MERGE_LIMIT = 64
+const SORT_RECORD_HEADER_LENGTH = 20
+const SORT_WRITE_BUFFER_BYTES = 32 * 1024 * 1024
 const CLUSTERED_PBF_MAGIC = 'GEOC-PDF'
 const CLUSTERED_PBF_MAGIC_BUFFER = Buffer.from(CLUSTERED_PBF_MAGIC, 'ascii')
 
@@ -41,10 +45,10 @@ const WIRE_VARINT = 0
 const WIRE_FIXED64 = 1
 const WIRE_LENGTH_DELIMITED = 2
 
-type ClusterFeature = {
-  feature: Feature
+type SortRecord = {
   hilbert: number
   index: number
+  record: Buffer
 }
 
 type GeometryTypeCode = 1 | 2 | 3 | 4 | 5 | 6
@@ -89,7 +93,6 @@ type ClusteredPbfHeader = {
 }
 
 type PropertySummary = {
-  values: PropertyValue[]
   dictionaryValues: PropertyValue[]
   type: PropertyType
   present: number
@@ -122,29 +125,17 @@ export class ClusteredPbfFile {
   ): Promise<void> {
     if (!force && !await this.needsBuild(originalFiles)) return
 
-    const features: ClusterFeature[] = []
     const precision = clusteredCoordinatePrecision(layer)
-    const reader = streamOriginal().getReader()
-    let index = 0
-
+    const header = await this.buildHeader(streamOriginal, precision)
+    const tempDir = `${this.filePath}.tmp-sort-${process.pid}-${Date.now()}`
     try {
-      for (;;) {
-        const result = await reader.read()
-        if (result.done) break
-        features.push({
-          feature: toWritableFeature(result.value, precision),
-          hilbert: hilbertKey(result.value, layer),
-          index
-        })
-        index += 1
-      }
+      await mkdir(tempDir, { recursive: true })
+      const runs = await this.writeSortRuns(layer, streamOriginal, header, precision, tempDir)
+      const sortedRuns = await this.mergeRuns(runs, tempDir)
+      await this.writeSortedRuns(sortedRuns, header)
     } finally {
-      await reader.cancel().catch(() => undefined)
-      reader.releaseLock()
+      await rm(tempDir, { recursive: true, force: true }).catch(() => undefined)
     }
-
-    features.sort((a, b) => a.hilbert - b.hilbert || a.index - b.index)
-    await this.write(features.map((item) => item.feature), precision)
   }
 
   stream(options: StreamOptions): AsyncIterable<Feature> {
@@ -175,25 +166,122 @@ export class ClusteredPbfFile {
     }
   }
 
-  private async write(features: readonly Feature[], precision: number | undefined): Promise<void> {
+  private async buildHeader(
+    streamOriginal: () => ReadableStream<Feature>,
+    precision: number | undefined
+  ): Promise<ClusteredPbfHeader> {
+    const builder = new ClusteredPbfHeaderBuilder()
+    await this.readOriginal(streamOriginal, (feature) => {
+      builder.add(toWritableFeature(feature, precision))
+    })
+    return builder.build()
+  }
+
+  private async writeSortRuns(
+    layer: Layer,
+    streamOriginal: () => ReadableStream<Feature>,
+    header: ClusteredPbfHeader,
+    precision: number | undefined,
+    tempDir: string
+  ): Promise<SortRun[]> {
+    const runs: SortRun[] = []
+    let records: SortRecord[] = []
+    let runIndex = 0
+    let featureIndex = 0
+
+    const flush = async (): Promise<void> => {
+      if (records.length === 0) return
+      records.sort(compareSortRecord)
+      runs.push(await writeSortRun(`${tempDir}/run-${runIndex}.bin`, records))
+      runIndex += 1
+      records = []
+    }
+
+    await this.readOriginal(streamOriginal, async (feature) => {
+      const writable = toWritableFeature(feature, precision)
+      records.push({
+        hilbert: hilbertKey(writable, layer),
+        index: featureIndex,
+        record: this.codec.encodeRecord(writable, precision, header)
+      })
+      featureIndex += 1
+
+      if (records.length >= SORT_RUN_FEATURE_LIMIT) await flush()
+    })
+
+    await flush()
+    return runs
+  }
+
+  private async mergeRuns(runs: SortRun[], tempDir: string): Promise<SortRun[]> {
+    let current = runs
+    let pass = 0
+
+    while (current.length > SORT_RUN_MERGE_LIMIT) {
+      const next: SortRun[] = []
+      for (let index = 0; index < current.length; index += SORT_RUN_MERGE_LIMIT) {
+        const group = current.slice(index, index + SORT_RUN_MERGE_LIMIT)
+        next.push(await mergeSortRuns(group, `${tempDir}/merge-${pass}-${next.length}.bin`))
+        await Promise.all(group.map((run) => rm(run.path, { force: true })))
+      }
+      current = next
+      pass += 1
+    }
+
+    return current
+  }
+
+  private async writeSortedRuns(runs: readonly SortRun[], header: ClusteredPbfHeader): Promise<void> {
     const handle = await openFile(this.filePath, 'w')
-    const header = buildHeader(features)
+    const writer = new BufferedFileWriter(handle)
     const headerRecord = this.codec.encodeHeaderRecord(header)
-    let position = 0
 
     try {
-      await handle.write(CLUSTERED_PBF_MAGIC_BUFFER, 0, CLUSTERED_PBF_MAGIC_BUFFER.length, position)
-      position += CLUSTERED_PBF_MAGIC_BUFFER.length
-      await handle.write(headerRecord, 0, headerRecord.length, position)
-      position += headerRecord.length
-      for (const feature of features) {
-        const record = this.codec.encodeRecord(feature, precision, header)
-        await handle.write(record, 0, record.length, position)
-        position += record.length
+      await writer.write(CLUSTERED_PBF_MAGIC_BUFFER)
+      await writer.write(headerRecord)
+
+      const cursors = await Promise.all(runs.map((run) => SortRunCursor.open(run)))
+      const heap = new SortRecordHeap()
+      try {
+        for (const cursor of cursors) {
+          const record = await cursor.next()
+          if (record) heap.push({ cursor, record })
+        }
+
+        for (;;) {
+          const item = heap.pop()
+          if (!item) break
+          await writer.write(item.record.record)
+
+          const next = await item.cursor.next()
+          if (next) heap.push({ cursor: item.cursor, record: next })
+        }
+      } finally {
+        await Promise.allSettled(cursors.map((cursor) => cursor.close()))
       }
+
+      await writer.flush()
       this.header = header
     } finally {
       await handle.close()
+    }
+  }
+
+  private async readOriginal(
+    streamOriginal: () => ReadableStream<Feature>,
+    onFeature: (feature: Feature) => void | Promise<void>
+  ): Promise<void> {
+    const reader = streamOriginal().getReader()
+
+    try {
+      for (;;) {
+        const result = await reader.read()
+        if (result.done) break
+        await onFeature(result.value)
+      }
+    } finally {
+      await reader.cancel().catch(() => undefined)
+      reader.releaseLock()
     }
   }
 
@@ -288,6 +376,191 @@ export class ClusteredPbfFile {
   }
 }
 
+type SortRun = {
+  path: string
+  count: number
+}
+
+type HeapItem = {
+  cursor: SortRunCursor
+  record: SortRecord
+}
+
+async function writeSortRun(path: string, records: readonly SortRecord[]): Promise<SortRun> {
+  const handle = await openFile(path, 'w')
+  const writer = new BufferedFileWriter(handle)
+
+  try {
+    for (const record of records) {
+      await writer.write(encodeSortRecord(record))
+    }
+    await writer.flush()
+  } finally {
+    await handle.close()
+  }
+
+  return { path, count: records.length }
+}
+
+async function mergeSortRuns(runs: readonly SortRun[], outputPath: string): Promise<SortRun> {
+  const output = await openFile(outputPath, 'w')
+  const writer = new BufferedFileWriter(output)
+  const cursors = await Promise.all(runs.map((run) => SortRunCursor.open(run)))
+  const heap = new SortRecordHeap()
+  let count = 0
+
+  try {
+    for (const cursor of cursors) {
+      const record = await cursor.next()
+      if (record) heap.push({ cursor, record })
+    }
+
+    for (;;) {
+      const item = heap.pop()
+      if (!item) break
+      await writer.write(encodeSortRecord(item.record))
+      count += 1
+
+      const next = await item.cursor.next()
+      if (next) heap.push({ cursor: item.cursor, record: next })
+    }
+    await writer.flush()
+  } finally {
+    await Promise.allSettled(cursors.map((cursor) => cursor.close()))
+    await output.close()
+  }
+
+  return { path: outputPath, count }
+}
+
+class BufferedFileWriter {
+  private readonly buffers: Buffer[] = []
+  private byteLength = 0
+  private position = 0
+
+  constructor(private readonly handle: FileHandle) {}
+
+  async write(buffer: Buffer): Promise<void> {
+    this.buffers.push(buffer)
+    this.byteLength += buffer.length
+    if (this.byteLength >= SORT_WRITE_BUFFER_BYTES) await this.flush()
+  }
+
+  async flush(): Promise<void> {
+    if (this.byteLength === 0) return
+    const buffer = this.buffers.length === 1 ? this.buffers[0] : Buffer.concat(this.buffers, this.byteLength)
+    await this.handle.write(buffer, 0, buffer.length, this.position)
+    this.position += buffer.length
+    this.buffers.length = 0
+    this.byteLength = 0
+  }
+}
+
+function encodeSortRecord(record: SortRecord): Buffer {
+  const buffer = Buffer.allocUnsafe(SORT_RECORD_HEADER_LENGTH + record.record.length)
+  buffer.writeBigUInt64LE(BigInt(record.hilbert), 0)
+  buffer.writeBigUInt64LE(BigInt(record.index), 8)
+  buffer.writeUInt32LE(record.record.length, 16)
+  record.record.copy(buffer, SORT_RECORD_HEADER_LENGTH)
+  return buffer
+}
+
+function compareSortRecord(a: SortRecord, b: SortRecord): number {
+  return a.hilbert - b.hilbert || a.index - b.index
+}
+
+class SortRunCursor {
+  private position = 0
+  private remaining: number
+
+  private constructor(
+    private readonly handle: FileHandle,
+    private readonly run: SortRun
+  ) {
+    this.remaining = run.count
+  }
+
+  static async open(run: SortRun): Promise<SortRunCursor> {
+    return new SortRunCursor(await openFile(run.path, 'r'), run)
+  }
+
+  async next(): Promise<SortRecord | null> {
+    if (this.remaining === 0) return null
+
+    const header = Buffer.allocUnsafe(SORT_RECORD_HEADER_LENGTH)
+    const headerRead = await FileByteReader.readFully(this.handle, header, this.position)
+    if (headerRead < header.length) throw new Error(`Invalid clustered sort run "${this.run.path}": truncated record header`)
+
+    const hilbert = Number(header.readBigUInt64LE(0))
+    const index = Number(header.readBigUInt64LE(8))
+    const byteLength = header.readUInt32LE(16)
+    const record = Buffer.allocUnsafe(byteLength)
+    const recordRead = await FileByteReader.readFully(this.handle, record, this.position + SORT_RECORD_HEADER_LENGTH)
+    if (recordRead < record.length) throw new Error(`Invalid clustered sort run "${this.run.path}": truncated record`)
+
+    this.position += SORT_RECORD_HEADER_LENGTH + byteLength
+    this.remaining -= 1
+    return { hilbert, index, record }
+  }
+
+  close(): Promise<void> {
+    return this.handle.close()
+  }
+}
+
+class SortRecordHeap {
+  private readonly items: HeapItem[] = []
+
+  push(item: HeapItem): void {
+    this.items.push(item)
+    this.up(this.items.length - 1)
+  }
+
+  pop(): HeapItem | null {
+    if (this.items.length === 0) return null
+    const first = this.items[0]
+    const last = this.items.pop()
+    if (last && this.items.length > 0) {
+      this.items[0] = last
+      this.down(0)
+    }
+    return first
+  }
+
+  private up(index: number): void {
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2)
+      if (compareSortRecord(this.items[parent].record, this.items[index].record) <= 0) return
+      this.swap(parent, index)
+      index = parent
+    }
+  }
+
+  private down(index: number): void {
+    for (;;) {
+      const left = index * 2 + 1
+      const right = left + 1
+      let smallest = index
+
+      if (left < this.items.length && compareSortRecord(this.items[left].record, this.items[smallest].record) < 0) {
+        smallest = left
+      }
+      if (right < this.items.length && compareSortRecord(this.items[right].record, this.items[smallest].record) < 0) {
+        smallest = right
+      }
+      if (smallest === index) return
+      this.swap(index, smallest)
+      index = smallest
+    }
+  }
+
+  private swap(a: number, b: number): void {
+    const item = this.items[a]
+    this.items[a] = this.items[b]
+    this.items[b] = item
+  }
+}
+
 export function clusteredPbfPath(sourceFile: SourceFile): string {
   return `${pathToString(sourceFile.path)}.clustered.pbf`
 }
@@ -328,68 +601,138 @@ async function readDelimitedRecordAt(handle: FileHandle, offset: number): Promis
   return record
 }
 
-function buildHeader(features: readonly Feature[]): ClusteredPbfHeader {
-  const summaries = propertySummaries(features)
-  const propertyNames = Object.keys(summaries)
-  const dictionary: Record<string, PropertyValue[]> = {}
-  const propertyStats: Record<string, PropertyStat> = {}
-  let bbox: BBox | undefined
+class ClusteredPbfHeaderBuilder {
+  private featureCount = 0
+  private bbox: BBox | undefined
+  private readonly properties = new Map<string, PropertySummaryBuilder>()
 
-  for (const feature of features) {
-    if (feature.bbox) bbox = bbox ? Gt.expand(bbox, feature.bbox) : feature.bbox
-  }
+  add(feature: Feature): void {
+    this.featureCount += 1
+    if (feature.bbox) this.bbox = this.bbox ? Gt.expand(this.bbox, feature.bbox) : feature.bbox
 
-  for (const [name, summary] of Object.entries(summaries)) {
-    if (summary.dictionaryValues.length > 0 && summary.dictionaryValues.length <= 100) {
-      dictionary[name] = summary.dictionaryValues
-    }
-
-    propertyStats[name] = {
-      type: summary.type,
-      present: summary.present,
-      ...(summary.min === undefined ? {} : { min: summary.min }),
-      ...(summary.max === undefined ? {} : { max: summary.max })
-    }
-  }
-
-  return {
-    version: 1,
-    featureCount: features.length,
-    ...(bbox ? { bbox } : {}),
-    propertyNames,
-    dictionary,
-    propertyStats
-  }
-}
-
-function propertySummaries(features: readonly Feature[]): Record<string, PropertySummary> {
-  const values = new Map<string, PropertyValue[]>()
-
-  for (const feature of features) {
     for (const [name, value] of Object.entries(normalizeProperties(feature.properties))) {
       const propertyValue = toPropertyValue(value)
       if (propertyValue === undefined) continue
-      const items = values.get(name) ?? []
-      items.push(propertyValue)
-      values.set(name, items)
+      let summary = this.properties.get(name)
+      if (!summary) {
+        summary = new PropertySummaryBuilder()
+        this.properties.set(name, summary)
+      }
+      summary.add(propertyValue)
     }
   }
 
-  const summaries: Record<string, PropertySummary> = {}
-  for (const [name, items] of values) {
-    const type = propertyType(items)
-    const dictionaryValues = type === 'mixed' ? [] : distinctValues(items)
-    const minMax = type === 'mixed' ? {} : propertyMinMax(items, type)
-    summaries[name] = {
-      values: items,
-      dictionaryValues,
+  build(): ClusteredPbfHeader {
+    const dictionary: Record<string, PropertyValue[]> = {}
+    const propertyStats: Record<string, PropertyStat> = {}
+
+    for (const [name, builder] of this.properties) {
+      const summary = builder.build()
+      if (summary.dictionaryValues.length > 0 && summary.dictionaryValues.length <= 100) {
+        dictionary[name] = summary.dictionaryValues
+      }
+
+      propertyStats[name] = {
+        type: summary.type,
+        present: summary.present,
+        ...(summary.min === undefined ? {} : { min: summary.min }),
+        ...(summary.max === undefined ? {} : { max: summary.max })
+      }
+    }
+
+    return {
+      version: 1,
+      featureCount: this.featureCount,
+      ...(this.bbox ? { bbox: this.bbox } : {}),
+      propertyNames: [...this.properties.keys()],
+      dictionary,
+      propertyStats
+    }
+  }
+}
+
+class PropertySummaryBuilder {
+  private type: PropertyType | undefined
+  private present = 0
+  private min: PropertyValue | undefined
+  private max: PropertyValue | undefined
+  private readonly distinctKeys = new Set<string>()
+  private readonly distinctValues: PropertyValue[] = []
+  private dictionaryOverflow = false
+  private stringDate = true
+  private stringTime = true
+  private stringTimestamp = true
+
+  add(value: PropertyValue): void {
+    this.present += 1
+    this.updateType(value)
+    if (this.type !== 'mixed') {
+      this.updateMinMax(value)
+      this.updateDictionary(value)
+    }
+  }
+
+  build(): PropertySummary {
+    const type = this.type ?? 'mixed'
+    return {
+      dictionaryValues: type === 'mixed' || this.dictionaryOverflow ? [] : this.distinctValues,
       type,
-      present: items.length,
-      ...minMax
+      present: this.present,
+      ...(type === 'mixed' || this.min === undefined ? {} : { min: this.min }),
+      ...(type === 'mixed' || this.max === undefined ? {} : { max: this.max })
     }
   }
 
-  return summaries
+  private updateType(value: PropertyValue): void {
+    const valueType = propertyValueType(value)
+    if (this.type === undefined) {
+      this.type = valueType
+      this.updateStringSubType(value)
+      return
+    }
+
+    if (this.type === 'mixed') return
+
+    if ((this.type === 'integer' || this.type === 'number') && (valueType === 'integer' || valueType === 'number')) {
+      this.type = this.type === 'number' || valueType === 'number' ? 'number' : 'integer'
+      return
+    }
+
+    if (isStringType(this.type) && valueType === 'string') {
+      this.updateStringSubType(value)
+      this.type = this.stringDate ? 'date' : this.stringTime ? 'time' : this.stringTimestamp ? 'timestamp' : 'string'
+      return
+    }
+
+    if (this.type !== valueType) this.type = 'mixed'
+  }
+
+  private updateStringSubType(value: PropertyValue): void {
+    if (typeof value !== 'string') return
+    this.stringDate &&= isIsoDate(value)
+    this.stringTime &&= isIsoTime(value)
+    this.stringTimestamp &&= isIsoTimestamp(value)
+    if (this.type === 'string') this.type = this.stringDate ? 'date' : this.stringTime ? 'time' : this.stringTimestamp ? 'timestamp' : 'string'
+  }
+
+  private updateMinMax(value: PropertyValue): void {
+    const type = this.type ?? propertyValueType(value)
+    if (this.min === undefined || comparePropertyValues(value, this.min, type) < 0) this.min = value
+    if (this.max === undefined || comparePropertyValues(value, this.max, type) > 0) this.max = value
+  }
+
+  private updateDictionary(value: PropertyValue): void {
+    if (this.dictionaryOverflow) return
+    const key = `${typeof value}:${String(value)}`
+    if (this.distinctKeys.has(key)) return
+    this.distinctKeys.add(key)
+    this.distinctValues.push(value)
+    if (this.distinctValues.length > 100) {
+      this.dictionaryOverflow = true
+      this.distinctValues.length = 0
+      this.distinctKeys.clear()
+    }
+  }
 }
 
 function normalizeProperties(properties: Props | null | undefined): Props {
@@ -407,6 +750,16 @@ function toPropertyValue(value: unknown): PropertyValue | undefined {
   if (typeof value === 'string' || typeof value === 'boolean') return value
   if (typeof value === 'number' && Number.isFinite(value)) return value
   return undefined
+}
+
+function propertyValueType(value: PropertyValue): PropertyType {
+  if (typeof value === 'boolean') return 'boolean'
+  if (typeof value === 'number') return Number.isSafeInteger(value) ? 'integer' : 'number'
+  return 'string'
+}
+
+function isStringType(type: PropertyType): boolean {
+  return type === 'string' || type === 'date' || type === 'time' || type === 'timestamp'
 }
 
 function distinctValues(values: readonly PropertyValue[]): PropertyValue[] {
