@@ -740,12 +740,13 @@ class Progress {
   }
 
   private write(stage: string, count: number, extra: string, now: number): void {
-    if (stage !== this.lastStage) {
+    const rateStage = stage.split(':', 1)[0] ?? stage
+    if (rateStage !== this.lastStage) {
       this.stageStart = now
       this.stageStartCount = count
       this.last = now
       this.lastCount = count
-      this.lastStage = stage
+      this.lastStage = rateStage
     }
 
     const elapsedTotal = Math.max(0.001, (now - this.start) / 1000)
@@ -755,10 +756,10 @@ class Progress {
     const avgStage = stageFeatures / elapsedStage
     const recentRate = (count - this.lastCount) / recent
     const suffix = extra ? ` ${extra}` : ''
-    console.log(`[clustered] source=${this.sourceId} stage=${stage} features=${count} elapsed=${formatDuration(elapsedTotal)} stageElapsed=${formatDuration(elapsedStage)} avg=${formatRate(avgStage)} recent=${formatRate(recentRate)}${suffix}`)
+    console.log(`[clustered] source=${this.sourceId} stage=${stage} features=${count} elapsed=${formatDuration(elapsedTotal)} stageElapsed=${formatDuration(elapsedStage)} avg=${formatFeatureRate(avgStage)} recent=${formatFeatureRate(recentRate)}${suffix}`)
     this.last = now
     this.lastCount = count
-    this.lastStage = stage
+    this.lastStage = rateStage
   }
 }
 
@@ -848,11 +849,11 @@ function compareSortRecord(a: SortRecord, b: SortRecord): number {
   return a.hilbert - b.hilbert || a.index - b.index
 }
 
-function formatRate(value: number): string {
-  if (!Number.isFinite(value)) return '0/s'
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M/s`
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k/s`
-  return `${value.toFixed(0)}/s`
+function formatFeatureRate(value: number): string {
+  if (!Number.isFinite(value)) return '0 features/s'
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M features/s`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k features/s`
+  return `${value.toFixed(0)} features/s`
 }
 
 function formatDuration(seconds: number): string {
