@@ -126,13 +126,17 @@ export class ClusteredPbfFile {
     if (!force && !await this.needsBuild(originalFiles)) return
 
     const precision = clusteredCoordinatePrecision(layer)
-    const header = await this.buildHeader(streamOriginal, precision)
     const tempDir = `${this.filePath}.tmp-sort-${process.pid}-${Date.now()}`
+    const progress = new Progress(this.sourceId)
+    progress.log('start', 0, `file=${this.filePath}`)
+
     try {
+      const header = await this.buildHeader(streamOriginal, precision, progress)
       await mkdir(tempDir, { recursive: true })
-      const runs = await this.writeSortRuns(layer, streamOriginal, header, precision, tempDir)
-      const sortedRuns = await this.mergeRuns(runs, tempDir)
-      await this.writeSortedRuns(sortedRuns, header)
+      const runs = await this.writeSortRuns(layer, streamOriginal, header, precision, tempDir, progress)
+      const sortedRuns = await this.mergeRuns(runs, tempDir, progress)
+      await this.writeSortedRuns(sortedRuns, header, progress)
+      progress.log('done', header.featureCount, `runs=${runs.length}`)
     } finally {
       await rm(tempDir, { recursive: true, force: true }).catch(() => undefined)
     }
@@ -168,13 +172,20 @@ export class ClusteredPbfFile {
 
   private async buildHeader(
     streamOriginal: () => ReadableStream<Feature>,
-    precision: number | undefined
+    precision: number | undefined,
+    progress: Progress
   ): Promise<ClusteredPbfHeader> {
     const builder = new ClusteredPbfHeaderBuilder()
+    let count = 0
+    progress.log('header', count)
     await this.readOriginal(streamOriginal, (feature) => {
       builder.add(toWritableFeature(feature, precision))
+      count += 1
+      progress.tick('header', count)
     })
-    return builder.build()
+    const header = builder.build()
+    progress.log('header:done', header.featureCount, `properties=${header.propertyNames.length}`)
+    return header
   }
 
   private async writeSortRuns(
@@ -182,7 +193,8 @@ export class ClusteredPbfFile {
     streamOriginal: () => ReadableStream<Feature>,
     header: ClusteredPbfHeader,
     precision: number | undefined,
-    tempDir: string
+    tempDir: string,
+    progress: Progress
   ): Promise<SortRun[]> {
     const runs: SortRun[] = []
     let records: SortRecord[] = []
@@ -193,10 +205,12 @@ export class ClusteredPbfFile {
       if (records.length === 0) return
       records.sort(compareSortRecord)
       runs.push(await writeSortRun(`${tempDir}/run-${runIndex}.bin`, records))
+      progress.log('run', featureIndex, `runs=${runs.length} last=${records.length}`)
       runIndex += 1
       records = []
     }
 
+    progress.log('runs', featureIndex)
     await this.readOriginal(streamOriginal, async (feature) => {
       const writable = toWritableFeature(feature, precision)
       records.push({
@@ -205,38 +219,45 @@ export class ClusteredPbfFile {
         record: this.codec.encodeRecord(writable, precision, header)
       })
       featureIndex += 1
+      progress.tick('runs', featureIndex, `runs=${runs.length}`)
 
       if (records.length >= SORT_RUN_FEATURE_LIMIT) await flush()
     })
 
     await flush()
+    progress.log('runs:done', featureIndex, `runs=${runs.length}`)
     return runs
   }
 
-  private async mergeRuns(runs: SortRun[], tempDir: string): Promise<SortRun[]> {
+  private async mergeRuns(runs: SortRun[], tempDir: string, progress: Progress): Promise<SortRun[]> {
     let current = runs
     let pass = 0
+    progress.log('merge', 0, `runs=${current.length}`)
 
     while (current.length > SORT_RUN_MERGE_LIMIT) {
       const next: SortRun[] = []
       for (let index = 0; index < current.length; index += SORT_RUN_MERGE_LIMIT) {
         const group = current.slice(index, index + SORT_RUN_MERGE_LIMIT)
         next.push(await mergeSortRuns(group, `${tempDir}/merge-${pass}-${next.length}.bin`))
+        progress.log('merge', 0, `pass=${pass} group=${next.length} input=${group.length} output=${next[next.length - 1].count}`)
         await Promise.all(group.map((run) => rm(run.path, { force: true })))
       }
       current = next
       pass += 1
     }
 
+    progress.log('merge:done', 0, `runs=${current.length}`)
     return current
   }
 
-  private async writeSortedRuns(runs: readonly SortRun[], header: ClusteredPbfHeader): Promise<void> {
+  private async writeSortedRuns(runs: readonly SortRun[], header: ClusteredPbfHeader, progress: Progress): Promise<void> {
     const handle = await openFile(this.filePath, 'w')
     const writer = new BufferedFileWriter(handle)
     const headerRecord = this.codec.encodeHeaderRecord(header)
+    let count = 0
 
     try {
+      progress.log('write', count, `runs=${runs.length}`)
       await writer.write(CLUSTERED_PBF_MAGIC_BUFFER)
       await writer.write(headerRecord)
 
@@ -252,6 +273,8 @@ export class ClusteredPbfFile {
           const item = heap.pop()
           if (!item) break
           await writer.write(item.record.record)
+          count += 1
+          progress.tick('write', count, `runs=${runs.length}`)
 
           const next = await item.cursor.next()
           if (next) heap.push({ cursor: item.cursor, record: next })
@@ -262,6 +285,7 @@ export class ClusteredPbfFile {
 
       await writer.flush()
       this.header = header
+      progress.log('write:done', count)
     } finally {
       await handle.close()
     }
@@ -386,6 +410,37 @@ type HeapItem = {
   record: SortRecord
 }
 
+class Progress {
+  private readonly start = Date.now()
+  private last = this.start
+  private lastCount = 0
+  private lastStage = ''
+
+  constructor(private readonly sourceId: string) {}
+
+  tick(stage: string, count: number, extra = ''): void {
+    const now = Date.now()
+    if (now - this.last < 5_000) return
+    this.write(stage, count, extra, now)
+  }
+
+  log(stage: string, count: number, extra = ''): void {
+    this.write(stage, count, extra, Date.now())
+  }
+
+  private write(stage: string, count: number, extra: string, now: number): void {
+    const elapsed = Math.max(0.001, (now - this.start) / 1000)
+    const recent = Math.max(0.001, (now - this.last) / 1000)
+    const avg = count / elapsed
+    const recentRate = (stage === this.lastStage ? count - this.lastCount : count) / recent
+    const suffix = extra ? ` ${extra}` : ''
+    console.log(`[clustered] source=${this.sourceId} stage=${stage} features=${count} elapsed=${formatDuration(elapsed)} avg=${formatRate(avg)} recent=${formatRate(recentRate)}${suffix}`)
+    this.last = now
+    this.lastCount = count
+    this.lastStage = stage
+  }
+}
+
 async function writeSortRun(path: string, records: readonly SortRecord[]): Promise<SortRun> {
   const handle = await openFile(path, 'w')
   const writer = new BufferedFileWriter(handle)
@@ -467,6 +522,20 @@ function encodeSortRecord(record: SortRecord): Buffer {
 
 function compareSortRecord(a: SortRecord, b: SortRecord): number {
   return a.hilbert - b.hilbert || a.index - b.index
+}
+
+function formatRate(value: number): string {
+  if (!Number.isFinite(value)) return '0/s'
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M/s`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k/s`
+  return `${value.toFixed(0)}/s`
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds.toFixed(1)}s`
+  const minutes = Math.floor(seconds / 60)
+  const rest = Math.floor(seconds % 60)
+  return `${minutes}m${String(rest).padStart(2, '0')}s`
 }
 
 class SortRunCursor {
