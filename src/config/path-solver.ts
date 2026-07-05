@@ -1,4 +1,5 @@
-import { resolve } from "node:path"
+import fs from 'node:fs'
+import { basename, dirname, resolve } from "node:path"
 import { assertExistsCreateDir, assertExistsFile, isPlainObject } from "../core/tools.js"
 
 export class PathsSolver {
@@ -24,7 +25,7 @@ export class PathsSolver {
         Object.entries(document.sources ?? {}).forEach(([name, sourcejson]) => {
             if (isPlainObject(sourcejson)) {
                 let fullpath = this.resolveProp(document, ['sources', name, 'path'])
-                assertExistsFile(fullpath)
+                assertExistsSourcePath(fullpath)
                 fullpath = this.resolveProp(document, ['sources', name, 'shpPath'])
                 assertExistsFile(fullpath)
                 fullpath = this.resolveProp(document, ['sources', name, 'dbfPath'])
@@ -52,4 +53,20 @@ export class PathsSolver {
         return doc[lastprop]
     }
 
+}
+
+function assertExistsSourcePath(path: string | undefined) {
+    if (path == null) return
+    if (path.includes('*')) {
+        const dir = dirname(path)
+        const pattern = basename(path)
+        if (!fs.existsSync(dir)) throw new Error(`Directory not found: ${dir}`)
+        if (!fs.statSync(dir).isDirectory()) throw new Error(`Not a directory: ${dir}`)
+        const regex = new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`)
+        if (!fs.readdirSync(dir).some((name) => regex.test(name))) {
+            throw new Error(`File pattern not found: ${path}`)
+        }
+        return
+    }
+    assertExistsFile(path)
 }
