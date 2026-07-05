@@ -15,6 +15,7 @@ import type { Layer } from '../layer/layer.js'
 import { isPlainObject, Registry } from '../core/tools.js'
 import { openPossiblyGzippedReadStream } from '../core/gzip-tools.js'
 import { ClusteredPbfFile, clusteredPbfPath, mergeClusteredPbfFiles } from './clustered-pbf-file.js'
+import { AbortSignalGuard } from './source-utils.js'
 
 export type SourceStorage = 'mem' | 'file' | 'database'
 
@@ -324,7 +325,8 @@ export abstract class FileSource extends FeatureSource {
     return this.clusteredFile !== null
   }
 
-  async prepareClusteredIndexSource(layer: Layer, force = false): Promise<void> {
+  async prepareClusteredIndexSource(layer: Layer, force = false, signal?: AbortSignal): Promise<void> {
+    AbortSignalGuard.throwIfAborted(signal, 'Clustered index build aborted')
     const sourceFiles = this.activeSourceFiles()
     const originalFiles = await FileSource.expandSourceFiles(sourceFiles)
     const primaryFile = FileSource.resolvePrimaryFile(originalFiles, this.id)
@@ -341,7 +343,7 @@ export abstract class FileSource extends FeatureSource {
         this.buildFiles = originalFiles
         await this.open()
         try {
-          await clusteredFile.prepare(layer, originalFiles, () => super.stream({ layer }), force)
+          await clusteredFile.prepare(layer, originalFiles, () => super.stream({ layer, signal }), force, signal)
         } finally {
           await this.close()
           this.buildFiles = null
@@ -349,19 +351,20 @@ export abstract class FileSource extends FeatureSource {
       } else {
         const localFiles: ClusteredPbfFile[] = []
         for (const [index, file] of originalFiles.entries()) {
+          AbortSignalGuard.throwIfAborted(signal, 'Clustered index build aborted')
           console.log(`[clustered] source=${this.id} gz=${index + 1}/${originalFiles.length} file=${String(file.path)}`)
           this.buildFiles = [file]
           const local = new ClusteredPbfFile(this.id, clusteredPbfPath(file))
           await this.open()
           try {
-            await local.prepare(layer, [file], () => super.stream({ layer }), force)
+            await local.prepare(layer, [file], () => super.stream({ layer, signal }), force, signal)
           } finally {
             await this.close()
             this.buildFiles = null
           }
           localFiles.push(local)
         }
-        await mergeClusteredPbfFiles(layer, localFiles.map((file) => file.path), clusteredFile.path, force)
+        await mergeClusteredPbfFiles(layer, localFiles.map((file) => file.path), clusteredFile.path, force, signal)
       }
     } finally {
       this.buildFiles = null

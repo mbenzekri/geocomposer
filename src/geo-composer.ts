@@ -229,6 +229,15 @@ export class GeoComposer {
             failed: 0,
             items: []
         }
+        const abortController = new AbortController()
+        const abort = (signal: string) => {
+            console.log(`[GeoComposer] Build index aborted (${signal})`)
+            abortController.abort(new Error(`Build index aborted (${signal})`))
+        }
+        const abortSigint = () => abort('SIGINT')
+        const abortSigterm = () => abort('SIGTERM')
+        process.once('SIGINT', abortSigint)
+        process.once('SIGTERM', abortSigterm)
 
         try {
             const layerBySource = new Map<string, Layer>()
@@ -290,6 +299,7 @@ export class GeoComposer {
                 }
 
                 try {
+                    if (abortController.signal.aborted) throw abortController.signal.reason
                     const buildState = await Indexer.needsBuild(layer)
                     if (!force && buildState === 'up-to-date') {
                         result.skipped += 1
@@ -305,7 +315,7 @@ export class GeoComposer {
 
                     await source.open()
                     try {
-                        const index = await new Indexer(layer).build(undefined, force)
+                        const index = await new Indexer(layer).build(abortController.signal, force)
                         const status = buildState === 'missing' ? 'created' : 'rebuilt'
                         result[status] += 1
                         result.items.push({
@@ -326,9 +336,12 @@ export class GeoComposer {
                         source: source.id,
                         message: error instanceof Error ? error.message : String(error)
                     })
+                    if (abortController.signal.aborted) break
                 }
             }
         } finally {
+            process.off('SIGINT', abortSigint)
+            process.off('SIGTERM', abortSigterm)
             GeoComposer.clear()
         }
 

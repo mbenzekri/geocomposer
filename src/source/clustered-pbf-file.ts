@@ -125,8 +125,10 @@ export class ClusteredPbfFile {
     layer: Layer,
     originalFiles: readonly SourceFile[],
     streamOriginal: () => ReadableStream<Feature>,
-    force = false
+    force = false,
+    signal?: AbortSignal
   ): Promise<void> {
+    AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
     if (!force && !await this.needsBuild(originalFiles)) return
 
     const precision = clusteredCoordinatePrecision(layer)
@@ -135,11 +137,11 @@ export class ClusteredPbfFile {
     progress.log('start', 0, `file=${this.filePath}`)
 
     try {
-      const header = await this.buildHeader(streamOriginal, precision, progress)
+      const header = await this.buildHeader(streamOriginal, precision, progress, signal)
       await mkdir(tempDir, { recursive: true })
-      const runs = await this.writeSortRuns(layer, streamOriginal, header, precision, tempDir, progress)
-      const sortedRuns = await this.mergeRuns(runs, tempDir, progress)
-      await this.writeSortedRuns(sortedRuns, header, progress)
+      const runs = await this.writeSortRuns(layer, streamOriginal, header, precision, tempDir, progress, signal)
+      const sortedRuns = await this.mergeRuns(runs, tempDir, progress, signal)
+      await this.writeSortedRuns(sortedRuns, header, progress, signal)
       progress.log('done', header.featureCount, `runs=${runs.length}`)
     } finally {
       await rm(tempDir, { recursive: true, force: true }).catch(() => undefined)
@@ -177,7 +179,8 @@ export class ClusteredPbfFile {
   private async buildHeader(
     streamOriginal: () => ReadableStream<Feature>,
     precision: number | undefined,
-    progress: Progress
+    progress: Progress,
+    signal?: AbortSignal
   ): Promise<ClusteredPbfHeader> {
     const builder = new ClusteredPbfHeaderBuilder()
     let count = 0
@@ -186,7 +189,7 @@ export class ClusteredPbfFile {
       builder.add(toWritableFeature(feature, precision))
       count += 1
       progress.tick('header', count)
-    })
+    }, signal)
     const header = builder.build()
     progress.log('header:done', header.featureCount, `properties=${header.propertyNames.length}`)
     return header
@@ -198,7 +201,8 @@ export class ClusteredPbfFile {
     header: ClusteredPbfHeader,
     precision: number | undefined,
     tempDir: string,
-    progress: Progress
+    progress: Progress,
+    signal?: AbortSignal
   ): Promise<SortRun[]> {
     const runs: SortRun[] = []
     let records: SortRecord[] = []
@@ -207,8 +211,9 @@ export class ClusteredPbfFile {
 
     const flush = async (): Promise<void> => {
       if (records.length === 0) return
+      AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
       records.sort(compareSortRecord)
-      runs.push(await writeSortRun(`${tempDir}/run-${runIndex}.bin`, records))
+      runs.push(await writeSortRun(`${tempDir}/run-${runIndex}.bin`, records, signal))
       progress.log('run', featureIndex, `runs=${runs.length} last=${records.length}`)
       runIndex += 1
       records = []
@@ -216,6 +221,7 @@ export class ClusteredPbfFile {
 
     progress.log('runs', featureIndex)
     await this.readOriginal(streamOriginal, async (feature) => {
+      AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
       const writable = toWritableFeature(feature, precision)
       records.push({
         hilbert: hilbertKey(writable, layer),
@@ -226,14 +232,14 @@ export class ClusteredPbfFile {
       progress.tick('runs', featureIndex, `runs=${runs.length}`)
 
       if (records.length >= SORT_RUN_FEATURE_LIMIT) await flush()
-    })
+    }, signal)
 
     await flush()
     progress.log('runs:done', featureIndex, `runs=${runs.length}`)
     return runs
   }
 
-  private async mergeRuns(runs: SortRun[], tempDir: string, progress: Progress): Promise<SortRun[]> {
+  private async mergeRuns(runs: SortRun[], tempDir: string, progress: Progress, signal?: AbortSignal): Promise<SortRun[]> {
     let current = runs
     let pass = 0
     progress.log('merge', 0, `runs=${current.length}`)
@@ -241,8 +247,9 @@ export class ClusteredPbfFile {
     while (current.length > SORT_RUN_MERGE_LIMIT) {
       const next: SortRun[] = []
       for (let index = 0; index < current.length; index += SORT_RUN_MERGE_LIMIT) {
+        AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
         const group = current.slice(index, index + SORT_RUN_MERGE_LIMIT)
-        next.push(await mergeSortRuns(group, `${tempDir}/merge-${pass}-${next.length}.bin`))
+        next.push(await mergeSortRuns(group, `${tempDir}/merge-${pass}-${next.length}.bin`, signal))
         progress.log('merge', 0, `pass=${pass} group=${next.length} input=${group.length} output=${next[next.length - 1].count}`)
         await Promise.all(group.map((run) => rm(run.path, { force: true })))
       }
@@ -254,7 +261,7 @@ export class ClusteredPbfFile {
     return current
   }
 
-  private async writeSortedRuns(runs: readonly SortRun[], header: ClusteredPbfHeader, progress: Progress): Promise<void> {
+  private async writeSortedRuns(runs: readonly SortRun[], header: ClusteredPbfHeader, progress: Progress, signal?: AbortSignal): Promise<void> {
     const handle = await openFile(this.filePath, 'w')
     const writer = new BufferedFileWriter(handle)
     const headerRecord = this.codec.encodeHeaderRecord(header)
@@ -271,12 +278,13 @@ export class ClusteredPbfFile {
         for (const cursor of cursors) {
           const record = await cursor.next()
           if (record) heap.push({ cursor, record })
-        }
+      }
 
-        for (;;) {
-          const item = heap.pop()
-          if (!item) break
-          await writer.write(item.record.record)
+      for (;;) {
+        const item = heap.pop()
+        if (!item) break
+        AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
+        await writer.write(item.record.record)
           count += 1
           progress.tick('write', count, `runs=${runs.length}`)
 
@@ -297,12 +305,14 @@ export class ClusteredPbfFile {
 
   private async readOriginal(
     streamOriginal: () => ReadableStream<Feature>,
-    onFeature: (feature: Feature) => void | Promise<void>
+    onFeature: (feature: Feature) => void | Promise<void>,
+    signal?: AbortSignal
   ): Promise<void> {
     const reader = streamOriginal().getReader()
 
     try {
       for (;;) {
+        AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
         const result = await reader.read()
         if (result.done) break
         await onFeature(result.value)
@@ -408,8 +418,10 @@ export async function mergeClusteredPbfFiles(
   layer: Layer,
   inputPaths: readonly string[],
   outputPath: string,
-  force = false
+  force = false,
+  signal?: AbortSignal
 ): Promise<void> {
+  AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF merge aborted')
   if (inputPaths.length === 0) throw new Error('Cannot merge clustered PBF files: no input files')
 
   const outputStat = await stat(outputPath).catch((error: NodeJS.ErrnoException) => {
@@ -447,6 +459,7 @@ export async function mergeClusteredPbfFiles(
       for (;;) {
         const item = heap.pop()
         if (!item) break
+        AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF merge aborted')
         await writer.write(codec.encodeRecord(item.record.feature, precision, header))
         count += 1
         progress.tick('write', count, `files=${inputPaths.length}`)
@@ -708,6 +721,8 @@ function compareMergeRecord(left: MergeRecord, right: MergeRecord): number {
 
 class Progress {
   private readonly start = Date.now()
+  private stageStart = this.start
+  private stageStartCount = 0
   private last = this.start
   private lastCount = 0
   private lastStage = ''
@@ -725,24 +740,35 @@ class Progress {
   }
 
   private write(stage: string, count: number, extra: string, now: number): void {
-    const elapsed = Math.max(0.001, (now - this.start) / 1000)
+    if (stage !== this.lastStage) {
+      this.stageStart = now
+      this.stageStartCount = count
+      this.last = now
+      this.lastCount = count
+      this.lastStage = stage
+    }
+
+    const elapsedTotal = Math.max(0.001, (now - this.start) / 1000)
+    const elapsedStage = Math.max(0.001, (now - this.stageStart) / 1000)
     const recent = Math.max(0.001, (now - this.last) / 1000)
-    const avg = count / elapsed
-    const recentRate = (stage === this.lastStage ? count - this.lastCount : count) / recent
+    const stageFeatures = count - this.stageStartCount
+    const avgStage = stageFeatures / elapsedStage
+    const recentRate = (count - this.lastCount) / recent
     const suffix = extra ? ` ${extra}` : ''
-    console.log(`[clustered] source=${this.sourceId} stage=${stage} features=${count} elapsed=${formatDuration(elapsed)} avg=${formatRate(avg)} recent=${formatRate(recentRate)}${suffix}`)
+    console.log(`[clustered] source=${this.sourceId} stage=${stage} features=${count} elapsed=${formatDuration(elapsedTotal)} stageElapsed=${formatDuration(elapsedStage)} avg=${formatRate(avgStage)} recent=${formatRate(recentRate)}${suffix}`)
     this.last = now
     this.lastCount = count
     this.lastStage = stage
   }
 }
 
-async function writeSortRun(path: string, records: readonly SortRecord[]): Promise<SortRun> {
+async function writeSortRun(path: string, records: readonly SortRecord[], signal?: AbortSignal): Promise<SortRun> {
   const handle = await openFile(path, 'w')
   const writer = new BufferedFileWriter(handle)
 
   try {
     for (const record of records) {
+      AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
       await writer.write(encodeSortRecord(record))
     }
     await writer.flush()
@@ -753,7 +779,7 @@ async function writeSortRun(path: string, records: readonly SortRecord[]): Promi
   return { path, count: records.length }
 }
 
-async function mergeSortRuns(runs: readonly SortRun[], outputPath: string): Promise<SortRun> {
+async function mergeSortRuns(runs: readonly SortRun[], outputPath: string, signal?: AbortSignal): Promise<SortRun> {
   const output = await openFile(outputPath, 'w')
   const writer = new BufferedFileWriter(output)
   const cursors = await Promise.all(runs.map((run) => SortRunCursor.open(run)))
@@ -762,6 +788,7 @@ async function mergeSortRuns(runs: readonly SortRun[], outputPath: string): Prom
 
   try {
     for (const cursor of cursors) {
+      AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
       const record = await cursor.next()
       if (record) heap.push({ cursor, record })
     }
@@ -769,6 +796,7 @@ async function mergeSortRuns(runs: readonly SortRun[], outputPath: string): Prom
     for (;;) {
       const item = heap.pop()
       if (!item) break
+      AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
       await writer.write(encodeSortRecord(item.record))
       count += 1
 

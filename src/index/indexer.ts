@@ -64,7 +64,7 @@ export class Indexer {
       throw new Error(`Layer "${this.layer.id}" source "${this.layer.source.id}" is not a FileSource`)
     }
 
-    await Indexer.prepareClusteredIndexSource(this.layer, force)
+    await Indexer.prepareClusteredIndexSource(this.layer, force, signal)
     const outputPath = Indexer.resolveIndexPath(this.layer)
     const record = new IndexRecordBuilder(this.layer)
     const rtree = new IndexRtreeBuilder(record, this.rtreeChunkSize())
@@ -262,12 +262,12 @@ export class Indexer {
     return clustered === true
   }
 
-  private static async prepareClusteredIndexSource(layer: Layer, force = false): Promise<void> {
+  private static async prepareClusteredIndexSource(layer: Layer, force = false, signal?: AbortSignal): Promise<void> {
     if (!Indexer.rtreeClustered(layer)) return
     if (!(layer.source instanceof FileSource)) {
       throw new Error(`Layer "${layer.id}" source "${layer.source.id}" is not a FileSource`)
     }
-    await layer.source.prepareClusteredIndexSource(layer, force)
+    await layer.source.prepareClusteredIndexSource(layer, force, signal)
   }
 }
 

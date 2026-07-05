@@ -6,6 +6,7 @@ import type { Feature, SourceRef } from '../src/core/feature.js'
 import type { BBox } from '../src/core/geometry.js'
 import { Layer } from '../src/layer/layer.js'
 import { GeoComposer } from '../src/geo-composer.js'
+import { Indexer } from '../src/index/indexer.js'
 import { IndexRtree } from '../src/index/index-rtree.js'
 import { Source, type StreamOptions } from '../src/source/source.js'
 import { Service } from '../src/service/service.js'
@@ -145,6 +146,45 @@ describe('GeoComposer', () => {
             source: 'world',
             path: indexPath,
             message: '1 records'
+        })
+    })
+
+    test('aborts build-index on SIGINT', async () => {
+        const dataPath = testTempPath('indexed-abort.geojson')
+        fs.writeFileSync(dataPath, JSON.stringify({
+            type: 'FeatureCollection',
+            features: [
+                {
+                    type: 'Feature',
+                    id: 'a',
+                    properties: {},
+                    geometry: { type: 'Point', coordinates: [1, 2] }
+                }
+            ]
+        }))
+
+        config_min.sources.world = {
+            type: 'geojson',
+            path: dataPath,
+            indexes: true
+        }
+        const configPath = writeConf('config_build_index_abort.json', config_min)
+        const app = await GeoComposer.from({ configPath })
+        const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+        vi.spyOn(Indexer.prototype, 'build').mockImplementation(async (signal?: AbortSignal) => {
+            process.emit('SIGINT')
+            expect(signal?.aborted).toBe(true)
+            throw signal?.reason
+        })
+
+        const result = await app.buildIndexes(['world'])
+
+        expect(consoleLog).toHaveBeenCalledWith('[GeoComposer] Build index aborted (SIGINT)')
+        expect(result.failed).toBe(1)
+        expect(result.items[0]).toMatchObject({
+            status: 'failed',
+            source: 'world',
+            message: 'Build index aborted (SIGINT)'
         })
     })
 
