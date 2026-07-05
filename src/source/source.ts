@@ -348,7 +348,8 @@ export abstract class FileSource extends FeatureSource {
         }
       } else {
         const localFiles: ClusteredPbfFile[] = []
-        for (const file of originalFiles) {
+        for (const [index, file] of originalFiles.entries()) {
+          console.log(`[clustered] source=${this.id} gz=${index + 1}/${originalFiles.length} file=${String(file.path)}`)
           this.buildFiles = [file]
           const local = new ClusteredPbfFile(this.id, clusteredPbfPath(file))
           await this.open()

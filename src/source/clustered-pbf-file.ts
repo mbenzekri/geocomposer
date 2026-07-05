@@ -428,8 +428,11 @@ export async function mergeClusteredPbfFiles(
   const header = mergeClusteredHeaders(headers)
   const handle = await openFile(outputPath, 'w')
   const writer = new BufferedFileWriter(handle)
+  const progress = new Progress(`merge:${layer.source.id}`)
+  let count = 0
 
   try {
+    progress.log('start', count, `files=${inputPaths.length} output=${outputPath}`)
     await writer.write(CLUSTERED_PBF_MAGIC_BUFFER)
     await writer.write(codec.encodeHeaderRecord(header))
 
@@ -445,6 +448,8 @@ export async function mergeClusteredPbfFiles(
         const item = heap.pop()
         if (!item) break
         await writer.write(codec.encodeRecord(item.record.feature, precision, header))
+        count += 1
+        progress.tick('write', count, `files=${inputPaths.length}`)
         const next = await item.cursor.next()
         if (next) heap.push({ cursor: item.cursor, record: next })
       }
@@ -453,6 +458,7 @@ export async function mergeClusteredPbfFiles(
     }
 
     await writer.flush()
+    progress.log('done', count, `files=${inputPaths.length}`)
   } finally {
     await handle.close()
   }
