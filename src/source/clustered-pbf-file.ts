@@ -110,6 +110,10 @@ export class ClusteredPbfFile {
     private readonly highWaterMark = DEFAULT_HIGH_WATER_MARK
   ) {}
 
+  get path(): string {
+    return this.filePath
+  }
+
   get file(): SourceFile {
     return {
       role: 'data',
@@ -400,6 +404,60 @@ export class ClusteredPbfFile {
   }
 }
 
+export async function mergeClusteredPbfFiles(
+  layer: Layer,
+  inputPaths: readonly string[],
+  outputPath: string,
+  force = false
+): Promise<void> {
+  if (inputPaths.length === 0) throw new Error('Cannot merge clustered PBF files: no input files')
+
+  const outputStat = await stat(outputPath).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === 'ENOENT') return null
+    throw error
+  })
+  if (!force && outputStat) {
+    let newestInput = 0
+    for (const inputPath of inputPaths) newestInput = Math.max(newestInput, (await stat(inputPath)).mtimeMs)
+    if (outputStat.mtimeMs >= newestInput) return
+  }
+
+  const codec = new FeaturePbfCodec()
+  const precision = clusteredCoordinatePrecision(layer)
+  const headers = await Promise.all(inputPaths.map((path) => readClusteredHeader(path, codec)))
+  const header = mergeClusteredHeaders(headers)
+  const handle = await openFile(outputPath, 'w')
+  const writer = new BufferedFileWriter(handle)
+
+  try {
+    await writer.write(CLUSTERED_PBF_MAGIC_BUFFER)
+    await writer.write(codec.encodeHeaderRecord(header))
+
+    const cursors = await Promise.all(inputPaths.map((path, index) => ClusteredPbfCursor.open(path, index, layer, codec)))
+    const heap = new MergeFeatureHeap()
+    try {
+      for (const cursor of cursors) {
+        const record = await cursor.next()
+        if (record) heap.push({ cursor, record })
+      }
+
+      for (;;) {
+        const item = heap.pop()
+        if (!item) break
+        await writer.write(codec.encodeRecord(item.record.feature, precision, header))
+        const next = await item.cursor.next()
+        if (next) heap.push({ cursor: item.cursor, record: next })
+      }
+    } finally {
+      await Promise.allSettled(cursors.map((cursor) => cursor.close()))
+    }
+
+    await writer.flush()
+  } finally {
+    await handle.close()
+  }
+}
+
 type SortRun = {
   path: string
   count: number
@@ -408,6 +466,238 @@ type SortRun = {
 type HeapItem = {
   cursor: SortRunCursor
   record: SortRecord
+}
+
+type MergeRecord = {
+  feature: Feature
+  hilbert: number
+  source: number
+  index: number
+}
+
+type MergeHeapItem = {
+  cursor: ClusteredPbfCursor
+  record: MergeRecord
+}
+
+async function readClusteredHeader(path: string, codec: FeaturePbfCodec): Promise<ClusteredPbfHeader> {
+  const handle = await openFile(path, 'r')
+  try {
+    await assertMagic(handle)
+    return codec.decodeHeaderRecord(await readDelimitedRecordAt(handle, CLUSTERED_PBF_MAGIC_BUFFER.length))
+  } finally {
+    await handle.close()
+  }
+}
+
+function mergeClusteredHeaders(headers: readonly ClusteredPbfHeader[]): ClusteredPbfHeader {
+  const propertyNames: string[] = []
+  const propertySeen = new Set<string>()
+  const propertyStats: Record<string, PropertyStat> = {}
+  const dictionaryCandidates = new Map<string, Map<string, PropertyValue>>()
+  const dictionaryRejected = new Set<string>()
+  let featureCount = 0
+  let bbox: BBox | undefined
+
+  for (const header of headers) {
+    featureCount += header.featureCount
+    if (header.bbox) bbox = bbox ? Gt.expand(bbox, header.bbox) : header.bbox
+
+    for (const name of header.propertyNames) {
+      if (!propertySeen.has(name)) {
+        propertySeen.add(name)
+        propertyNames.push(name)
+      }
+
+      const stat = header.propertyStats[name]
+      if (stat) propertyStats[name] = mergePropertyStat(propertyStats[name], stat)
+
+      const values = header.dictionary[name]
+      if (!values && stat?.present) {
+        dictionaryRejected.add(name)
+        dictionaryCandidates.delete(name)
+        continue
+      }
+      if (!values || dictionaryRejected.has(name)) continue
+
+      const candidate = dictionaryCandidates.get(name) ?? new Map<string, PropertyValue>()
+      for (const value of values) {
+        candidate.set(`${typeof value}:${String(value)}`, value)
+        if (candidate.size > 100) {
+          dictionaryRejected.add(name)
+          dictionaryCandidates.delete(name)
+          break
+        }
+      }
+      if (!dictionaryRejected.has(name)) dictionaryCandidates.set(name, candidate)
+    }
+  }
+
+  const dictionary: Record<string, PropertyValue[]> = {}
+  for (const [name, values] of dictionaryCandidates) {
+    if (!dictionaryRejected.has(name) && values.size > 0 && propertyStats[name]?.type !== 'mixed') {
+      dictionary[name] = [...values.values()]
+    }
+  }
+
+  return {
+    version: 1,
+    featureCount,
+    ...(bbox ? { bbox } : {}),
+    propertyNames,
+    dictionary,
+    propertyStats
+  }
+}
+
+function mergePropertyStat(left: PropertyStat | undefined, right: PropertyStat): PropertyStat {
+  if (!left) return { ...right }
+  const type = mergePropertyType(left.type, right.type)
+  return {
+    type,
+    present: left.present + right.present,
+    ...(type === 'mixed' ? {} : mergeMinMax(left, right, type))
+  }
+}
+
+function mergePropertyType(left: PropertyType, right: PropertyType): PropertyType {
+  if (left === right) return left
+  if ((left === 'integer' || left === 'number') && (right === 'integer' || right === 'number')) return 'number'
+  if (isStringType(left) && isStringType(right)) return 'string'
+  return 'mixed'
+}
+
+function mergeMinMax(left: PropertyStat, right: PropertyStat, type: PropertyType): { min?: PropertyValue, max?: PropertyValue } {
+  const values = [left.min, left.max, right.min, right.max].filter((value): value is PropertyValue => value !== undefined)
+  if (values.length === 0) return {}
+  let min = values[0]
+  let max = values[0]
+  for (const value of values.slice(1)) {
+    if (comparePropertyValues(value, min, type) < 0) min = value
+    if (comparePropertyValues(value, max, type) > 0) max = value
+  }
+  return { min, max }
+}
+
+class ClusteredPbfCursor {
+  private readonly parser = new DelimitedPbfParser(CLUSTERED_PBF_MAGIC_BUFFER.length)
+  private position = CLUSTERED_PBF_MAGIC_BUFFER.length
+  private headerRead = false
+  private index = 0
+  private pending: { message: Buffer }[] = []
+
+  private constructor(
+    private readonly handle: FileHandle,
+    private readonly path: string,
+    private readonly source: number,
+    private readonly layer: Layer,
+    private readonly codec: FeaturePbfCodec,
+    private readonly header: ClusteredPbfHeader
+  ) {}
+
+  static async open(path: string, source: number, layer: Layer, codec: FeaturePbfCodec): Promise<ClusteredPbfCursor> {
+    const handle = await openFile(path, 'r')
+    try {
+      await assertMagic(handle)
+      const header = codec.decodeHeaderRecord(await readDelimitedRecordAt(handle, CLUSTERED_PBF_MAGIC_BUFFER.length))
+      return new ClusteredPbfCursor(handle, path, source, layer, codec, header)
+    } catch (error) {
+      await handle.close()
+      throw error
+    }
+  }
+
+  async next(): Promise<MergeRecord | null> {
+    for (;;) {
+      const pending = this.pending.shift()
+      if (pending) return this.toMergeRecord(pending.message)
+
+      const buffer = Buffer.allocUnsafe(DEFAULT_HIGH_WATER_MARK)
+      const { bytesRead } = await this.handle.read(buffer, 0, buffer.length, this.position)
+      if (bytesRead === 0) return null
+      this.position += bytesRead
+      this.parser.push(buffer.subarray(0, bytesRead))
+
+      for (;;) {
+        const record = this.parser.read()
+        if (!record) break
+        if (!this.headerRead) {
+          this.headerRead = true
+          continue
+        }
+        this.pending.push({ message: record.message })
+      }
+    }
+  }
+
+  close(): Promise<void> {
+    return this.handle.close()
+  }
+
+  private toMergeRecord(message: Buffer): MergeRecord {
+    const feature = this.codec.decodeMessage(message, this.layer, this.header)
+    const record = {
+      feature,
+      hilbert: hilbertKey(feature, this.layer),
+      source: this.source,
+      index: this.index
+    }
+    this.index += 1
+    return record
+  }
+}
+
+class MergeFeatureHeap {
+  private readonly items: MergeHeapItem[] = []
+
+  push(item: MergeHeapItem): void {
+    this.items.push(item)
+    this.up(this.items.length - 1)
+  }
+
+  pop(): MergeHeapItem | null {
+    if (this.items.length === 0) return null
+    const first = this.items[0]
+    const last = this.items.pop()
+    if (last && this.items.length > 0) {
+      this.items[0] = last
+      this.down(0)
+    }
+    return first
+  }
+
+  private up(index: number): void {
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2)
+      if (compareMergeRecord(this.items[parent].record, this.items[index].record) <= 0) return
+      this.swap(parent, index)
+      index = parent
+    }
+  }
+
+  private down(index: number): void {
+    for (;;) {
+      const left = index * 2 + 1
+      const right = left + 1
+      let smallest = index
+
+      if (left < this.items.length && compareMergeRecord(this.items[left].record, this.items[smallest].record) < 0) smallest = left
+      if (right < this.items.length && compareMergeRecord(this.items[right].record, this.items[smallest].record) < 0) smallest = right
+      if (smallest === index) return
+      this.swap(index, smallest)
+      index = smallest
+    }
+  }
+
+  private swap(a: number, b: number): void {
+    const item = this.items[a]
+    this.items[a] = this.items[b]
+    this.items[b] = item
+  }
+}
+
+function compareMergeRecord(left: MergeRecord, right: MergeRecord): number {
+  return left.hilbert - right.hilbert || left.source - right.source || left.index - right.index
 }
 
 class Progress {

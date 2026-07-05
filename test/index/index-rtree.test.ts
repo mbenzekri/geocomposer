@@ -130,6 +130,39 @@ describe('IndexRtree', () => {
     expect(rtree).toBeInstanceOf(IndexRtree)
     expect((await collect(rtree.stream([0, 0, 2, 3]))).map((feature) => feature.id)).toEqual(['inside'])
   })
+
+  it('builds a clustered rtree from a gzip GeoJSON file pattern', async () => {
+    writeGeoJsonGzip('rtree-pattern-a.geojson.gz', [
+      featureJson('a-inside', [1, 2]),
+      featureJson('a-outside', [10, 11])
+    ])
+    writeGeoJsonGzip('rtree-pattern-b.geojson.gz', [
+      featureJson('b-inside', [2, 2]),
+      featureJson('b-outside', [20, 21])
+    ])
+    const source = registerSource(await openSource(new GeoJsonSource(
+      'rtree-pattern',
+      path.join(tmpDir, 'rtree-pattern-*.geojson.gz'),
+      'utf8',
+      16,
+      undefined,
+      {
+        gzip: true,
+        indexes: {
+          rtree: {
+            clustered: true
+          }
+        }
+      }
+    )))
+    const layer = new Layer('rtree-pattern', { source: source.id, crs: 'EPSG:4326' })
+
+    await new Indexer(layer).build()
+    const rtree = layer.indexes.get(IndexRtree.NAME) as IndexRtree
+
+    expect(rtree).toBeInstanceOf(IndexRtree)
+    expect((await collect(rtree.stream([0, 0, 3, 3]))).map((feature) => feature.id).sort()).toEqual(['a-inside', 'b-inside'])
+  })
 })
 
 function registerSource<T extends Source>(source: T): T {

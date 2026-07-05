@@ -1,6 +1,7 @@
 import type { PathLike } from 'node:fs'
-import { open as openFile, type FileHandle } from 'node:fs/promises'
-import { extname } from 'node:path'
+import { open as openFile, readdir, type FileHandle } from 'node:fs/promises'
+import { basename, dirname, extname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { BBox } from '../core/geometry.js'
 import type { DescInfo, Feature, SourceRef } from '../core/feature.js'
 import { IdFromFeature } from '../core/feature.js'
@@ -13,7 +14,7 @@ import { PropertyFilter, type PropertyFilterCriteria } from '../stream/property-
 import type { Layer } from '../layer/layer.js'
 import { isPlainObject, Registry } from '../core/tools.js'
 import { openPossiblyGzippedReadStream } from '../core/gzip-tools.js'
-import { ClusteredPbfFile, clusteredPbfPath } from './clustered-pbf-file.js'
+import { ClusteredPbfFile, clusteredPbfPath, mergeClusteredPbfFiles } from './clustered-pbf-file.js'
 
 export type SourceStorage = 'mem' | 'file' | 'database'
 
@@ -234,6 +235,7 @@ export abstract class FileSource extends FeatureSource {
   private clusteredFile: ClusteredPbfFile | null = null
   private readonly gzip: boolean
   private clusteredBuildActive = false
+  private buildFiles: readonly SourceFile[] | null = null
 
   protected constructor(id: string, info: FileSourceInfo = {}, transformFeature?: FeatureTransform) {
     super(id, info, transformFeature)
@@ -276,10 +278,23 @@ export abstract class FileSource extends FeatureSource {
   override async open(): Promise<void> {
     if (this.handles.size > 0) return
 
-    const files = this.clusteredFile ? [this.clusteredFile.file] : this.getFiles()
+    const baseFiles = this.clusteredFile ? [this.clusteredFile.file] : this.activeSourceFiles()
+    const files = this.clusteredFile ? baseFiles : await FileSource.expandSourceFiles(baseFiles)
     const opened: FileHandle[] = []
     try {
       this.validateGzipFiles(files)
+      if (!this.clusteredFile && !this.buildFiles && baseFiles.length === 1 && files.length > 1) {
+        await Promise.all(files.map(async (file) => {
+          if (!this.isGzipPath(file.path)) return
+          const handle = await openFile(file.path, 'r')
+          try {
+            await this.verifyGzipHeader(handle, file.path)
+          } finally {
+            await handle.close()
+          }
+        }))
+        return
+      }
       for (const file of files) {
         const handle = await openFile(file.path, 'r')
         opened.push(handle)
@@ -302,7 +317,7 @@ export abstract class FileSource extends FeatureSource {
   abstract getFiles(): readonly SourceFile[]
 
   get files(): readonly SourceFile[] {
-    return this.clusteredFile ? [this.clusteredFile.file] : this.getFiles()
+    return this.clusteredFile ? [this.clusteredFile.file] : this.activeSourceFiles()
   }
 
   protected get clusteredSourceActive(): boolean {
@@ -310,21 +325,47 @@ export abstract class FileSource extends FeatureSource {
   }
 
   async prepareClusteredIndexSource(layer: Layer, force = false): Promise<void> {
-    const originalFiles = this.getFiles()
+    const sourceFiles = this.activeSourceFiles()
+    const originalFiles = await FileSource.expandSourceFiles(sourceFiles)
     const primaryFile = FileSource.resolvePrimaryFile(originalFiles, this.id)
-    const clusteredFile = new ClusteredPbfFile(this.id, clusteredPbfPath(primaryFile))
+    const primaryPattern = FileSource.resolvePrimaryFile(sourceFiles, this.id)
+    const clusteredFile = new ClusteredPbfFile(this.id, clusteredPbfPath(primaryPattern))
     const wasOpen = this.handles.size > 0
 
     if (wasOpen) await this.close()
     this.clusteredFile = null
 
     try {
-      await this.open()
       this.clusteredBuildActive = true
-      await clusteredFile.prepare(layer, originalFiles, () => super.stream({ layer }), force)
+      if (sourceFiles.length !== 1 || originalFiles.length === 1) {
+        this.buildFiles = originalFiles
+        await this.open()
+        try {
+          await clusteredFile.prepare(layer, originalFiles, () => super.stream({ layer }), force)
+        } finally {
+          await this.close()
+          this.buildFiles = null
+        }
+      } else {
+        const localFiles: ClusteredPbfFile[] = []
+        for (const file of originalFiles) {
+          this.buildFiles = [file]
+          const local = new ClusteredPbfFile(this.id, clusteredPbfPath(file))
+          await this.open()
+          try {
+            await local.prepare(layer, [file], () => super.stream({ layer }), force)
+          } finally {
+            await this.close()
+            this.buildFiles = null
+          }
+          localFiles.push(local)
+        }
+        await mergeClusteredPbfFiles(layer, localFiles.map((file) => file.path), clusteredFile.path, force)
+      }
     } finally {
+      this.buildFiles = null
       this.clusteredBuildActive = false
-      await this.close()
+      await this.close().catch(() => undefined)
     }
 
     this.clusteredFile = clusteredFile
@@ -408,8 +449,8 @@ export abstract class FileSource extends FeatureSource {
       throw new Error(`FileSource "${this.id}" file "${String(gzipFiles[0].path)}" ends with .gz but gzip option is not enabled`)
     }
 
-    if (files.length !== 1) {
-      throw new Error(`FileSource "${this.id}" gzip is only supported for single-file sources`)
+    if (gzipFiles.length !== files.length) {
+      throw new Error(`FileSource "${this.id}" gzip source requires every source file to end with .gz`)
     }
 
     if (!FileSource.rtreeClustered(this.indexes)) {
@@ -437,6 +478,10 @@ export abstract class FileSource extends FeatureSource {
     return extname(String(path)).toLowerCase() === '.gz'
   }
 
+  private activeSourceFiles(): readonly SourceFile[] {
+    return this.buildFiles ?? this.getFiles()
+  }
+
   private static rtreeClustered(indexes: SourceIndexConfig | undefined): boolean {
     if (!indexes || indexes === true) return false
     const rtree = indexes.rtree
@@ -457,6 +502,38 @@ export abstract class FileSource extends FeatureSource {
 
     return sourceFile
   }
+
+  private static async expandSourceFiles(files: readonly SourceFile[]): Promise<readonly SourceFile[]> {
+    if (files.length !== 1) return files
+    const file = files[0]
+    const path = pathToString(file.path)
+    if (!path.includes('*')) return files
+
+    const dir = dirname(path)
+    const pattern = basename(path)
+    const regex = globRegex(pattern)
+    const names = (await readdir(dir))
+      .filter((name) => regex.test(name))
+      .sort()
+
+    if (names.length === 0) {
+      throw new Error(`FileSource glob "${path}" did not match any file`)
+    }
+
+    return names.map((name) => ({
+      ...file,
+      path: join(dir, name)
+    }))
+  }
+}
+
+function pathToString(path: PathLike): string {
+  return path instanceof URL ? fileURLToPath(path) : path.toString()
+}
+
+function globRegex(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
+  return new RegExp(`^${escaped}$`)
 }
 
 export abstract class DbSource extends FeatureSource {
