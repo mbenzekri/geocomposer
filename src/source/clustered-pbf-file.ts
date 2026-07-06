@@ -107,7 +107,8 @@ export class ClusteredPbfFile {
   constructor(
     private readonly sourceId: string,
     private readonly filePath: string,
-    private readonly highWaterMark = DEFAULT_HIGH_WATER_MARK
+    private readonly highWaterMark = DEFAULT_HIGH_WATER_MARK,
+    private readonly progressContext = ''
   ) {}
 
   get path(): string {
@@ -133,8 +134,7 @@ export class ClusteredPbfFile {
 
     const precision = clusteredCoordinatePrecision(layer)
     const tempDir = `${this.filePath}.tmp-sort-${process.pid}-${Date.now()}`
-    const progress = new Progress(this.sourceId)
-    progress.log('start', 0, `file=${this.filePath}`)
+    const progress = new Progress(this.sourceId, this.progressContext)
 
     try {
       const header = await this.buildHeader(streamOriginal, precision, progress, signal)
@@ -142,7 +142,7 @@ export class ClusteredPbfFile {
       const runs = await this.writeSortRuns(layer, streamOriginal, header, precision, tempDir, progress, signal)
       const sortedRuns = await this.mergeRuns(runs, tempDir, progress, signal)
       await this.writeSortedRuns(sortedRuns, header, progress, signal)
-      progress.log('done', header.featureCount, `runs=${runs.length}`)
+      progress.log('done', header.featureCount)
     } finally {
       await rm(tempDir, { recursive: true, force: true }).catch(() => undefined)
     }
@@ -214,7 +214,7 @@ export class ClusteredPbfFile {
       AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
       records.sort(compareSortRecord)
       runs.push(await writeSortRun(`${tempDir}/run-${runIndex}.bin`, records, signal))
-      progress.log('run', featureIndex, `runs=${runs.length} last=${records.length}`)
+      progress.log('run', featureIndex)
       runIndex += 1
       records = []
     }
@@ -229,20 +229,21 @@ export class ClusteredPbfFile {
         record: this.codec.encodeRecord(writable, precision, header)
       })
       featureIndex += 1
-      progress.tick('runs', featureIndex, `runs=${runs.length}`)
+      progress.tick('runs', featureIndex)
 
       if (records.length >= SORT_RUN_FEATURE_LIMIT) await flush()
     }, signal)
 
     await flush()
-    progress.log('runs:done', featureIndex, `runs=${runs.length}`)
+    progress.log('runs:done', featureIndex)
     return runs
   }
 
   private async mergeRuns(runs: SortRun[], tempDir: string, progress: Progress, signal?: AbortSignal): Promise<SortRun[]> {
     let current = runs
     let pass = 0
-    progress.log('merge', 0, `runs=${current.length}`)
+    const logMerge = current.length > SORT_RUN_MERGE_LIMIT
+    if (logMerge) progress.log('merge', 0)
 
     while (current.length > SORT_RUN_MERGE_LIMIT) {
       const next: SortRun[] = []
@@ -250,14 +251,14 @@ export class ClusteredPbfFile {
         AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
         const group = current.slice(index, index + SORT_RUN_MERGE_LIMIT)
         next.push(await mergeSortRuns(group, `${tempDir}/merge-${pass}-${next.length}.bin`, signal))
-        progress.log('merge', 0, `pass=${pass} group=${next.length} input=${group.length} output=${next[next.length - 1].count}`)
+        if (logMerge) progress.log('merge', 0)
         await Promise.all(group.map((run) => rm(run.path, { force: true })))
       }
       current = next
       pass += 1
     }
 
-    progress.log('merge:done', 0, `runs=${current.length}`)
+    if (logMerge) progress.log('merge:done', 0)
     return current
   }
 
@@ -268,7 +269,7 @@ export class ClusteredPbfFile {
     let count = 0
 
     try {
-      progress.log('write', count, `runs=${runs.length}`)
+      progress.log('write', count)
       await writer.write(CLUSTERED_PBF_MAGIC_BUFFER)
       await writer.write(headerRecord)
 
@@ -286,7 +287,7 @@ export class ClusteredPbfFile {
         AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
         await writer.write(item.record.record)
           count += 1
-          progress.tick('write', count, `runs=${runs.length}`)
+          progress.tick('write', count)
 
           const next = await item.cursor.next()
           if (next) heap.push({ cursor: item.cursor, record: next })
@@ -728,7 +729,10 @@ class Progress {
   private lastCount = 0
   private lastStage = ''
 
-  constructor(private readonly sourceId: string) {}
+  constructor(
+    private readonly sourceId: string,
+    private readonly context = ''
+  ) {}
 
   tick(stage: string, count: number, extra = ''): void {
     const now = Date.now()
@@ -750,19 +754,31 @@ class Progress {
       this.lastStage = rateStage
     }
 
-    const elapsedTotal = Math.max(0.001, (now - this.start) / 1000)
     const elapsedStage = Math.max(0.001, (now - this.stageStart) / 1000)
-    const recent = Math.max(0.001, (now - this.last) / 1000)
     const stageFeatures = count - this.stageStartCount
     const avgStage = stageFeatures / elapsedStage
-    const recentRate = (count - this.lastCount) / recent
-    const recentText = stage.endsWith(':done') && count === this.lastCount ? '' : ` recent=${formatFeatureRate(recentRate)}`
+    const context = this.context ? ` ${this.context}` : ''
     const suffix = extra ? ` ${extra}` : ''
-    console.log(`[clustered] source=${this.sourceId} stage=${stage} features=${count} elapsed=${formatDuration(elapsedTotal)} stageElapsed=${formatDuration(elapsedStage)} avg=${formatFeatureRate(avgStage)}${recentText}${suffix}`)
+    console.log(`[clustered] source=${this.sourceId}${context} ${formatProgressStage(stage)} features=${count} duration=${formatDuration(elapsedStage)} rate=${formatFeatureRate(avgStage)}${suffix}`)
     this.last = now
     this.lastCount = count
     this.lastStage = rateStage
   }
+}
+
+function formatProgressStage(stage: string): string {
+  const done = stage.endsWith(':done')
+  const base = done ? stage.slice(0, -5) : stage
+  const name = base === 'runs' || base === 'run'
+    ? 'tri'
+    : base === 'merge'
+      ? 'fusion'
+      : base === 'write'
+        ? 'ecriture'
+        : base === 'done'
+          ? 'fini'
+          : base
+  return done ? `${name}:done` : name
 }
 
 async function writeSortRun(path: string, records: readonly SortRecord[], signal?: AbortSignal): Promise<SortRun> {
@@ -852,10 +868,10 @@ function compareSortRecord(a: SortRecord, b: SortRecord): number {
 }
 
 function formatFeatureRate(value: number): string {
-  if (!Number.isFinite(value)) return '0 features/s'
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M features/s`
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k features/s`
-  return `${value.toFixed(0)} features/s`
+  if (!Number.isFinite(value)) return '0 f/s'
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M f/s`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}k f/s`
+  return `${value.toFixed(0)} f/s`
 }
 
 function formatDuration(seconds: number): string {

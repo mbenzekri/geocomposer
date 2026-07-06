@@ -10,6 +10,7 @@ import type { ClusteredWorkerSourceConfig, SourceIndexConfig } from './source.js
 type ClusteredWorkerMessage = {
   sourceId: string
   filePath: string
+  progressContext: string
   crs: CrsJson & { code: string }
   force: boolean
   source: ClusteredWorkerSourceConfig
@@ -38,6 +39,7 @@ try {
     undefined,
     { gzip: true, indexes }
   )
+  source.clusteredProgressContext = message.progressContext
   Source.registry.set(source.id, source)
   const layer = new Layer(message.sourceId, {
     source: source.id,

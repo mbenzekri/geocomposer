@@ -247,6 +247,7 @@ export abstract class FileSource extends FeatureSource {
   private readonly gzip: boolean
   private clusteredBuildActive = false
   private buildFiles: readonly SourceFile[] | null = null
+  clusteredProgressContext = ''
 
   protected constructor(id: string, info: FileSourceInfo = {}, transformFeature?: FeatureTransform) {
     super(id, info, transformFeature)
@@ -341,7 +342,7 @@ export abstract class FileSource extends FeatureSource {
     const originalFiles = await FileSource.expandSourceFiles(sourceFiles)
     const primaryFile = FileSource.resolvePrimaryFile(originalFiles, this.id)
     const primaryPattern = FileSource.resolvePrimaryFile(sourceFiles, this.id)
-    const clusteredFile = new ClusteredPbfFile(this.id, clusteredPbfPath(primaryPattern))
+    const clusteredFile = new ClusteredPbfFile(this.id, clusteredPbfPath(primaryPattern), undefined, this.clusteredProgressContext)
     const wasOpen = this.handles.size > 0
 
     if (wasOpen) await this.close()
@@ -389,8 +390,16 @@ export abstract class FileSource extends FeatureSource {
     console.log(`[clustered] source=${this.id} workers=${workers} files=${files.length}`)
     const localFiles = files.map((file) => new ClusteredPbfFile(this.id, clusteredPbfPath(file)))
     let nextIndex = 0
+    let done = 0
+    let failed = 0
+    let active = 0
+    const started = Date.now()
+    const logGlobal = (): void => {
+      console.log(`[clustered] source=${this.id} global done=${done}/${files.length} active=${active} failed=${failed} workers=${workers} elapsed=${formatClusteredDuration((Date.now() - started) / 1000)}`)
+    }
+    const globalTimer = setInterval(logGlobal, 30_000)
 
-    const run = async (): Promise<void> => {
+    const run = async (workerIndex: number): Promise<void> => {
       for (;;) {
         AbortSignalGuard.throwIfAborted(signal, 'Clustered index build aborted')
         const index = nextIndex
@@ -398,18 +407,34 @@ export abstract class FileSource extends FeatureSource {
         if (index >= files.length) return
 
         const file = files[index]
-        console.log(`[clustered] source=${this.id} gz=${index + 1}/${files.length} worker=true file=${String(file.path)}`)
-        await runClusteredWorker({
-          sourceId: this.id,
-          filePath: pathToString(file.path),
-          crs: clusteredWorkerCrs(layer),
-          force,
-          source: workerConfig
-        }, signal)
+        const worker = workerIndex + 1
+        active += 1
+        console.log(`[clustered] source=${this.id} worker=${worker} gz=${index + 1}/${files.length} file=${String(file.path)}`)
+        try {
+          await runClusteredWorker({
+            sourceId: this.id,
+            filePath: pathToString(file.path),
+            progressContext: `worker=${worker} gz=${index + 1}/${files.length}`,
+            crs: clusteredWorkerCrs(layer),
+            force,
+            source: workerConfig
+          }, signal)
+          done += 1
+        } catch (error) {
+          failed += 1
+          throw error
+        } finally {
+          active -= 1
+        }
       }
     }
 
-    await Promise.all(Array.from({ length: workers }, run))
+    try {
+      await Promise.all(Array.from({ length: workers }, (_, workerIndex) => run(workerIndex)))
+      logGlobal()
+    } finally {
+      clearInterval(globalTimer)
+    }
     return localFiles
   }
 
@@ -424,7 +449,7 @@ export abstract class FileSource extends FeatureSource {
       AbortSignalGuard.throwIfAborted(signal, 'Clustered index build aborted')
       console.log(`[clustered] source=${this.id} gz=${index + 1}/${files.length} file=${String(file.path)}`)
       this.buildFiles = [file]
-      const local = new ClusteredPbfFile(this.id, clusteredPbfPath(file))
+      const local = new ClusteredPbfFile(this.id, clusteredPbfPath(file), undefined, `worker=1 gz=${index + 1}/${files.length}`)
       await this.open()
       try {
         await local.prepare(layer, [file], () => super.stream({ layer, signal }), force, signal)
@@ -613,6 +638,7 @@ function readClusteredWorkers(value: string | undefined): number {
 type ClusteredWorkerMessage = {
   sourceId: string
   filePath: string
+  progressContext: string
   crs: {
     code: string
     name?: string
@@ -622,6 +648,13 @@ type ClusteredWorkerMessage = {
   }
   force: boolean
   source: ClusteredWorkerSourceConfig
+}
+
+function formatClusteredDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds.toFixed(1)}s`
+  const minutes = Math.floor(seconds / 60)
+  const remaining = Math.floor(seconds % 60)
+  return `${minutes}m${String(remaining).padStart(2, '0')}s`
 }
 
 async function runClusteredWorker(message: ClusteredWorkerMessage, signal?: AbortSignal): Promise<void> {
