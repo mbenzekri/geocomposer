@@ -51,7 +51,9 @@ try {
   const clusteredFile = new ClusteredPbfFile(message.sourceId, clusteredPbfPath(file), undefined, message.progressContext)
   await source.open()
   try {
-    await clusteredFile.prepareInMemory(layer, [file], () => source.stream({ layer }), message.force)
+    await source.withClusteredBuildActive(async () => {
+      await clusteredFile.prepareInMemory(layer, [file], () => source.stream({ layer }), message.force)
+    })
   } finally {
     await source.close()
   }

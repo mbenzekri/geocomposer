@@ -336,6 +336,16 @@ export abstract class FileSource extends FeatureSource {
     return this.clusteredFile !== null
   }
 
+  async withClusteredBuildActive<T>(callback: () => Promise<T>): Promise<T> {
+    const previous = this.clusteredBuildActive
+    this.clusteredBuildActive = true
+    try {
+      return await callback()
+    } finally {
+      this.clusteredBuildActive = previous
+    }
+  }
+
   async prepareClusteredIndexSource(layer: Layer, force = false, signal?: AbortSignal): Promise<void> {
     AbortSignalGuard.throwIfAborted(signal, 'Clustered index build aborted')
     const sourceFiles = this.activeSourceFiles()
