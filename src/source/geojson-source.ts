@@ -2,7 +2,7 @@ import type { PathLike } from 'node:fs'
 import type { FileHandle } from 'node:fs/promises'
 import type { DescInfo, Feature, FileRef, SourceRef } from '../core/feature.js'
 import type { Layer } from '../layer/layer.js'
-import { FileSource, hasSourceConfigType, type FeatureTransform } from './source.js'
+import { FileSource, hasSourceConfigType, type ClusteredWorkerSourceConfig, type FeatureTransform } from './source.js'
 import type { SourceIndexConfig, StreamOptions } from './source.js'
 import { AbortSignalGuard, FileByteReader } from './source-utils.js'
 import { GeoJsonParser, parseGeoJsonFeature } from './geojson-stream.js'
@@ -35,8 +35,8 @@ export class GeoJsonSource extends FileSource {
   constructor(
     id: string,
     private readonly filePath: PathLike,
-    encoding: BufferEncoding = 'utf8',
-    highWaterMark?: number,
+    private readonly encoding: BufferEncoding = 'utf8',
+    private readonly highWaterMark?: number,
     transformFeature?: FeatureTransform,
     info: DescInfo & { gzip?: boolean, indexes?: SourceIndexConfig } = {}
   ) {
@@ -50,6 +50,14 @@ export class GeoJsonSource extends FileSource {
 
   getFiles() {
     return [{ role: 'data', path: this.filePath }]
+  }
+
+  protected override clusteredWorkerConfig(): ClusteredWorkerSourceConfig {
+    return {
+      type: 'geojson',
+      encoding: this.encoding,
+      ...(this.highWaterMark === undefined ? {} : { highWaterMark: this.highWaterMark })
+    }
   }
 
   protected override streamFeatures(options: StreamOptions): AsyncIterable<Feature> {

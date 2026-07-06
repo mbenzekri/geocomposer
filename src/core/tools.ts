@@ -18,6 +18,7 @@ export type Args = {
     buildIndexAll?: boolean
     buildIndexForce?: boolean
     buildIndexSources?: string[]
+    clusterWorkers?: number
     port?: number
 }
 
@@ -32,6 +33,7 @@ Options:
   -bi, --build-index <source>     Build or rebuild indexes for one source. Repeat for multiple sources.
   -bia, --build-index-all         Build or rebuild indexes for every configured source.
   -bif, --build-index-force       Force rebuild for the selected index scope. Alone, selects every configured source.
+  -cw, --cluster-workers <count>  Worker count for clustered PBF builds from file patterns.
 `
 
 export function parseArgs(): Args {
@@ -73,6 +75,17 @@ export function parseArgs(): Args {
 
             options.buildIndexSources ??= []
             options.buildIndexSources.push(value)
+            index += 1
+            continue
+        }
+
+        if (arg === '--cluster-workers' || arg === '-cw') {
+            const value = args[index + 1]
+            if (!value || value.startsWith('-')) {
+                throw new Error(`${arg} requires a positive integer`)
+            }
+
+            options.clusterWorkers = parsePositiveInt(value, arg, 64)
             index += 1
             continue
         }

@@ -60,7 +60,11 @@ export class GeoComposer {
             const geoc = await GeoComposer.from(args)
 
             if (args.buildIndexAll || args.buildIndexForce || args.buildIndexSources?.length) {
-                const result = await geoc.buildIndexes(args.buildIndexAll || !args.buildIndexSources?.length ? undefined : args.buildIndexSources, args.buildIndexForce)
+                const result = await geoc.buildIndexes(
+                    args.buildIndexAll || !args.buildIndexSources?.length ? undefined : args.buildIndexSources,
+                    args.buildIndexForce,
+                    args.clusterWorkers
+                )
                 GeoComposer.logBuildIndexResult(result)
                 process.exitCode = result.failed === 0 ? 0 : 1
                 return
@@ -221,7 +225,11 @@ export class GeoComposer {
         }
     }
 
-    async buildIndexes(sourceIds?: readonly string[], force = false): Promise<BuildIndexResult> {
+    async buildIndexes(sourceIds?: readonly string[], force = false, clusterWorkers = FileSource.clusteredWorkers): Promise<BuildIndexResult> {
+        if (!Number.isInteger(clusterWorkers) || clusterWorkers < 1) {
+            throw new Error('clusterWorkers must be a positive integer')
+        }
+
         const result: BuildIndexResult = {
             created: 0,
             rebuilt: 0,
@@ -238,6 +246,8 @@ export class GeoComposer {
         const abortSigterm = () => abort('SIGTERM')
         process.once('SIGINT', abortSigint)
         process.once('SIGTERM', abortSigterm)
+        const previousClusteredWorkers = FileSource.clusteredWorkers
+        FileSource.clusteredWorkers = clusterWorkers
 
         try {
             const layerBySource = new Map<string, Layer>()
@@ -340,6 +350,7 @@ export class GeoComposer {
                 }
             }
         } finally {
+            FileSource.clusteredWorkers = previousClusteredWorkers
             process.off('SIGINT', abortSigint)
             process.off('SIGTERM', abortSigterm)
             GeoComposer.clear()

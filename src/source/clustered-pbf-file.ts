@@ -451,6 +451,7 @@ export async function mergeClusteredPbfFiles(
     const cursors = await Promise.all(inputPaths.map((path, index) => ClusteredPbfCursor.open(path, index, layer, codec)))
     const heap = new MergeFeatureHeap()
     try {
+      progress.log('write', count, `files=${inputPaths.length}`)
       for (const cursor of cursors) {
         const record = await cursor.next()
         if (record) heap.push({ cursor, record })
@@ -755,8 +756,9 @@ class Progress {
     const stageFeatures = count - this.stageStartCount
     const avgStage = stageFeatures / elapsedStage
     const recentRate = (count - this.lastCount) / recent
+    const recentText = stage.endsWith(':done') && count === this.lastCount ? '' : ` recent=${formatFeatureRate(recentRate)}`
     const suffix = extra ? ` ${extra}` : ''
-    console.log(`[clustered] source=${this.sourceId} stage=${stage} features=${count} elapsed=${formatDuration(elapsedTotal)} stageElapsed=${formatDuration(elapsedStage)} avg=${formatFeatureRate(avgStage)} recent=${formatFeatureRate(recentRate)}${suffix}`)
+    console.log(`[clustered] source=${this.sourceId} stage=${stage} features=${count} elapsed=${formatDuration(elapsedTotal)} stageElapsed=${formatDuration(elapsedStage)} avg=${formatFeatureRate(avgStage)}${recentText}${suffix}`)
     this.last = now
     this.lastCount = count
     this.lastStage = rateStage

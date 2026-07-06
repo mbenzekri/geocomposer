@@ -88,6 +88,12 @@ describe('tools', () => {
 
             vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '-bif'])
             expect(parseArgs().buildIndexForce).toBe(true)
+
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '--cluster-workers', '2'])
+            expect(parseArgs().clusterWorkers).toBe(2)
+
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '-cw', '3'])
+            expect(parseArgs().clusterWorkers).toBe(3)
         })
 
         it('rejects invalid build index options', () => {
@@ -99,6 +105,9 @@ describe('tools', () => {
 
             vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '--build-index-all', '--build-index', 'world'])
             expect(() => parseArgs()).toThrow('--build-index-all cannot be used with --build-index')
+
+            vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'app', '--cluster-workers', '0'])
+            expect(() => parseArgs()).toThrow('--cluster-workers must be a positive integer')
         })
 
         it('parses port option', () => {

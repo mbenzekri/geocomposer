@@ -2,6 +2,7 @@ import type { PathLike } from 'node:fs'
 import { open as openFile, readdir, type FileHandle } from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { Worker } from 'node:worker_threads'
 import type { BBox } from '../core/geometry.js'
 import type { DescInfo, Feature, SourceRef } from '../core/feature.js'
 import { IdFromFeature } from '../core/feature.js'
@@ -38,6 +39,12 @@ export type SourceIndexConfig = true | {
 export type FileSourceInfo = DescInfo & {
   gzip?: boolean
   indexes?: SourceIndexConfig
+}
+
+export type ClusteredWorkerSourceConfig = {
+  type: 'geojson'
+  encoding: BufferEncoding
+  highWaterMark?: number
 }
 
 export type RequestTimings = {
@@ -231,6 +238,8 @@ export abstract class FeatureSource extends Source {
 }
 
 export abstract class FileSource extends FeatureSource {
+  static clusteredWorkers = readClusteredWorkers(process.env.GEOC_CLUSTER_WORKERS)
+
   readonly storage = 'file' as const
   readonly handles = new Map<string, FileHandle>()
   private clusteredFile: ClusteredPbfFile | null = null
@@ -349,21 +358,7 @@ export abstract class FileSource extends FeatureSource {
           this.buildFiles = null
         }
       } else {
-        const localFiles: ClusteredPbfFile[] = []
-        for (const [index, file] of originalFiles.entries()) {
-          AbortSignalGuard.throwIfAborted(signal, 'Clustered index build aborted')
-          console.log(`[clustered] source=${this.id} gz=${index + 1}/${originalFiles.length} file=${String(file.path)}`)
-          this.buildFiles = [file]
-          const local = new ClusteredPbfFile(this.id, clusteredPbfPath(file))
-          await this.open()
-          try {
-            await local.prepare(layer, [file], () => super.stream({ layer, signal }), force, signal)
-          } finally {
-            await this.close()
-            this.buildFiles = null
-          }
-          localFiles.push(local)
-        }
+        const localFiles = await this.prepareClusteredPatternFiles(layer, originalFiles, force, signal)
         await mergeClusteredPbfFiles(layer, localFiles.map((file) => file.path), clusteredFile.path, force, signal)
       }
     } finally {
@@ -374,6 +369,71 @@ export abstract class FileSource extends FeatureSource {
 
     this.clusteredFile = clusteredFile
     if (wasOpen) await this.open()
+  }
+
+  protected clusteredWorkerConfig(): ClusteredWorkerSourceConfig | null {
+    return null
+  }
+
+  private async prepareClusteredPatternFiles(
+    layer: Layer,
+    files: readonly SourceFile[],
+    force: boolean,
+    signal?: AbortSignal
+  ): Promise<ClusteredPbfFile[]> {
+    const workerConfig = this.clusteredWorkerConfig()
+    const workers = Math.min(FileSource.clusteredWorkers, files.length)
+    if (workers <= 1 || !workerConfig) return this.prepareClusteredPatternFilesSequentially(layer, files, force, signal)
+
+    console.log(`[clustered] source=${this.id} workers=${workers} files=${files.length}`)
+    const localFiles = files.map((file) => new ClusteredPbfFile(this.id, clusteredPbfPath(file)))
+    let nextIndex = 0
+
+    const run = async (): Promise<void> => {
+      for (;;) {
+        AbortSignalGuard.throwIfAborted(signal, 'Clustered index build aborted')
+        const index = nextIndex
+        nextIndex += 1
+        if (index >= files.length) return
+
+        const file = files[index]
+        console.log(`[clustered] source=${this.id} gz=${index + 1}/${files.length} worker=true file=${String(file.path)}`)
+        await runClusteredWorker({
+          sourceId: this.id,
+          filePath: pathToString(file.path),
+          crs: layer.crs,
+          force,
+          source: workerConfig
+        }, signal)
+      }
+    }
+
+    await Promise.all(Array.from({ length: workers }, run))
+    return localFiles
+  }
+
+  private async prepareClusteredPatternFilesSequentially(
+    layer: Layer,
+    files: readonly SourceFile[],
+    force: boolean,
+    signal?: AbortSignal
+  ): Promise<ClusteredPbfFile[]> {
+    const localFiles: ClusteredPbfFile[] = []
+    for (const [index, file] of files.entries()) {
+      AbortSignalGuard.throwIfAborted(signal, 'Clustered index build aborted')
+      console.log(`[clustered] source=${this.id} gz=${index + 1}/${files.length} file=${String(file.path)}`)
+      this.buildFiles = [file]
+      const local = new ClusteredPbfFile(this.id, clusteredPbfPath(file))
+      await this.open()
+      try {
+        await local.prepare(layer, [file], () => super.stream({ layer, signal }), force, signal)
+      } finally {
+        await this.close()
+        this.buildFiles = null
+      }
+      localFiles.push(local)
+    }
+    return localFiles
   }
 
   protected fileHandle(role: SourceFileRole | string = 'data'): FileHandle {
@@ -538,6 +598,47 @@ function pathToString(path: PathLike): string {
 function globRegex(pattern: string): RegExp {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
   return new RegExp(`^${escaped}$`)
+}
+
+function readClusteredWorkers(value: string | undefined): number {
+  if (value === undefined || value === '') return 1
+  const workers = Number(value)
+  if (!Number.isInteger(workers) || workers < 1) {
+    throw new Error('GEOC_CLUSTER_WORKERS must be a positive integer')
+  }
+  return workers
+}
+
+type ClusteredWorkerMessage = {
+  sourceId: string
+  filePath: string
+  crs: string
+  force: boolean
+  source: ClusteredWorkerSourceConfig
+}
+
+async function runClusteredWorker(message: ClusteredWorkerMessage, signal?: AbortSignal): Promise<void> {
+  const worker = new Worker(new URL('./clustered-pbf-worker.js', import.meta.url), {
+    workerData: message
+  })
+
+  const abort = () => worker.terminate().catch(() => undefined)
+  signal?.addEventListener('abort', abort, { once: true })
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      worker.once('message', (value: unknown) => {
+        if (value && typeof value === 'object' && (value as { ok?: unknown }).ok === true) resolve()
+        else reject(new Error(`Clustered worker failed: ${JSON.stringify(value)}`))
+      })
+      worker.once('error', reject)
+      worker.once('exit', (code) => {
+        if (code !== 0) reject(new Error(`Clustered worker exited with code ${code}`))
+      })
+    })
+  } finally {
+    signal?.removeEventListener('abort', abort)
+  }
 }
 
 export abstract class DbSource extends FeatureSource {
