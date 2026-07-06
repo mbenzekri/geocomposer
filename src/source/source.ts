@@ -3,6 +3,7 @@ import { open as openFile, readdir, type FileHandle } from 'node:fs/promises'
 import { basename, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Worker } from 'node:worker_threads'
+import { Crs } from '../core/crs.js'
 import type { BBox } from '../core/geometry.js'
 import type { DescInfo, Feature, SourceRef } from '../core/feature.js'
 import { IdFromFeature } from '../core/feature.js'
@@ -401,7 +402,7 @@ export abstract class FileSource extends FeatureSource {
         await runClusteredWorker({
           sourceId: this.id,
           filePath: pathToString(file.path),
-          crs: layer.crs,
+          crs: clusteredWorkerCrs(layer),
           force,
           source: workerConfig
         }, signal)
@@ -612,7 +613,13 @@ function readClusteredWorkers(value: string | undefined): number {
 type ClusteredWorkerMessage = {
   sourceId: string
   filePath: string
-  crs: string
+  crs: {
+    code: string
+    name?: string
+    title: string
+    proj4?: string
+    precision?: number
+  }
   force: boolean
   source: ClusteredWorkerSourceConfig
 }
@@ -638,6 +645,19 @@ async function runClusteredWorker(message: ClusteredWorkerMessage, signal?: Abor
     })
   } finally {
     signal?.removeEventListener('abort', abort)
+  }
+}
+
+function clusteredWorkerCrs(layer: Layer): ClusteredWorkerMessage['crs'] {
+  if (!Crs.registry.has(layer.crs)) return { code: layer.crs, title: layer.crs }
+  const crs = Crs.registry.get(layer.crs)
+  const proj4 = (crs.proj as { projStr?: unknown }).projStr
+  return {
+    code: crs.code,
+    name: crs.name,
+    title: crs.title,
+    ...(typeof proj4 === 'string' ? { proj4 } : {}),
+    ...(crs.precision === undefined ? {} : { precision: crs.precision })
   }
 }
 

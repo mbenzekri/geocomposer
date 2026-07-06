@@ -1,5 +1,5 @@
 import { parentPort, workerData } from 'node:worker_threads'
-import { Crs } from '../core/crs.js'
+import { Crs, type CrsJson } from '../core/crs.js'
 import { DEFAULT_RTREE_CHUNK_SIZE } from '../index/index-rtree.js'
 import { Layer } from '../layer/layer.js'
 import { Style } from '../style/style.js'
@@ -10,7 +10,7 @@ import type { ClusteredWorkerSourceConfig, SourceIndexConfig } from './source.js
 type ClusteredWorkerMessage = {
   sourceId: string
   filePath: string
-  crs: string
+  crs: CrsJson & { code: string }
   force: boolean
   source: ClusteredWorkerSourceConfig
 }
@@ -20,7 +20,8 @@ const message = workerData as ClusteredWorkerMessage
 try {
   if (message.source.type !== 'geojson') throw new Error(`Unsupported clustered worker source type "${message.source.type}"`)
 
-  Crs.registry.set(message.crs, new Crs(message.crs, message.crs, message.crs))
+  const crs = Crs.fromConfig(message.crs.code, message.crs)
+  Crs.registry.set(crs.code, crs)
   Style.registry.set('default', { id: 'default', style: () => null })
 
   const indexes: SourceIndexConfig = {
@@ -40,7 +41,7 @@ try {
   Source.registry.set(source.id, source)
   const layer = new Layer(message.sourceId, {
     source: source.id,
-    crs: message.crs
+    crs: message.crs.code
   })
 
   await source.prepareClusteredIndexSource(layer, message.force)
