@@ -740,7 +740,7 @@ class Progress {
   }
 
   private write(stage: string, count: number, extra: string, now: number): void {
-    const rateStage = stage.split(':', 1)[0] ?? stage
+    const rateStage = stage === 'run' ? 'runs' : stage.split(':', 1)[0] ?? stage
     if (rateStage !== this.lastStage) {
       this.stageStart = now
       this.stageStartCount = count
