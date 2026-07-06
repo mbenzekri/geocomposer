@@ -452,7 +452,7 @@ export abstract class FileSource extends FeatureSource {
       const local = new ClusteredPbfFile(this.id, clusteredPbfPath(file), undefined, `worker=1 gz=${index + 1}/${files.length}`)
       await this.open()
       try {
-        await local.prepare(layer, [file], () => super.stream({ layer, signal }), force, signal)
+        await local.prepareInMemory(layer, [file], () => super.stream({ layer, signal }), force, signal)
       } finally {
         await this.close()
         this.buildFiles = null

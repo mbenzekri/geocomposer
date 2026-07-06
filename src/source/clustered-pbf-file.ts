@@ -51,6 +51,12 @@ type SortRecord = {
   record: Buffer
 }
 
+type MemorySortRecord = {
+  hilbert: number
+  index: number
+  feature: Feature
+}
+
 type GeometryTypeCode = 1 | 2 | 3 | 4 | 5 | 6
 
 type FlatGeometry = {
@@ -146,6 +152,45 @@ export class ClusteredPbfFile {
     } finally {
       await rm(tempDir, { recursive: true, force: true }).catch(() => undefined)
     }
+  }
+
+  async prepareInMemory(
+    layer: Layer,
+    originalFiles: readonly SourceFile[],
+    streamOriginal: () => ReadableStream<Feature>,
+    force = false,
+    signal?: AbortSignal
+  ): Promise<void> {
+    AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
+    if (!force && !await this.needsBuild(originalFiles)) return
+
+    const precision = clusteredCoordinatePrecision(layer)
+    const progress = new Progress(this.sourceId, this.progressContext)
+    const builder = new ClusteredPbfHeaderBuilder()
+    const records: MemorySortRecord[] = []
+    let index = 0
+
+    progress.log('header', index)
+    await this.readOriginal(streamOriginal, (feature) => {
+      AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
+      const writable = toWritableFeature(feature, precision)
+      builder.add(writable)
+      records.push({
+        hilbert: hilbertKey(writable, layer),
+        index,
+        feature: writable
+      })
+      index += 1
+      progress.tick('header', index)
+    }, signal)
+
+    const header = builder.build()
+    progress.log('header:done', header.featureCount, `properties=${header.propertyNames.length}`)
+    progress.log('tri', 0)
+    records.sort(compareMemorySortRecord)
+    progress.log('tri:done', records.length)
+    await this.writeMemoryRecords(records, header, precision, progress, signal)
+    progress.log('done', header.featureCount)
   }
 
   stream(options: StreamOptions): AsyncIterable<Feature> {
@@ -294,6 +339,38 @@ export class ClusteredPbfFile {
         }
       } finally {
         await Promise.allSettled(cursors.map((cursor) => cursor.close()))
+      }
+
+      await writer.flush()
+      this.header = header
+      progress.log('write:done', count)
+    } finally {
+      await handle.close()
+    }
+  }
+
+  private async writeMemoryRecords(
+    records: readonly MemorySortRecord[],
+    header: ClusteredPbfHeader,
+    precision: number | undefined,
+    progress: Progress,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const handle = await openFile(this.filePath, 'w')
+    const writer = new BufferedFileWriter(handle)
+    const headerRecord = this.codec.encodeHeaderRecord(header)
+    let count = 0
+
+    try {
+      progress.log('write', count)
+      await writer.write(CLUSTERED_PBF_MAGIC_BUFFER)
+      await writer.write(headerRecord)
+
+      for (const record of records) {
+        AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
+        await writer.write(this.codec.encodeRecord(record.feature, precision, header))
+        count += 1
+        progress.tick('write', count)
       }
 
       await writer.flush()
@@ -864,6 +941,10 @@ function encodeSortRecord(record: SortRecord): Buffer {
 }
 
 function compareSortRecord(a: SortRecord, b: SortRecord): number {
+  return a.hilbert - b.hilbert || a.index - b.index
+}
+
+function compareMemorySortRecord(a: MemorySortRecord, b: MemorySortRecord): number {
   return a.hilbert - b.hilbert || a.index - b.index
 }
 

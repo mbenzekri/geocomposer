@@ -3,6 +3,7 @@ import { Crs, type CrsJson } from '../core/crs.js'
 import { DEFAULT_RTREE_CHUNK_SIZE } from '../index/index-rtree.js'
 import { Layer } from '../layer/layer.js'
 import { Style } from '../style/style.js'
+import { ClusteredPbfFile, clusteredPbfPath } from './clustered-pbf-file.js'
 import { GeoJsonSource } from './geojson-source.js'
 import { Source } from './source.js'
 import type { ClusteredWorkerSourceConfig, SourceIndexConfig } from './source.js'
@@ -46,7 +47,14 @@ try {
     crs: message.crs.code
   })
 
-  await source.prepareClusteredIndexSource(layer, message.force)
+  const file = { role: 'data' as const, path: message.filePath }
+  const clusteredFile = new ClusteredPbfFile(message.sourceId, clusteredPbfPath(file), undefined, message.progressContext)
+  await source.open()
+  try {
+    await clusteredFile.prepareInMemory(layer, [file], () => source.stream({ layer }), message.force)
+  } finally {
+    await source.close()
+  }
   parentPort?.postMessage({ ok: true })
 } catch (error) {
   parentPort?.postMessage({
