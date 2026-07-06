@@ -132,8 +132,10 @@ describe('GeoComposer', () => {
 
         init()
         const forceApp = await GeoComposer.from({ configPath })
+        const needsBuild = vi.spyOn(Indexer, 'needsBuild')
         const forceResult = await forceApp.buildIndexes(['world'], true)
 
+        expect(needsBuild).not.toHaveBeenCalled()
         expect(forceResult).toMatchObject({
             created: 0,
             rebuilt: 1,

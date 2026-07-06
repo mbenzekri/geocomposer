@@ -300,7 +300,7 @@ export class GeoComposer {
 
                 try {
                     if (abortController.signal.aborted) throw abortController.signal.reason
-                    const buildState = await Indexer.needsBuild(layer)
+                    const buildState = force ? 'stale' : await Indexer.needsBuild(layer)
                     if (!force && buildState === 'up-to-date') {
                         result.skipped += 1
                         result.items.push({
