@@ -1,13 +1,15 @@
+import { spawn } from 'node:child_process'
 import { createReadStream, createWriteStream, type PathLike } from 'node:fs'
-import type { ReadStream, WriteStream } from 'node:fs'
+import type { WriteStream } from 'node:fs'
 import { extname } from 'node:path'
-import { createGzip, createGunzip, constants as zlibConstants } from 'node:zlib'
-import type { Gzip, Gunzip } from 'node:zlib'
+import type { Readable } from 'node:stream'
+import { createGzip, constants as zlibConstants } from 'node:zlib'
+import type { Gzip } from 'node:zlib'
 
 export type ReadCompression = 'gzip' | 'none'
 
 export type CompressedReadable = {
-  stream: ReadStream | Gunzip
+  stream: Readable
   close: () => void
 }
 
@@ -28,28 +30,41 @@ export function compressionFromPath(path: PathLike): ReadCompression {
 }
 
 export function openPossiblyGzippedReadStream(path: PathLike, options: CompressedStreamOptions = {}): CompressedReadable {
-  const file = createReadStream(path, {
-    highWaterMark: options.highWaterMark
-  })
-
   const compression = options.compression ?? compressionFromPath(path)
   if (compression !== 'gzip') {
+    const file = createReadStream(path, {
+      highWaterMark: options.highWaterMark
+    })
+
     return {
       stream: file,
       close: () => file.destroy()
     }
   }
 
-  const gunzip = createGunzip({
-    chunkSize: options.zlibChunkSize
+  const pigz = spawn('pigz', ['-d', '-c', '-p', '1', '--', String(path)])
+  const stderr: Buffer[] = []
+  let ended = false
+
+  pigz.stdout.on('end', () => {
+    ended = true
   })
-  file.pipe(gunzip)
+  pigz.stderr.on('data', (chunk) => stderr.push(Buffer.from(chunk)))
+  pigz.once('error', (error) => {
+    pigz.stdout.destroy(new Error(`pigz failed to start: ${error.message}`))
+  })
+  pigz.once('exit', (code, signal) => {
+    if (code === 0 || ended) return
+
+    const message = Buffer.concat(stderr).toString('utf8').trim()
+    const reason = signal ? `signal ${signal}` : `exit code ${code}`
+    pigz.stdout.destroy(new Error(`pigz input failed with ${reason}${message ? `: ${message}` : ''}`))
+  })
 
   return {
-    stream: gunzip,
+    stream: pigz.stdout,
     close: () => {
-      gunzip.destroy()
-      file.destroy()
+      if (!ended && !pigz.killed) pigz.kill()
     }
   }
 }
