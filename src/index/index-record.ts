@@ -6,6 +6,7 @@ import { Index } from './index.js'
 import type { HeaderEntry } from './indexer.js'
 
 const MAX_INDEX_BUFFER_SIZE = 0x7fffffff
+const INDEX_BUFFER_GROWTH_BYTES = 256 * 1024 * 1024
 const FULL_FRAME: MiniFrame = [0, 0, 255, 255]
 
 export type MiniFrame = [number, number, number, number]
@@ -193,10 +194,11 @@ export class IndexRecordBuilder {
   private ensureCapacity(byteLength: number): void {
     const needed = this.count * IndexRecord.ENTRY_SIZE + byteLength
     if (needed <= this.buffer.length) return
+    if (needed > MAX_INDEX_BUFFER_SIZE) {
+      throw new Error(`Record index is too large: ${needed} bytes exceeds the ${MAX_INDEX_BUFFER_SIZE} byte limit`)
+    }
 
-    let capacity = this.buffer.length
-    while (capacity < needed) capacity *= 2
-    resizeBuffer(this.buffer, capacity)
+    resizeBuffer(this.buffer, nextCapacity(this.buffer.length, needed))
   }
 
   private writeFrame(record: number, frame: MiniFrame): void {
@@ -217,6 +219,10 @@ function resizableBuffer(byteLength: number): Buffer {
 
 function resizeBuffer(buffer: Buffer, byteLength: number): void {
   (buffer.buffer as ArrayBuffer & { resize(byteLength: number): void }).resize(byteLength)
+}
+
+function nextCapacity(current: number, needed: number): number {
+  return Math.min(MAX_INDEX_BUFFER_SIZE, Math.max(needed, current + INDEX_BUFFER_GROWTH_BYTES))
 }
 
 function toRecordRef(sourceRef: SourceRef | undefined, layer: Layer): SourceRef & {

@@ -355,6 +355,13 @@ export abstract class FileSource extends FeatureSource {
     const clusteredFile = new ClusteredPbfFile(this.id, clusteredPbfPath(primaryPattern), undefined, this.clusteredProgressContext)
     const wasOpen = this.handles.size > 0
 
+    if (!force && await clusteredFile.isCurrent(originalFiles)) {
+      if (wasOpen) await this.close()
+      this.clusteredFile = clusteredFile
+      if (wasOpen) await this.open()
+      return
+    }
+
     if (wasOpen) await this.close()
     this.clusteredFile = null
 
@@ -625,6 +632,7 @@ export abstract class FileSource extends FeatureSource {
       path: join(dir, name)
     }))
   }
+
 }
 
 function pathToString(path: PathLike): string {

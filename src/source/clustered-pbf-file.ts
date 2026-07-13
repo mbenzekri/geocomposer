@@ -18,8 +18,10 @@ const SORT_RUN_FEATURE_LIMIT = 250_000
 const SORT_RUN_MERGE_LIMIT = 64
 const SORT_RECORD_HEADER_LENGTH = 20
 const SORT_WRITE_BUFFER_BYTES = 32 * 1024 * 1024
-const CLUSTERED_PBF_MAGIC = 'GEOC-PDF'
+const CLUSTERED_PBF_MAGIC = 'GEOC-PBF'
 const CLUSTERED_PBF_MAGIC_BUFFER = Buffer.from(CLUSTERED_PBF_MAGIC, 'ascii')
+const CLUSTERED_PBF_BUILD_MAGIC = 'GEOC-BLD'
+const CLUSTERED_PBF_BUILD_MAGIC_BUFFER = Buffer.from(CLUSTERED_PBF_BUILD_MAGIC, 'ascii')
 
 const FEATURE_ID_STRING = 1
 const FEATURE_ID_NUMBER = 2
@@ -136,7 +138,7 @@ export class ClusteredPbfFile {
     signal?: AbortSignal
   ): Promise<void> {
     AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
-    if (!force && !await this.needsBuild(originalFiles)) return
+    if (!force && await this.isCurrent(originalFiles)) return
 
     const precision = clusteredCoordinatePrecision(layer)
     const tempDir = `${this.filePath}.tmp-sort-${process.pid}-${Date.now()}`
@@ -162,7 +164,7 @@ export class ClusteredPbfFile {
     signal?: AbortSignal
   ): Promise<void> {
     AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF build aborted')
-    if (!force && !await this.needsBuild(originalFiles)) return
+    if (!force && await this.isCurrent(originalFiles)) return
 
     const precision = clusteredCoordinatePrecision(layer)
     const progress = new Progress(this.sourceId, this.progressContext)
@@ -315,7 +317,7 @@ export class ClusteredPbfFile {
 
     try {
       progress.log('write', count)
-      await writer.write(CLUSTERED_PBF_MAGIC_BUFFER)
+      await writer.write(CLUSTERED_PBF_BUILD_MAGIC_BUFFER)
       await writer.write(headerRecord)
 
       const cursors = await Promise.all(runs.map((run) => SortRunCursor.open(run)))
@@ -342,6 +344,7 @@ export class ClusteredPbfFile {
       }
 
       await writer.flush()
+      await writeFinalMagic(handle)
       this.header = header
       progress.log('write:done', count)
     } finally {
@@ -363,7 +366,7 @@ export class ClusteredPbfFile {
 
     try {
       progress.log('write', count)
-      await writer.write(CLUSTERED_PBF_MAGIC_BUFFER)
+      await writer.write(CLUSTERED_PBF_BUILD_MAGIC_BUFFER)
       await writer.write(headerRecord)
 
       for (const record of records) {
@@ -374,6 +377,7 @@ export class ClusteredPbfFile {
       }
 
       await writer.flush()
+      await writeFinalMagic(handle)
       this.header = header
       progress.log('write:done', count)
     } finally {
@@ -476,19 +480,20 @@ export class ClusteredPbfFile {
     return sourceRef as FileRef & Pick<SourceRef, 'recordIndex' | 'related'>
   }
 
-  private async needsBuild(originalFiles: readonly SourceFile[]): Promise<boolean> {
+  async isCurrent(originalFiles: readonly SourceFile[]): Promise<boolean> {
     const clusteredStat = await stat(this.filePath).catch((error: NodeJS.ErrnoException) => {
       if (error.code === 'ENOENT') return null
       throw error
     })
 
-    if (!clusteredStat) return true
+    if (!clusteredStat) return false
+    if (!await hasFinalMagic(this.filePath)) return false
 
     for (const file of originalFiles) {
-      if (clusteredStat.mtimeMs < (await stat(pathToString(file.path))).mtimeMs) return true
+      if (clusteredStat.mtimeMs < (await stat(pathToString(file.path))).mtimeMs) return false
     }
 
-    return false
+    return true
   }
 }
 
@@ -509,7 +514,7 @@ export async function mergeClusteredPbfFiles(
   if (!force && outputStat) {
     let newestInput = 0
     for (const inputPath of inputPaths) newestInput = Math.max(newestInput, (await stat(inputPath)).mtimeMs)
-    if (outputStat.mtimeMs >= newestInput) return
+    if (outputStat.mtimeMs >= newestInput && await hasFinalMagic(outputPath)) return
   }
 
   const codec = new FeaturePbfCodec()
@@ -523,7 +528,7 @@ export async function mergeClusteredPbfFiles(
 
   try {
     progress.log('start', count, `files=${inputPaths.length} output=${outputPath}`)
-    await writer.write(CLUSTERED_PBF_MAGIC_BUFFER)
+    await writer.write(CLUSTERED_PBF_BUILD_MAGIC_BUFFER)
     await writer.write(codec.encodeHeaderRecord(header))
 
     const cursors = await Promise.all(inputPaths.map((path, index) => ClusteredPbfCursor.open(path, index, layer, codec)))
@@ -550,6 +555,7 @@ export async function mergeClusteredPbfFiles(
     }
 
     await writer.flush()
+    await writeFinalMagic(handle)
     progress.log('done', count, `files=${inputPaths.length}`)
   } finally {
     await handle.close()
@@ -1055,7 +1061,7 @@ class SortRecordHeap {
 }
 
 export function clusteredPbfPath(sourceFile: SourceFile): string {
-  return `${pathToString(sourceFile.path)}.clustered.pbf`
+  return `${pathToString(sourceFile.path).replace(/\*/g, '')}.clustered.pbf`
 }
 
 function pathToString(path: PathLike): string {
@@ -1068,6 +1074,23 @@ async function assertMagic(handle: FileHandle): Promise<void> {
   const bytesRead = await FileByteReader.readFully(handle, buffer, 0)
   if (bytesRead < buffer.length || !buffer.equals(CLUSTERED_PBF_MAGIC_BUFFER)) {
     throw new Error(`Invalid clustered PBF magic, expected "${CLUSTERED_PBF_MAGIC}"`)
+  }
+}
+
+async function writeFinalMagic(handle: FileHandle): Promise<void> {
+  await handle.sync()
+  await handle.write(CLUSTERED_PBF_MAGIC_BUFFER, 0, CLUSTERED_PBF_MAGIC_BUFFER.length, 0)
+  await handle.sync()
+}
+
+async function hasFinalMagic(path: string): Promise<boolean> {
+  const handle = await openFile(path, 'r')
+  try {
+    const buffer = Buffer.alloc(CLUSTERED_PBF_MAGIC_BUFFER.length)
+    const bytesRead = await FileByteReader.readFully(handle, buffer, 0)
+    return bytesRead === buffer.length && buffer.equals(CLUSTERED_PBF_MAGIC_BUFFER)
+  } finally {
+    await handle.close()
   }
 }
 

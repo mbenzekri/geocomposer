@@ -213,6 +213,107 @@ describe('Indexer', () => {
     }
   })
 
+  it('reuses a current clustered PBF for glob sources without rebuilding inputs', async () => {
+    const firstPath = writeGeoJson('glob-a.geojson', [
+      featureJson('a', [0, 0])
+    ])
+    const secondPath = writeGeoJson('glob-b.geojson', [
+      featureJson('b', [1, 1])
+    ])
+    const patternPath = path.join(tmpDir, 'glob-*.geojson')
+    const clusteredPath = `${patternPath.replace(/\*/g, '')}.clustered.pbf`
+    const indexes = {
+      rtree: {
+        chunkSize: 1,
+        clustered: true
+      }
+    } satisfies SourceIndexConfig
+
+    const firstSource = registerSource(await openSource(new GeoJsonSource('glob-clustered', patternPath, 'utf8', 16, undefined, {
+      indexes
+    })))
+    const firstLayer = new Layer('glob-clustered', { source: firstSource.id, crs: 'EPSG:4326' })
+    await new Indexer(firstLayer).build()
+    await firstSource.close()
+
+    fs.writeFileSync(firstPath, '{"type":"FeatureCollection","features":[')
+    fs.writeFileSync(secondPath, '{"type":"FeatureCollection","features":[')
+    const oldTime = new Date(Date.now() - 60_000)
+    const futureTime = new Date(Date.now() + 60_000)
+    fs.utimesSync(firstPath, oldTime, oldTime)
+    fs.utimesSync(secondPath, oldTime, oldTime)
+    fs.utimesSync(clusteredPath, futureTime, futureTime)
+
+    const secondSource = registerSource(await openSource(new GeoJsonSource('glob-clustered-reuse', patternPath, 'utf8', 16, undefined, {
+      indexes
+    })))
+    const secondLayer = new Layer('glob-clustered-reuse', { source: secondSource.id, crs: 'EPSG:4326' })
+
+    const index = await new Indexer(secondLayer).build()
+    const reread = await collect(index.stream())
+
+    expect(reread.map((feature) => feature.id).sort()).toEqual(['a', 'b'])
+  })
+
+  it('loads an existing clustered PBF index for glob sources without a star in the runtime path', async () => {
+    writeGeoJson('runtime-a.geojson', [
+      featureJson('a', [0, 0])
+    ])
+    writeGeoJson('runtime-b.geojson', [
+      featureJson('b', [1, 1])
+    ])
+    const patternPath = path.join(tmpDir, 'runtime-*.geojson')
+    const clusteredPath = `${patternPath.replace(/\*/g, '')}.clustered.pbf`
+    const indexes = {
+      rtree: {
+        chunkSize: 1,
+        clustered: true
+      }
+    } satisfies SourceIndexConfig
+
+    const buildSource = registerSource(await openSource(new GeoJsonSource('runtime-clustered-build', patternPath, 'utf8', 16, undefined, {
+      indexes
+    })))
+    const buildLayer = new Layer('runtime-clustered-build', { source: buildSource.id, crs: 'EPSG:4326' })
+    const built = await new Indexer(buildLayer).build()
+    await buildSource.close()
+
+    const runtimeSource = registerSource(await openSource(new GeoJsonSource('runtime-clustered-load', patternPath, 'utf8', 16, undefined, {
+      indexes
+    })))
+    const runtimeLayer = new Layer('runtime-clustered-load', { source: runtimeSource.id, crs: 'EPSG:4326' })
+    const loaded = await new Indexer(runtimeLayer).load()
+
+    expect(built.path).toBe(`${clusteredPath}.idx`)
+    expect(loaded.path).toBe(`${clusteredPath}.idx`)
+    expect(Indexer.resolveIndexPath(runtimeLayer)).toBe(`${clusteredPath}.idx`)
+    expect(runtimeSource.files).toEqual([{ role: 'data', path: clusteredPath }])
+    expect((await collect(loaded.stream())).map((feature) => feature.id).sort()).toEqual(['a', 'b'])
+  })
+
+  it('does not reuse an unfinished clustered PBF build file', async () => {
+    const geojsonPath = writeGeoJson('unfinished-cluster.geojson', [
+      featureJson('finished', [0, 0])
+    ])
+    const clusteredPath = `${geojsonPath}.clustered.pbf`
+    fs.writeFileSync(clusteredPath, 'GEOC-BLDpartial')
+    const future = new Date(Date.now() + 60_000)
+    fs.utimesSync(clusteredPath, future, future)
+    const source = registerSource(await openSource(new GeoJsonSource('unfinished-cluster', geojsonPath, 'utf8', 16, undefined, {
+      indexes: {
+        rtree: {
+          clustered: true
+        }
+      }
+    })))
+    const layer = new Layer('unfinished-cluster', { source: source.id, crs: 'EPSG:4326' })
+
+    const index = await new Indexer(layer).build()
+
+    expect(fs.readFileSync(clusteredPath).subarray(0, 8).toString('ascii')).toBe('GEOC-PBF')
+    expect((await collect(index.stream())).map((feature) => feature.id)).toEqual(['finished'])
+  })
+
   it('rounds clustered PBF coordinates from CRS precision', async () => {
     Crs.registry.set('EPSG:3857', new Crs('EPSG:3857', 'Web Mercator', 'Web Mercator', undefined, 2))
     const geojsonPath = writeGeoJson('precise.geojson', [
@@ -558,7 +659,7 @@ function readClusteredPbfHeader(filePath: string): {
   propertyStats: Record<string, unknown>
 } {
   const file = fs.readFileSync(filePath)
-  expect(file.subarray(0, 8).toString('ascii')).toBe('GEOC-PDF')
+  expect(file.subarray(0, 8).toString('ascii')).toBe('GEOC-PBF')
   const recordLength = readVarint(file, 8)
   const start = recordLength.next
   const end = start + Number(recordLength.value)

@@ -11,6 +11,7 @@ import { IndexRecord, IndexRecordBuilder } from './index-record.js'
 export const DEFAULT_RTREE_CHUNK_SIZE = 50
 const RTREE_LEAF_FLAG = 1
 const MAX_INDEX_BUFFER_SIZE = 0x7fffffff
+const INDEX_BUFFER_GROWTH_BYTES = 256 * 1024 * 1024
 
 type RtreeRange = {
   minX: number
@@ -346,9 +347,11 @@ class RtreeToBuffer {
 
     const needed = (this.count + entryCount) * IndexRtree.ENTRY_SIZE
     if (needed > this.buffer.length) {
-      let capacity = this.buffer.length
-      while (capacity < needed) capacity *= 2
-      resizeBuffer(this.buffer, capacity)
+      if (needed > MAX_INDEX_BUFFER_SIZE) {
+        throw new Error(`Rtree index is too large: ${needed} bytes exceeds the ${MAX_INDEX_BUFFER_SIZE} byte limit`)
+      }
+
+      resizeBuffer(this.buffer, nextCapacity(this.buffer.length, needed))
     }
 
     this.count += entryCount
@@ -364,4 +367,8 @@ function resizableBuffer(byteLength: number): Buffer {
 
 function resizeBuffer(buffer: Buffer, byteLength: number): void {
   (buffer.buffer as ArrayBuffer & { resize(byteLength: number): void }).resize(byteLength)
+}
+
+function nextCapacity(current: number, needed: number): number {
+  return Math.min(MAX_INDEX_BUFFER_SIZE, Math.max(needed, current + INDEX_BUFFER_GROWTH_BYTES))
 }
