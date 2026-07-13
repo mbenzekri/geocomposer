@@ -22,6 +22,9 @@
 ## Coding style
 
 - Object-oriented design is mandatory. Prefer classes, encapsulated services, and explicit domain objects for new behavior instead of procedural modules built mostly from standalone functions.
+- Code changes must leave the touched area clean: remove helpers, functions, classes, imports, variables, and tests that become unused or obsolete because of the change. Do not leave dead code, duplicated utilities, or "maybe useful later" helpers behind.
+- Before adding a helper, search for an existing equivalent and reuse it when it fits. If a new helper replaces old logic, delete the old logic in the same change.
+- After non-trivial edits, check the symbols you introduced or replaced with `rg` or the existing type/lint tooling to catch unused code and accidental duplication before reporting the work as done.
 
 ## Shell policy
 

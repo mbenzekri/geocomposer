@@ -1,5 +1,5 @@
 import type { PathLike } from 'node:fs'
-import { mkdir, open as openFile, rm, stat, type FileHandle } from 'node:fs/promises'
+import { mkdir, open as openFile, readFile, rm, stat, type FileHandle } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Feature, FileRef, SourceRef } from '../core/feature.js'
 import { Crs } from '../core/crs.js'
@@ -22,6 +22,7 @@ const CLUSTERED_PBF_MAGIC = 'GEOC-PBF'
 const CLUSTERED_PBF_MAGIC_BUFFER = Buffer.from(CLUSTERED_PBF_MAGIC, 'ascii')
 const CLUSTERED_PBF_BUILD_MAGIC = 'GEOC-BLD'
 const CLUSTERED_PBF_BUILD_MAGIC_BUFFER = Buffer.from(CLUSTERED_PBF_BUILD_MAGIC, 'ascii')
+const MERGE_FILE_HANDLE_RESERVE = 16
 
 const FEATURE_ID_STRING = 1
 const FEATURE_ID_NUMBER = 2
@@ -506,6 +507,7 @@ export async function mergeClusteredPbfFiles(
 ): Promise<void> {
   AbortSignalGuard.throwIfAborted(signal, 'Clustered PBF merge aborted')
   if (inputPaths.length === 0) throw new Error('Cannot merge clustered PBF files: no input files')
+  await assertMergeFileHandleLimit(inputPaths.length)
 
   const outputStat = await stat(outputPath).catch((error: NodeJS.ErrnoException) => {
     if (error.code === 'ENOENT') return null
@@ -1092,6 +1094,36 @@ async function hasFinalMagic(path: string): Promise<boolean> {
   } finally {
     await handle.close()
   }
+}
+
+async function assertMergeFileHandleLimit(inputCount: number): Promise<void> {
+  const limit = await readOpenFileLimit()
+  if (limit === null) return
+
+  const required = inputCount + 1 + MERGE_FILE_HANDLE_RESERVE
+  if (required <= limit) return
+
+  throw new Error(`Cannot merge ${inputCount} clustered PBF files: opening ${inputCount} inputs plus output requires about ${required} file handles, but the process limit is ${limit}. Increase ulimit -n or reduce the input file count.`)
+}
+
+async function readOpenFileLimit(): Promise<number | null> {
+  let limits: string
+  try {
+    limits = await readFile('/proc/self/limits', 'utf8')
+  } catch {
+    return null
+  }
+
+  for (const line of limits.split('\n')) {
+    if (!line.startsWith('Max open files')) continue
+    const parts = line.trim().split(/\s+/)
+    const softLimit = parts.at(-3)
+    if (!softLimit || softLimit === 'unlimited') return null
+    const limit = Number(softLimit)
+    return Number.isSafeInteger(limit) && limit > 0 ? limit : null
+  }
+
+  return null
 }
 
 async function readDelimitedRecordAt(handle: FileHandle, offset: number): Promise<Buffer> {
