@@ -22,6 +22,8 @@ export type CsvSourceJson = DescInfo & {
   highWaterMark?: number
   delimiter?: string
   geometryColumn?: string
+  x?: string
+  y?: string
   primaryKey?: string
   indexes?: SourceIndexConfig
 }
@@ -32,6 +34,8 @@ export type CsvSourceOptions = DescInfo & {
   highWaterMark?: number
   delimiter?: string
   geometryColumn?: string
+  x?: string
+  y?: string
   primaryKey?: string
   indexes?: SourceIndexConfig
   transformFeature?: FeatureTransform
@@ -61,6 +65,8 @@ export class CsvSource extends FileSource {
       highWaterMark: entry.highWaterMark,
       delimiter: entry.delimiter,
       geometryColumn: entry.geometryColumn,
+      x: entry.x,
+      y: entry.y,
       primaryKey: entry.primaryKey,
       indexes: entry.indexes
     })
@@ -77,7 +83,9 @@ export class CsvSource extends FileSource {
       encoding: options.encoding ?? 'utf8',
       highWaterMark: options.highWaterMark,
       delimiter: normalizeDelimiter(options.delimiter),
-      geometryColumn: options.geometryColumn ?? DEFAULT_GEOMETRY_COLUMN,
+      geometryColumn: resolveGeometryColumn(this.id, options),
+      x: resolveCoordinateColumn(this.id, options, 'x'),
+      y: resolveCoordinateColumn(this.id, options, 'y'),
       primaryKey: options.primaryKey ?? DEFAULT_PRIMARY_KEY
     })
   }
@@ -117,7 +125,9 @@ class CsvReader {
       encoding: BufferEncoding
       highWaterMark?: number
       delimiter: string
-      geometryColumn: string
+      geometryColumn?: string
+      x?: string
+      y?: string
       primaryKey: string
     }
   ) {}
@@ -178,8 +188,14 @@ class CsvReader {
     if (header.length === 0 || header.every((field) => field === '')) {
       throw new Error(`CSV source "${this.sourceId}" header is empty`)
     }
-    if (!header.includes(this.options.geometryColumn)) {
+    if (this.options.geometryColumn && !header.includes(this.options.geometryColumn)) {
       throw new Error(`CSV source "${this.sourceId}" missing geometryColumn "${this.options.geometryColumn}"`)
+    }
+    if (this.options.x && !header.includes(this.options.x)) {
+      throw new Error(`CSV source "${this.sourceId}" missing x column "${this.options.x}"`)
+    }
+    if (this.options.y && !header.includes(this.options.y)) {
+      throw new Error(`CSV source "${this.sourceId}" missing y column "${this.options.y}"`)
     }
     return header
   }
@@ -187,10 +203,11 @@ class CsvReader {
   private feature(record: CsvRecord, header: string[], layer: Layer, index: number): Feature {
     const row = this.row(header, record.fields)
     const id = row[this.options.primaryKey]
-    const geometryValue = row[this.options.geometryColumn]
+    const geometry = this.geometry(row)
+    const geometryColumns = new Set([this.options.geometryColumn, this.options.x, this.options.y])
     const properties = Object.fromEntries(
       Object.entries(row)
-        .filter(([name]) => name !== this.options.geometryColumn)
+        .filter(([name]) => !geometryColumns.has(name))
         .map(([name, value]) => [name, parseCsvValue(value)])
     )
 
@@ -198,7 +215,7 @@ class CsvReader {
       type: 'Feature',
       id: id === undefined || id === '' ? undefined : id,
       properties,
-      geometry: parseWktGeometry(geometryValue ?? ''),
+      geometry,
       layer,
       sourceRef: {
         storage: 'file',
@@ -207,6 +224,26 @@ class CsvReader {
         byteLength: record.byteLength,
         recordIndex: index
       }
+    }
+  }
+
+  private geometry(row: Record<string, string>): Geometry | null {
+    if (this.options.geometryColumn) {
+      return parseWktGeometry(row[this.options.geometryColumn] ?? '')
+    }
+
+    const x = row[this.options.x as string]?.trim() ?? ''
+    const y = row[this.options.y as string]?.trim() ?? ''
+    if (x === '' || y === '') return null
+
+    const coordinate: Position = [Number(x), Number(y)]
+    if (!Number.isFinite(coordinate[0]) || !Number.isFinite(coordinate[1])) {
+      throw new Error(`CSV source "${this.sourceId}" invalid x/y coordinate "${x},${y}"`)
+    }
+
+    return {
+      type: 'Point',
+      coordinates: coordinate
     }
   }
 
@@ -364,6 +401,28 @@ function parseCsvRecord(input: string, delimiter: string): string[] {
 
   fields.push(field)
   return fields
+}
+
+function resolveGeometryColumn(sourceId: string, options: CsvSourceOptions): string | undefined {
+  if (options.geometryColumn && (options.x || options.y)) {
+    throw new Error(`CSV source "${sourceId}" cannot combine geometryColumn with x/y columns`)
+  }
+  if (options.x || options.y) return undefined
+  return options.geometryColumn ?? DEFAULT_GEOMETRY_COLUMN
+}
+
+function resolveCoordinateColumn(sourceId: string, options: CsvSourceOptions, axis: 'x' | 'y'): string | undefined {
+  const value = options[axis]
+  if (!options.x && !options.y) return undefined
+  if (!options.x || !options.y) {
+    throw new Error(`CSV source "${sourceId}" requires both x and y columns`)
+  }
+  if (!value) return undefined
+  const column = value.trim()
+  if (column === '') {
+    throw new Error(`CSV source "${sourceId}" ${axis} column must not be empty`)
+  }
+  return column
 }
 
 function parseCsvValue(value: string): string | number | boolean | null {

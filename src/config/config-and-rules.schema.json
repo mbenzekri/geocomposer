@@ -9447,7 +9447,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+                          "description": "CSV column containing WKT geometry. Defaults to `geometry` when `x` and `y` are not configured. (string or \"$s{ENV_VAR|default}\")"
                         },
                         {
                           "type": "string",
@@ -9462,7 +9462,51 @@
                           "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                         }
                       ],
-                      "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+                      "description": "CSV column containing WKT geometry. Defaults to `geometry` when `x` and `y` are not configured. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "x": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "CSV column containing the X coordinate for point geometries. Must be used with `y` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "CSV column containing the X coordinate for point geometries. Must be used with `y` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
+                    },
+                    "y": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "CSV column containing the Y coordinate for point geometries. Must be used with `x` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                        }
+                      ],
+                      "description": "CSV column containing the Y coordinate for point geometries. Must be used with `x` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
                     },
                     "primaryKey": {
                       "anyOf": [
@@ -11553,7 +11597,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+                  "description": "CSV column containing WKT geometry. Defaults to `geometry` when `x` and `y` are not configured. (string or \"$s{ENV_VAR|default}\")"
                 },
                 {
                   "type": "string",
@@ -11568,7 +11612,51 @@
                   "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                 }
               ],
-              "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+              "description": "CSV column containing WKT geometry. Defaults to `geometry` when `x` and `y` are not configured. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "x": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "CSV column containing the X coordinate for point geometries. Must be used with `y` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "CSV column containing the X coordinate for point geometries. Must be used with `y` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "y": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "CSV column containing the Y coordinate for point geometries. Must be used with `x` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "CSV column containing the Y coordinate for point geometries. Must be used with `x` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
             },
             "primaryKey": {
               "anyOf": [
@@ -11608,7 +11696,7 @@
             }
           },
           "unevaluatedProperties": false,
-          "description": "CSV file source with WKT geometry. Requires `type: \"csv\"` and `path`. (object or \"#/$defs/nom\")"
+          "description": "CSV file source with WKT geometry or point geometry from x/y columns. Requires `type: \"csv\"` and `path`. (object or \"#/$defs/nom\")"
         },
         {
           "type": "string",
@@ -11787,7 +11875,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+                  "description": "CSV column containing WKT geometry. Defaults to `geometry` when `x` and `y` are not configured. (string or \"$s{ENV_VAR|default}\")"
                 },
                 {
                   "type": "string",
@@ -11802,7 +11890,51 @@
                   "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
                 }
               ],
-              "description": "CSV column containing WKT geometry. Defaults to `geometry`. (string or \"$s{ENV_VAR|default}\")"
+              "description": "CSV column containing WKT geometry. Defaults to `geometry` when `x` and `y` are not configured. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "x": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "CSV column containing the X coordinate for point geometries. Must be used with `y` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "CSV column containing the X coordinate for point geometries. Must be used with `y` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
+            },
+            "y": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "CSV column containing the Y coordinate for point geometries. Must be used with `x` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\$s\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "\\$[sifb]\\{[A-Za-z_][A-Za-z0-9_]*(?:\\|[^}]*)?\\}"
+                }
+              ],
+              "description": "CSV column containing the Y coordinate for point geometries. Must be used with `x` and without `geometryColumn`. (string or \"$s{ENV_VAR|default}\")"
             },
             "primaryKey": {
               "anyOf": [
@@ -11845,11 +11977,11 @@
               "pattern": "^#/\\$defs(?:/[^\\s]+)+$"
             }
           },
-          "description": "CSV file source with WKT geometry. Requires `type: \"csv\"` and `path`. (object or \"#/$defs/nom\")",
+          "description": "CSV file source with WKT geometry or point geometry from x/y columns. Requires `type: \"csv\"` and `path`. (object or \"#/$defs/nom\")",
           "unevaluatedProperties": false
         }
       ],
-      "description": "CSV file source with WKT geometry. Requires `type: \"csv\"` and `path`. (object or \"#/$defs/nom\")"
+      "description": "CSV file source with WKT geometry or point geometry from x/y columns. Requires `type: \"csv\"` and `path`. (object or \"#/$defs/nom\")"
     },
     "geojsonSource": {
       "anyOf": [

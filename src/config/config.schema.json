@@ -750,7 +750,17 @@
         },
         "geometryColumn": {
           "type": "string",
-          "description": "CSV column containing WKT geometry. Defaults to `geometry`."
+          "description": "CSV column containing WKT geometry. Defaults to `geometry` when `x` and `y` are not configured."
+        },
+        "x": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CSV column containing the X coordinate for point geometries. Must be used with `y` and without `geometryColumn`."
+        },
+        "y": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CSV column containing the Y coordinate for point geometries. Must be used with `x` and without `geometryColumn`."
         },
         "primaryKey": {
           "type": "string",
@@ -761,7 +771,7 @@
         }
       },
       "unevaluatedProperties": false,
-      "description": "CSV file source with WKT geometry. Requires `type: \"csv\"` and `path`."
+      "description": "CSV file source with WKT geometry or point geometry from x/y columns. Requires `type: \"csv\"` and `path`."
     },
     "geojsonSource": {
       "title": "GeoJSON source",

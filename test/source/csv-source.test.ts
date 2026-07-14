@@ -48,7 +48,8 @@ describe('CsvSource', () => {
     const source = CsvSource.fromConfig('cities', {
       type: 'csv',
       path: 'cities.csv',
-      geometryColumn: 'geom',
+      x: 'lon',
+      y: 'lat',
       primaryKey: 'code',
       delimiter: ';',
       indexes: true
@@ -108,6 +109,35 @@ describe('CsvSource', () => {
         coordinates: [[0, 0], [1, 1]]
       }
     })
+  })
+
+  it('streams point geometries from x/y columns', async () => {
+    const file = writeFile('points.csv', [
+      'id,name,lon,lat,population',
+      'a,Paris,2.35,48.85,2148000',
+      'b,Empty,,48.86,10'
+    ].join('\n'))
+    const source = await openSource(new CsvSource('points', file, {
+      x: 'lon',
+      y: 'lat'
+    }))
+    const result = await readAll(source.stream({ layer }))
+
+    expect(result[0]).toMatchObject({
+      id: 'a',
+      properties: {
+        id: 'a',
+        name: 'Paris',
+        population: 2148000
+      },
+      geometry: {
+        type: 'Point',
+        coordinates: [2.35, 48.85]
+      }
+    })
+    expect(result[0].properties).not.toHaveProperty('lon')
+    expect(result[0].properties).not.toHaveProperty('lat')
+    expect(result[1].geometry).toBeNull()
   })
 
   it('parses escaped quotes, CRLF records and missing trailing newline', async () => {
@@ -195,6 +225,10 @@ describe('CsvSource', () => {
   it('validates delimiter, headers and sourceRefs', async () => {
     expect(() => new CsvSource('bad-delimiter', 'bad.csv', { delimiter: '::' }))
       .toThrow('CSV delimiter must be a single character')
+    expect(() => new CsvSource('mixed-geometry', 'bad.csv', { geometryColumn: 'geom', x: 'lon', y: 'lat' }))
+      .toThrow('CSV source "mixed-geometry" cannot combine geometryColumn with x/y columns')
+    expect(() => new CsvSource('missing-y', 'bad.csv', { x: 'lon' }))
+      .toThrow('CSV source "missing-y" requires both x and y columns')
 
     const empty = await openSource(new CsvSource('empty', writeFile('empty.csv', '')))
     await expect(readAll(empty.stream({ layer }))).resolves.toEqual([])
@@ -219,6 +253,20 @@ describe('CsvSource', () => {
       .rejects.toThrow('Invalid CSV sourceRef: byteLength must be a non-negative integer')
     await expect(source.read({ storage: 'file', sourceId: 'refs', offset: 1000, byteLength: 10 }, { layer }))
       .rejects.toThrow('Invalid CSV sourceRef: byte range exceeds file length')
+
+    const missingX = await openSource(new CsvSource('missing-x-column', writeFile('missing-x.csv', [
+      'id,lat',
+      'a,48.85'
+    ].join('\n')), { x: 'lon', y: 'lat' }))
+    await expect(readAll(missingX.stream({ layer })))
+      .rejects.toThrow('CSV source "missing-x-column" missing x column "lon"')
+
+    const invalidCoordinate = await openSource(new CsvSource('invalid-coordinate', writeFile('invalid-coordinate.csv', [
+      'id,lon,lat',
+      'a,nope,48.85'
+    ].join('\n')), { x: 'lon', y: 'lat' }))
+    await expect(readAll(invalidCoordinate.stream({ layer })))
+      .rejects.toThrow('CSV source "invalid-coordinate" invalid x/y coordinate "nope,48.85"')
   })
 })
 
