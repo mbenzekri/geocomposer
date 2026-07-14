@@ -1,4 +1,5 @@
 import { writeFileSync } from 'node:fs'
+import { Image as CanvasImage } from 'canvas'
 import Fill from 'ol/style/Fill.js'
 import Stroke from 'ol/style/Stroke.js'
 import Text from 'ol/style/Text.js'
@@ -505,6 +506,18 @@ describe('dynamic style', () => {
     })
     expect(asStyleArray(descriptorFallback(feature(), 1))[0].getImage()).toBeTruthy()
 
+    const noSizeSvgPath = testTempPath('style-no-size-icon.svg')
+    writeFileSync(noSizeSvgPath, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14"><rect width="14" height="14"/></svg>')
+    vi.stubGlobal('Image', CanvasImage)
+    const noSizeSvgStyle = await createDynamicStyleFn('descriptor-no-size-svg', {
+      static: {
+        icon: { image: { type: 'Icon', img: { src: noSizeSvgPath, width: 14, height: 14 } } }
+      }
+    })
+    const noSizeSvgImage = (asStyleArray(noSizeSvgStyle(feature(), 1))[0].getImage() as any).getImage(1)
+    expect(noSizeSvgImage).toMatchObject({ width: 14, height: 14 })
+    vi.stubGlobal('Image', undefined)
+
     const missingDescriptorSource = await createDynamicStyleFn('descriptor-missing-source', {
       static: {
         icon: { image: { type: 'Icon', img: { src: 5, width: 8, height: 8 } } }
@@ -522,14 +535,17 @@ describe('dynamic style', () => {
     const descriptorImage = await createDynamicStyleFn('descriptor-image', {
       static: {
         first: { image: { type: 'Icon', img: { src: 'icon.svg', width: 8, height: 9 } } },
-        second: { image: { type: 'Icon', img: { src: 'icon.svg', width: 8, height: 9 } } }
+        second: { image: { type: 'Icon', img: { src: 'icon.svg', width: 8, height: 9 } } },
+        defaultSize: { image: { type: 'Icon', img: { src: 'default-size.svg' } } }
       }
     })
     const descriptorStyles = asStyleArray(descriptorImage(feature(), 1))
 
-    expect(descriptorStyles).toHaveLength(2)
+    expect(descriptorStyles).toHaveLength(3)
     expect(descriptorStyles[0].getImage()).toBeTruthy()
     expect(descriptorStyles[1].getImage()).toBeTruthy()
+    expect((descriptorStyles[0].getImage() as any).getImage(1)).toMatchObject({ width: 8, height: 9 })
+    expect((descriptorStyles[2].getImage() as any).getImage(1)).toMatchObject({ width: 100, height: 100 })
     vi.stubGlobal('Image', undefined)
   })
 

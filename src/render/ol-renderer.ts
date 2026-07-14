@@ -501,23 +501,44 @@ function waitForStyleImages(style: Style): Promise<void> {
     }
 
     return new Promise((resolve, reject) => {
+        let settled = false
+        const settle = (callback: () => void) => {
+            if (settled) return
+            settled = true
+            clearTimeout(timeout)
+            imageStyle.unlistenImageChange(onChange)
+            callback()
+        }
+
         const onChange = () => {
             const nextState = imageStyle.getImageState()
 
             if (nextState === ImageState.LOADED || nextState === ImageState.EMPTY) {
-                imageStyle.unlistenImageChange(onChange)
-                resolve()
+                settle(resolve)
                 return
             }
 
             if (nextState === ImageState.ERROR) {
-                imageStyle.unlistenImageChange(onChange)
-                reject(new Error('OpenLayers image style failed to load'))
+                settle(() => reject(new Error('OpenLayers image style failed to load')))
             }
         }
+
+        const timeout = setTimeout(() => {
+            if (imageStyleHasSize(imageStyle)) {
+                settle(resolve)
+                return
+            }
+
+            settle(() => reject(new Error('OpenLayers image style failed to load')))
+        }, 250)
 
         imageStyle.listenImageChange(onChange)
         imageStyle.load()
         onChange()
     })
+}
+
+function imageStyleHasSize(imageStyle: NonNullable<ReturnType<Style['getImage']>>): boolean {
+    const image = imageStyle.getImage(1) as { width?: number, height?: number, complete?: boolean } | null
+    return image?.complete === true && (image.width ?? 0) > 0 && (image.height ?? 0) > 0
 }

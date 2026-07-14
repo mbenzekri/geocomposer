@@ -27,6 +27,8 @@ type CircleOptions = ConstructorParameters<typeof CircleStyle>[0]
 type TextOptions = ConstructorParameters<typeof Text>[0]
 type ImageSourceSize = { width?: number, height?: number }
 
+const DEFAULT_IMAGE_SOURCE_SIZE: ImageSourceSize = { width: 100, height: 100 }
+
 export type DynamicStyleJson = {
   $schema?: string
   $defs?: JsonObject
@@ -1227,9 +1229,10 @@ function createImageSource(source: unknown, size?: ImageSourceSize): CanvasImage
   }
 
   const image = new ImageConstructor()
-  applyImageSourceSize(image, size)
+  const imageSize = size ?? DEFAULT_IMAGE_SOURCE_SIZE
+  applyImageSourceSize(image, imageSize)
   image.src = source.trimStart().startsWith('<svg') ? svgDataUrl(source) : source
-  applyImageSourceSize(image, size)
+  applyImageSourceSize(image, imageSize)
 
   return image as unknown as CanvasImageSource
 }
