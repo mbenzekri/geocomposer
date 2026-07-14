@@ -650,6 +650,34 @@ describe('style registry builder', () => {
       broken: { type: 'dynamic', path }
     })).rejects.toThrow('Invalid dynamic style "broken"')
   })
+
+  test('fails dynamic style loading when a referenced local image is not loadable', async () => {
+    const iconPath = testTempPath('styles/no-size.svg')
+    writeFileSync(iconPath, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14"><rect width="14" height="14"/></svg>')
+    const stylePath = writeTestConfig('styles/broken-image-style.json', {
+      definitions: {
+        icons: {
+          school: iconPath
+        }
+      },
+      static: {
+        icon: {
+          image: {
+            type: 'Icon',
+            img: {
+              src: '=> D.icons.school',
+              width: 14,
+              height: 14
+            }
+          }
+        }
+      }
+    })
+
+    await expect(Style.build({
+      osmpoi: { type: 'dynamic', path: stylePath }
+    })).rejects.toThrow(`image "${iconPath}" is not loadable in dynamic style "osmpoi": width=0 height=0`)
+  })
 })
 
 function feature(overrides: Partial<Feature> = {}): Feature {
