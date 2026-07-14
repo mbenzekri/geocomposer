@@ -208,7 +208,9 @@ export class DynamicStyle {
       this.compiled = true
     }
 
-    return (feature, resolution, context) => this.resolve(feature, resolution, context)
+    const style: StyleFn = (feature, resolution, context) => this.resolve(feature, resolution, context)
+    style.visibleAtResolution = (resolution, context) => this.visibleAtResolution(resolution, context)
+    return style
   }
 
   private resolve(feature: Feature, resolution: number, context?: StyleContext): Style[] | null {
@@ -231,6 +233,14 @@ export class DynamicStyle {
 
     this.applyDynamicPatches(styles)
     return styles.length > 0 ? styles : null
+  }
+
+  private visibleAtResolution(resolution: number, context?: StyleContext): boolean {
+    if (!this.jsonStyle.visible) return false
+    if (this.scaleOverride) return true
+
+    const scale = this.scaleFromResolution(resolution, context)
+    return scale >= this.minscale && scale < this.maxscale
   }
 
   private get minscale(): number {
@@ -266,6 +276,10 @@ export class DynamicStyle {
 
   private scale(feature: Feature, resolution: number, context?: StyleContext): number {
     if (this.scaleOverride) return this.scaleOverride(feature, resolution, context)
+    return this.scaleFromResolution(resolution, context)
+  }
+
+  private scaleFromResolution(resolution: number, context?: StyleContext): number {
     if (context?.scaleDenominator !== undefined) return context.scaleDenominator
 
     const unitResolution = context?.resolutionByUnit?.[this.units] ?? resolution

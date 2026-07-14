@@ -34,8 +34,15 @@ export function createStyleContext(
   }
 }
 
-export type StyleFn = (
+export type StyleVisibilityFn = (
+  resolution: number,
+  context?: StyleContext
+) => boolean
+
+export type StyleFn = ((
   feature: Feature,
   resolution: number,
   context?: StyleContext
-) => Style | Style[] | null
+) => Style | Style[] | null) & {
+  visibleAtResolution?: StyleVisibilityFn
+}

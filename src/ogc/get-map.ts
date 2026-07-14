@@ -43,6 +43,12 @@ export async function getMap(options: GetMapOptions): Promise<Buffer> {
         const layerStartedAt = performance.now()
         const layerTimings = createTimings()
         let featureCount = 0
+
+        if (style.visibleAtResolution && !style.visibleAtResolution(resolution, styleContext)) {
+            console.debug(`[GetMap] layer=${layer.id} source=${layer.source.id} skipped=style-scale`)
+            continue
+        }
+
         renderer.setStyle(style)
         renderer.setTimings(layerTimings)
 
